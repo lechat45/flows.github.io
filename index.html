@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flow — Gestion de Projet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Firebase SDK v8 compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════
+       FLOW — Claude.ai aesthetic × Liquid Glass
+       ─────────────────────────────────────────────── */
+
+    :root {
+      --bg-0:        #1a130e;
+      --bg-1:        #221813;
+      --ink:         #f4eee5;
+      --ink-2:       rgba(244,238,229,.62);
+      --ink-3:       rgba(244,238,229,.42);
+      --ink-4:       rgba(244,238,229,.26);
+      --coral:       #d97757;
+      --coral-soft:  #e8a48a;
+      --coral-deep:  #c25a3a;
+      --sage:        #93b594;
+      --sky:         #9bb8d8;
+      --peach:       #f0a988;
+      --glass-bg:    rgba(255,255,255,.045);
+      --glass-bg-hi: rgba(255,255,255,.085);
+      --glass-edge:  rgba(255,255,255,.12);
+      --glass-edge-hi: rgba(255,255,255,.22);
+      --glass-spec: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,.04) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,.06) 100%);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Geist', ui-sans-serif, sans-serif;
+      font-feature-settings: "ss01", "cv11";
+      background: var(--bg-0);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+      letter-spacing: -0.005em;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2 {
+      font-family: 'Instrument Serif', 'Geist', serif;
+      font-weight: 400 !important;
+      letter-spacing: -0.012em;
+      line-height: 1.1;
+    }
+    h1 { font-size: 2rem !important; }
+    h2 { font-size: 1.35rem !important; }
+
+    /* ═══ Animated warm background ═══ */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 50% at 10% 0%,    rgba(217,119,87,.32)  0%, transparent 55%),
+        radial-gradient(ellipse 60% 55% at 90% 20%,   rgba(240,169,136,.22) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 60% at 50% 100%,  rgba(147,181,148,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 45% at 95% 90%,   rgba(155,184,216,.14) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 50% at 0% 60%,    rgba(217,119,87,.16)  0%, transparent 60%),
+        var(--bg-0);
+      overflow: hidden;
+    }
+    #bg-canvas::before, #bg-canvas::after {
+      content: ''; position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: .55;
+      animation: drift 28s ease-in-out infinite;
+    }
+    #bg-canvas::before {
+      width: 540px; height: 540px;
+      background: radial-gradient(circle, rgba(217,119,87,.5) 0%, transparent 70%);
+      top: -120px; left: 20%;
+    }
+    #bg-canvas::after {
+      width: 460px; height: 460px;
+      background: radial-gradient(circle, rgba(240,169,136,.35) 0%, transparent 70%);
+      bottom: -100px; right: 15%;
+      animation-delay: -14s;
+    }
+    @keyframes drift {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%     { transform: translate(60px,40px) scale(1.08); }
+      66%     { transform: translate(-40px,60px) scale(.95); }
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,.018) 1px, transparent 0);
+      background-size: 3px 3px;
+      opacity: .9;
+    }
+
+    /* ═══ LIQUID GLASS surfaces ═══ */
+    .glass {
+      position: relative;
+      background: var(--glass-bg-hi);
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      border: 1px solid var(--glass-edge);
+      box-shadow:
+        inset 0 1px 0 0 rgba(255,255,255,.18),
+        inset 0 -1px 0 0 rgba(255,255,255,.04),
+        0 12px 48px -12px rgba(0,0,0,.55),
+        0 4px 12px -4px rgba(0,0,0,.3);
+      border-radius: 22px;
+    }
+    .glass-dark {
+      position: relative;
+      background: rgba(20,12,8,.45);
+      backdrop-filter: blur(32px) saturate(180%);
+      -webkit-backdrop-filter: blur(32px) saturate(180%);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow:
+        inset 0 1px 0 0 rgba(255,255,255,.10),
+        0 8px 32px rgba(0,0,0,.4);
+    }
+    .glass-card {
+      position: relative;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(170%);
+      -webkit-backdrop-filter: blur(24px) saturate(170%);
+      border: 1px solid var(--glass-edge);
+      border-radius: 20px;
+      box-shadow:
+        inset 0 1px 0 0 rgba(255,255,255,.14),
+        inset 0 -1px 0 0 rgba(255,255,255,.03),
+        0 10px 32px -10px rgba(0,0,0,.5),
+        0 2px 6px -2px rgba(0,0,0,.25);
+      transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+      overflow: hidden;
+    }
+    .glass-card::before {
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      background: var(--glass-spec);
+      pointer-events: none;
+      mix-blend-mode: overlay;
+      opacity: .7;
+    }
+    .glass-card:hover {
+      border-color: var(--glass-edge-hi);
+      box-shadow:
+        inset 0 1px 0 0 rgba(255,255,255,.22),
+        inset 0 -1px 0 0 rgba(255,255,255,.04),
+        0 16px 44px -12px rgba(0,0,0,.55),
+        0 4px 12px -4px rgba(217,119,87,.12);
+    }
+
+    /* ═══ Inputs ═══ */
+    .glass-input {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 11px 14px;
+      width: 100%;
+      font-size: .92rem;
+      font-family: inherit;
+      transition: all .2s ease;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .glass-input::placeholder { color: var(--ink-4); }
+    .glass-input:focus {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(217,119,87,.55);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.1),
+        0 0 0 4px rgba(217,119,87,.14);
+    }
+    textarea.glass-input { resize: vertical; min-height: 80px; }
+    select.glass-input option { background: #221813; color: var(--ink); }
+
+    /* ═══ Buttons ═══ */
+    .btn {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 20px; border-radius: 999px;
+      font-size: .875rem; font-weight: 500;
+      font-family: inherit;
+      cursor: pointer; border: none; transition: all .2s ease; white-space: nowrap;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, #e08568 0%, #c25a3a 100%);
+      color: #1a0e08;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.4),
+        inset 0 -1px 0 rgba(0,0,0,.15),
+        0 6px 20px -4px rgba(217,119,87,.5),
+        0 2px 6px -1px rgba(0,0,0,.3);
+      font-weight: 600;
+    }
+    .btn-primary::before {
+      content: ''; position: absolute; inset: 1px; border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,0) 50%);
+      pointer-events: none;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.45),
+        inset 0 -1px 0 rgba(0,0,0,.15),
+        0 10px 28px -4px rgba(217,119,87,.6),
+        0 3px 8px -1px rgba(0,0,0,.3);
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--ink-2);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.11); color: var(--ink); border-color: rgba(255,255,255,.2); }
+    .btn-danger {
+      background: rgba(220,80,80,.14);
+      border: 1px solid rgba(220,80,80,.32);
+      color: #f08a8a;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .btn-danger:hover { background: rgba(220,80,80,.24); }
+    .btn-success {
+      background: rgba(147,181,148,.16);
+      border: 1px solid rgba(147,181,148,.36);
+      color: #b6d1b7;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .btn-success:hover { background: rgba(147,181,148,.26); }
+    .btn-sm { padding: 6px 14px; font-size: .8rem; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+
+    /* ═══ Tabs ═══ */
+    .tab-btn {
+      padding: 10px 16px; font-size: .875rem; font-weight: 500;
+      color: var(--ink-3); border-bottom: 2px solid transparent;
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+      background: transparent; border-top: none; border-left: none; border-right: none;
+      font-family: inherit;
+    }
+    .tab-btn:hover { color: var(--ink-2); background: rgba(255,255,255,.03); }
+    .tab-btn.active { color: var(--coral); border-bottom-color: var(--coral); background: rgba(217,119,87,.06); }
+
+    /* ═══ Badges ═══ */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 11px; border-radius: 999px; font-size: .72rem; font-weight: 500;
+      letter-spacing: .01em;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .badge-admin      { background: rgba(217,119,87,.16);  color: #ecb29c; border: 1px solid rgba(217,119,87,.32); }
+    .badge-controller { background: rgba(155,184,216,.16); color: #c5d6ea; border: 1px solid rgba(155,184,216,.32); }
+    .badge-client     { background: rgba(147,181,148,.16); color: #b6d1b7; border: 1px solid rgba(147,181,148,.32); }
+
+    /* ═══ Timeline ═══ */
+    .tl-step { display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; }
+    .tl-line-wrap { display: flex; flex-direction: column; align-items: center; min-width: 32px; }
+    .tl-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; flex-shrink: 0; border: 2px solid;
+      backdrop-filter: blur(12px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+    }
+    .tl-connector { width: 2px; flex: 1; min-height: 24px; margin: 4px 0; border-radius: 1px; }
+    .tl-done    .tl-dot { background: rgba(147,181,148,.22); border-color: #93b594; color: #b6d1b7; }
+    .tl-done    .tl-connector { background: linear-gradient(180deg, rgba(147,181,148,.4), rgba(217,119,87,.3)); }
+    .tl-current .tl-dot { background: rgba(217,119,87,.24);  border-color: var(--coral); color: var(--coral-soft);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 4px rgba(217,119,87,.12), 0 0 18px rgba(217,119,87,.35); }
+    .tl-current .tl-connector { background: rgba(255,255,255,.1); }
+    .tl-pending .tl-dot { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.28); }
+    .tl-pending .tl-connector { background: rgba(255,255,255,.06); }
+
+    /* ═══ Sidebar — liquid glass rail ═══ */
+    #sidebar {
+      position: fixed; left: 16px; top: 16px; bottom: 16px; width: 232px;
+      z-index: 40; display: flex; flex-direction: column;
+      padding: 22px 14px;
+      background: rgba(24,16,12,.42);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 24px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        inset 0 -1px 0 rgba(255,255,255,.02),
+        0 24px 60px -16px rgba(0,0,0,.65),
+        0 4px 12px -2px rgba(0,0,0,.3);
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 12px;
+      color: var(--ink-3); font-size: .885rem; font-weight: 500;
+      cursor: pointer; transition: all .2s; margin-bottom: 2px;
+      border: 1px solid transparent;
+      background: transparent;
+      width: 100%; text-align: left;
+      font-family: inherit;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,.05);
+      color: var(--ink);
+      border-color: rgba(255,255,255,.06);
+    }
+    .nav-item.active {
+      background: rgba(217,119,87,.14);
+      color: var(--coral-soft);
+      border-color: rgba(217,119,87,.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+    }
+    .nav-icon { width: 18px; height: 18px; opacity: .75; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    #main { margin-left: 264px; min-height: 100vh; padding: 28px 32px 48px; position: relative; z-index: 1; }
+
+    /* ═══ Logo ═══ */
+    .logo {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.7rem; font-weight: 400;
+      letter-spacing: -.025em;
+      color: var(--ink);
+      display: inline-flex; align-items: baseline;
+    }
+    .logo::after {
+      content: '·';
+      color: var(--coral);
+      margin-left: 1px;
+      font-size: 1.1em;
+      line-height: 0;
+    }
+
+    /* ═══ Avatar ═══ */
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+      background: linear-gradient(135deg, var(--coral-soft), var(--coral-deep));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .82rem; font-weight: 600; color: #1a0e08; flex-shrink: 0;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.3),
+        inset 0 -1px 0 rgba(0,0,0,.15),
+        0 2px 8px rgba(0,0,0,.25);
+    }
+
+    /* ═══ Modal ═══ */
+    #modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(10,6,4,.55);
+      backdrop-filter: blur(12px) saturate(120%);
+      -webkit-backdrop-filter: blur(12px) saturate(120%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .modal-box {
+      position: relative;
+      background: rgba(34,24,19,.78);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 24px;
+      padding: 28px;
+      width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.18),
+        inset 0 -1px 0 rgba(255,255,255,.03),
+        0 32px 80px rgba(0,0,0,.7),
+        0 8px 24px rgba(0,0,0,.4);
+    }
+
+    /* ═══ Login page ═══ */
+    #login-page {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .login-card {
+      position: relative;
+      width: 100%; max-width: 420px;
+      background: rgba(34,24,19,.55);
+      backdrop-filter: blur(44px) saturate(190%);
+      -webkit-backdrop-filter: blur(44px) saturate(190%);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 28px;
+      padding: 44px 38px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.22),
+        inset 0 -1px 0 rgba(255,255,255,.04),
+        0 40px 96px rgba(0,0,0,.6),
+        0 12px 32px rgba(0,0,0,.3);
+    }
+    .login-card::before {
+      content: ''; position: absolute; inset: 0; border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, transparent 30%);
+      pointer-events: none;
+    }
+
+    /* ═══ Scrollbar ═══ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+    /* ═══ Animations ═══ */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up { animation: fadeUp .35s cubic-bezier(.2,.7,.2,1) forwards; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .fade-in { animation: fadeIn .25s ease forwards; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .7s linear infinite; }
+
+    /* ═══ Misc ═══ */
+    .divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent); margin: 20px 0; }
+    .label { font-size: .72rem; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; display: block; }
+    .stat-card { border-radius: 20px; padding: 22px; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--ink-4); }
+
+    @media (max-width: 768px) {
+      #sidebar { position: relative; left:0; top:0; bottom:auto; width: calc(100% - 24px); margin: 12px; height: auto; border-radius: 18px; flex-direction: row; flex-wrap: wrap; padding: 12px; gap: 4px; }
+      #main { margin-left: 0; padding: 20px 16px; }
+      .logo-wrap { width: 100%; padding: 8px; margin-bottom: 8px; }
+      h1 { font-size: 1.7rem !important; }
+    }
+
+    /* ═══ PDF viewer fake ═══ */
+    .pdf-field { margin-bottom: 14px; }
+    .pdf-field label { display: block; font-size: .82rem; color: var(--ink-2); margin-bottom: 5px; }
+
+    /* ═══ Toast notifications ═══ */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 18px; border-radius: 14px;
+      font-size: .875rem; font-weight: 500;
+      backdrop-filter: blur(32px) saturate(180%);
+      -webkit-backdrop-filter: blur(32px) saturate(180%);
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: 0 8px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.18);
+      pointer-events: all;
+      animation: toastIn .3s cubic-bezier(.2,.7,.2,1) forwards;
+    }
+    .toast.hide { animation: toastOut .25s ease forwards; }
+    .toast-success { background: rgba(147,181,148,.18); color: #b6d1b7; border-color: rgba(147,181,148,.3); }
+    .toast-error   { background: rgba(220,80,80,.18);   color: #f08a8a; border-color: rgba(220,80,80,.3); }
+    .toast-info    { background: rgba(155,184,216,.18); color: #c5d6ea; border-color: rgba(155,184,216,.3); }
+    @keyframes toastIn  { from { opacity:0; transform:translateY(12px) scale(.95); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes toastOut { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(8px); } }
+
+    /* ═══ Sync dot ═══ */
+    #sync-dot {
+      position: fixed; top: 20px; right: 20px; z-index: 50;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(147,181,148,.5);
+      transition: background .4s, box-shadow .4s;
+    }
+    #sync-dot.syncing {
+      background: var(--coral);
+      box-shadow: 0 0 0 3px rgba(217,119,87,.25);
+      animation: syncPulse 1s ease-in-out infinite;
+    }
+    #sync-dot.error { background: #f08a8a; box-shadow: 0 0 0 3px rgba(220,80,80,.2); }
+    @keyframes syncPulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+  </style>
+</head>
+<body>
+  <div id="bg-canvas"></div>
+  <div id="toast-container"></div>
+  <div id="sync-dot" title="Firebase sync"></div>
+  <div id="app"></div>
+
+  <script>
+  // ═══════════════════════════════════════════════
+  //  FLOW — Project Management App
+  // ═══════════════════════════════════════════════
+
+  // ─── Firebase config ────────────────────────────
+  const firebaseConfig = {
+    apiKey: "AIzaSyD8KGZ43JjT5DagFVTEEVdnf7agqBLjQ6E",
+    authDomain: "flow-app-99150.firebaseapp.com",
+    databaseURL: "https://flow-app-99150-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "flow-app-99150",
+    storageBucket: "flow-app-99150.firebasestorage.app",
+    messagingSenderId: "257985954717",
+    appId: "1:257985954717:web:22a139d447c166b984e574"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const fbdb = firebase.database();
+
+  // ─── Default data ───────────────────────────────
+  const SEED = {
+    users: [
+      { id:'u1', username:'Sacha',  password:'$mila2012', role:'admin',
+        firstName:'Sacha', lastName:'', email:'sacha@flow.app', photo:null,
+        projectId:null, createdAt:'2024-01-01' },
+      { id:'u2', username:'Alexis', password:'0000',      role:'controller',
+        firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
+        projectId:null, createdAt:'2024-01-01' }
+    ],
+    projects:[
+      { id:'proj1', name:'Site Vitrine Demo', clientId:null,
+        websiteUrl:'https://example.com', status:'in_progress',
+        createdAt:'2024-02-01',
+        timeline:[
+          {id:'tl1',label:'Prise de contact',   status:'done',    date:'15 Jan 2024', note:'Premier échange établi.'},
+          {id:'tl2',label:'Cahier des charges',  status:'done',    date:'20 Jan 2024', note:'Besoins validés.'},
+          {id:'tl3',label:'Maquette validée',    status:'done',    date:'01 Fév 2024', note:'Design approuvé par le client.'},
+          {id:'tl4',label:'Développement',       status:'current', date:null,          note:'En cours — 60 %'},
+          {id:'tl5',label:'Tests & Recette',     status:'pending', date:null,          note:''},
+          {id:'tl6',label:'Mise en ligne',       status:'pending', date:null,          note:''}
+        ]
+      }
+    ],
+    documents:[
+      { id:'doc1', name:'Brief créatif', projectId:'proj1', clientId:null,
+        sentBy:'u1', sentAt:'2024-01-16',
+        status:'pending',
+        fields:[
+          {id:'f1', label:'Décrivez votre activité en quelques lignes',   type:'textarea', value:''},
+          {id:'f2', label:'Couleurs ou univers graphique souhaités',       type:'text',     value:''},
+          {id:'f3', label:'Sites web de référence (URLs)',                 type:'text',     value:''},
+          {id:'f4', label:'Budget estimé (€)',                            type:'text',     value:''}
+        ],
+        filledAt:null
+      }
+    ]
+  };
+
+  // ─── Storage ────────────────────────────────────
+  function loadLocalDB(){
+    try{ const s=localStorage.getItem('flow_v3'); if(s) return JSON.parse(s); }catch(_){}
+    return null;
+  }
+  function saveLocalDB(){ localStorage.setItem('flow_v3',JSON.stringify(db)); }
+
+  function saveDB(){
+    saveLocalDB();
+    setSyncState('syncing');
+    fbdb.ref('flow').set(db)
+      .then(()=>setSyncState('ok'))
+      .catch(()=>setSyncState('error'));
+  }
+
+  let db = loadLocalDB() || JSON.parse(JSON.stringify(SEED));
+  let me = null;
+  let activeTab = 'home';
+  let modalStack = [];
+
+  // ─── Toast ──────────────────────────────────────
+  function toast(msg, type='info', duration=3200){
+    const container = document.getElementById('toast-container');
+    if(!container) return;
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    const icon = {success:'✅',error:'❌',info:'ℹ️'}[type]||'ℹ️';
+    el.innerHTML = '<span>'+icon+'</span><span>'+msg+'</span>';
+    container.appendChild(el);
+    setTimeout(()=>{
+      el.classList.add('hide');
+      setTimeout(()=>el.remove(), 280);
+    }, duration);
+  }
+
+  // ─── Sync dot ───────────────────────────────────
+  function setSyncState(state){
+    const dot = document.getElementById('sync-dot');
+    if(!dot) return;
+    dot.className = '';
+    if(state==='syncing') dot.classList.add('syncing');
+    else if(state==='error') dot.classList.add('error');
+  }
+
+  // ─── Firebase boot ──────────────────────────────
+  function bootApp(){
+    setSyncState('syncing');
+    fbdb.ref('flow').once('value')
+      .then(snap=>{
+        const remote = snap.val();
+        if(remote && remote.users){
+          db = remote;
+          saveLocalDB();
+        } else {
+          fbdb.ref('flow').set(db);
+        }
+        setSyncState('ok');
+        startRealtimeSync();
+        checkSession();
+        render();
+      })
+      .catch(()=>{
+        setSyncState('error');
+        toast('Firebase hors ligne — mode local activé','error');
+        checkSession();
+        render();
+      });
+  }
+
+  function startRealtimeSync(){
+    fbdb.ref('flow').on('value', snap=>{
+      const remote = snap.val();
+      if(!remote || !remote.users) return;
+      db = remote;
+      saveLocalDB();
+      if(me){
+        me = db.users.find(u=>u.id===me.id)||me;
+        if(me.role==='client') refreshClientTab();
+        else refreshAdminTab();
+      }
+    });
+  }
+
+  // ─── Helpers ────────────────────────────────────
+  const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const esc = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const roleLabel = r=>({admin:'Admin',controller:'Contrôleur',client:'Client'}[r]||r);
+  const roleBadge = r=>`<span class="badge badge-${r==='controller'?'controller':r}">${roleLabel(r)}</span>`;
+  const initials = u=>(((u.firstName||u.username||'?')[0])+(u.lastName?u.lastName[0]:'')).toUpperCase();
+  const avatar = u => u.photo
+    ? `<img src="${esc(u.photo)}" class="avatar" style="width:36px;height:36px;" />`
+    : `<div class="avatar" style="width:36px;height:36px;background:${avatarColor(u)}">${initials(u)}</div>`;
+  const avatarLg = u => u.photo
+    ? `<img src="${esc(u.photo)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;" />`
+    : `<div class="avatar" style="width:72px;height:72px;font-size:1.4rem;background:${avatarColor(u)}">${initials(u)}</div>`;
+  const avatarColors=['linear-gradient(135deg,#d97757,#c25a3a)','linear-gradient(135deg,#9bb8d8,#6f8db0)','linear-gradient(135deg,#a8c4a9,#10b981)','linear-gradient(135deg,#e88aa6,#ec4899)','linear-gradient(135deg,#9bb8d8,#3b82f6)'];
+  function avatarColor(u){ let h=0; for(let c of (u.id||'x')) h=(h*31+c.charCodeAt(0))&0xffff; return avatarColors[h%avatarColors.length]; }
+
+  function canCreateRole(creatorRole, targetRole){
+    if(creatorRole==='admin') return true;
+    if(creatorRole==='controller') return targetRole==='client';
+    return false;
+  }
+
+  function getUserProject(userId){
+    return db.projects.find(p=>p.clientId===userId)||null;
+  }
+  function getProjectDocs(projectId){
+    return db.documents.filter(d=>d.projectId===projectId);
+  }
+
+  // ─── Auth ────────────────────────────────────────
+  function login(username, password){
+    const u = db.users.find(u=>u.username.toLowerCase()===username.toLowerCase() && u.password===password);
+    if(!u) return false;
+    me = u;
+    sessionStorage.setItem('flow_uid', u.id);
+    return true;
+  }
+  function logout(){
+    me = null;
+    sessionStorage.removeItem('flow_uid');
+    activeTab = 'home';
+    render();
+  }
+  function checkSession(){
+    const id = sessionStorage.getItem('flow_uid');
+    if(id){ me = db.users.find(u=>u.id===id)||null; }
+  }
+
+  // ─── Router / Top-level render ──────────────────
+  function render(){
+    const app = document.getElementById('app');
+    if(!me){ app.innerHTML = renderLogin(); wireLogin(); return; }
+    if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
+    else { app.innerHTML = renderAdminShell(); wireAdmin(); }
+  }
+
+  // ════════════════════════════════════════════════
+  //  LOGIN
+  // ════════════════════════════════════════════════
+  function renderLogin(errMsg=''){
+    return `
+    <div id="login-page">
+      <div class="login-card fade-up">
+        <div style="text-align:center;margin-bottom:32px;">
+          <div class="logo" style="font-size:2rem;margin-bottom:6px;">flow</div>
+          <p style="color:rgba(244,238,229,.45);font-size:.875rem;">Plateforme de gestion de projet</p>
+        </div>
+        ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${errMsg}</div>`:''}
+        <div style="margin-bottom:14px;">
+          <label class="label">Identifiant</label>
+          <input id="li-user" class="glass-input" placeholder="Votre nom d'utilisateur" autocomplete="username" />
+        </div>
+        <div style="margin-bottom:22px;">
+          <label class="label">Mot de passe</label>
+          <input id="li-pass" class="glass-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button id="li-btn" class="btn btn-primary" style="width:100%;justify-content:center;">Se connecter</button>
+        <p style="text-align:center;margin-top:18px;font-size:.78rem;color:rgba(244,238,229,.3);">Accès restreint — Invitation uniquement</p>
+      </div>
+    </div>`;
+  }
+
+  function wireLogin(){
+    const doLogin = ()=>{
+      const u = document.getElementById('li-user').value.trim();
+      const p = document.getElementById('li-pass').value;
+      if(!u||!p){ return; }
+      const known = db.users.some(x=>x.username.toLowerCase()===u.toLowerCase());
+      if(!known){
+        document.getElementById('app').innerHTML = renderLogin('Accès refusé : Ceci est un site privé.');
+        wireLogin(); return;
+      }
+      if(!login(u,p)){
+        document.getElementById('app').innerHTML = renderLogin('Mot de passe incorrect. Veuillez réessayer.');
+        wireLogin(); return;
+      }
+      render();
+    };
+    document.getElementById('li-btn').addEventListener('click',doLogin);
+    document.getElementById('li-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+    document.getElementById('li-user').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('li-pass').focus(); });
+  }
+
+  // ════════════════════════════════════════════════
+  //  ADMIN / CONTROLLER SHELL
+  // ════════════════════════════════════════════════
+  const adminTabs = [
+    { id:'home',      icon:iconHome(),     label:'Accueil'      },
+    { id:'users',     icon:iconUsers(),    label:'Utilisateurs' },
+    { id:'documents', icon:iconDocs(),     label:'Suivi & Docs' },
+    { id:'profile',   icon:iconProfile(),  label:'Profil'       }
+  ];
+
+  function renderAdminShell(){
+    return `
+    <div id="sidebar" class="glass-dark">
+      <div class="logo-wrap" style="margin-bottom:28px;padding:0 4px;">
+        <div class="logo">flow</div>
+        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace ${roleLabel(me.role)}</p>
+      </div>
+      ${adminTabs.map(t=>`
+        <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}">
+          ${t.icon} <span>${t.label}</span>
+        </button>`).join('')}
+      <div style="flex:1;"></div>
+      <div style="padding:12px 8px 0;border-top:1px solid rgba(255,255,255,.07);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          ${avatar(me)}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:.85rem;font-weight:600;color:#f4eee5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.username)}</div>
+            ${roleBadge(me.role)}
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:.8rem;">
+          ${iconLogout()} Déconnexion
+        </button>
+      </div>
+    </div>
+    <div id="main"><div id="tab-content">${renderAdminTab()}</div></div>`;
+  }
+
+  function renderAdminTab(){
+    if(activeTab==='home')      return renderAdminHome();
+    if(activeTab==='users')     return renderAdminUsers();
+    if(activeTab==='documents') return renderAdminDocuments();
+    if(activeTab==='profile')   return renderAdminProfile();
+    return '';
+  }
+
+  function wireAdmin(){
+    document.querySelectorAll('[data-tab]').forEach(btn=>{
+      btn.addEventListener('click',()=>{ activeTab=btn.dataset.tab; refreshAdminTab(); });
+    });
+    document.getElementById('btn-logout').addEventListener('click',logout);
+    wireAdminTabContent();
+  }
+
+  function refreshAdminTab(){
+    document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));
+    const c=document.getElementById('tab-content');
+    c.innerHTML=renderAdminTab();
+    c.classList.remove('fade-up'); void c.offsetWidth; c.classList.add('fade-up');
+    wireAdminTabContent();
+  }
+
+  function wireAdminTabContent(){
+    if(activeTab==='home')      wireAdminHome();
+    if(activeTab==='users')     wireAdminUsers();
+    if(activeTab==='documents') wireAdminDocuments();
+    if(activeTab==='profile')   wireAdminProfile();
+  }
+
+  // ─── Tab: Admin Home ────────────────────────────
+  function renderAdminHome(){
+    const clients = db.users.filter(u=>u.role==='client');
+    const pending = clients.filter(u=>{ const p=getUserProject(u.id); return p && p.status!=='done'; });
+    const done    = clients.filter(u=>{ const p=getUserProject(u.id); return p && p.status==='done'; });
+    const noproj  = clients.filter(u=>!getUserProject(u.id));
+
+    const statCards = [
+      { label:'Clients totaux',     value:clients.length,  color:'#d97757', icon:'👤' },
+      { label:'Projets en cours',   value:pending.length,  color:'#9bb8d8', icon:'⚙️' },
+      { label:'Projets terminés',   value:done.length,     color:'#93b594', icon:'✅' },
+      { label:'Sans projet',        value:noproj.length,   color:'#e08680', icon:'⏳' }
+    ];
+
+    const recentDocs = [...db.documents]
+      .sort((a,b)=>{
+        const da = a.filledAt||a.sentAt||'';
+        const db2 = b.filledAt||b.sentAt||'';
+        return db2.localeCompare(da);
+      })
+      .slice(0,5);
+
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Tableau de bord</h1>
+        ${me.role==='admin'?`<button id="btn-new-project" class="btn btn-primary">${iconPlus()} Nouveau projet</button>`:''}
+      </div>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:28px;">Bonjour ${esc(me.username)}, bienvenue sur Flow.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px;">
+        ${statCards.map(s=>`
+          <div class="glass-card stat-card" style="border-color:${s.color}22;">
+            <div style="font-size:1.8rem;margin-bottom:6px;">${s.icon}</div>
+            <div style="font-size:2rem;font-weight:700;color:${s.color};">${s.value}</div>
+            <div style="font-size:.8rem;color:rgba(244,238,229,.5);margin-top:2px;">${s.label}</div>
+          </div>`).join('')}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+        <div class="glass-card" style="padding:20px;">
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:#9bb8d8;">Projets en cours</h2>
+          ${pending.length===0
+            ? `<div class="empty-state" style="padding:20px;">Aucun projet en cours</div>`
+            : pending.map(u=>{ const p=getUserProject(u.id); return renderClientRow(u,p,false); }).join('')}
+        </div>
+        <div class="glass-card" style="padding:20px;">
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:#93b594;">Projets terminés</h2>
+          ${done.length===0
+            ? `<div class="empty-state" style="padding:20px;">Aucun projet terminé</div>`
+            : done.map(u=>{ const p=getUserProject(u.id); return renderClientRow(u,p,false); }).join('')}
+        </div>
+      </div>
+
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">Activité récente</h2>
+        ${recentDocs.length===0
+          ? `<div class="empty-state" style="padding:12px;">Aucune activité pour le moment.</div>`
+          : recentDocs.map(d=>{
+              const client = db.users.find(u=>u.id===d.clientId)||null;
+              const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'Validé'}[d.status]||d.status;
+              const statusColor = {pending:'rgba(217,119,87,.8)',filled:'rgba(147,181,148,.8)',reviewed:'rgba(155,184,216,.8)'}[d.status]||'#888';
+              const dateStr = d.filledAt||d.sentAt||'—';
+              return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+                <span style="font-size:1.2rem;">📄</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:.875rem;font-weight:500;">${esc(d.name)}</div>
+                  <div style="font-size:.75rem;color:rgba(244,238,229,.4);">${client?esc(client.username):'—'} · ${esc(dateStr)}</div>
+                </div>
+                <span style="font-size:.75rem;font-weight:600;color:${statusColor};">${statusLabel}</span>
+              </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+  }
+
+  function renderClientRow(u, project, showActions=true){
+    const tl = project&&project.timeline ? project.timeline : [];
+    const doneCnt = tl.filter(s=>s.status==='done').length;
+    const pct = tl.length>0 ? Math.round(doneCnt/tl.length*100) : 0;
+    return `<div class="glass-card" style="padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:${project&&tl.length>0?'10':'0'}px;">
+        ${avatar(u)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.875rem;font-weight:600;">${esc(u.username)}</div>
+          <div style="font-size:.78rem;color:rgba(244,238,229,.45);">${project?esc(project.name):'Aucun projet'}</div>
+        </div>
+        ${project&&project.websiteUrl?`<a href="${esc(project.websiteUrl)}" target="_blank" class="btn btn-ghost btn-sm">🔗 Site</a>`:''}
+      </div>
+      ${project&&tl.length>0?`
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#d97757,#93b594);border-radius:3px;transition:width .5s;"></div>
+          </div>
+          <span style="font-size:.72rem;color:rgba(244,238,229,.45);white-space:nowrap;">${pct}%</span>
+        </div>`:''}
+    </div>`;
+  }
+
+  function wireAdminHome(){
+    const btnNew = document.getElementById('btn-new-project');
+    if(btnNew) btnNew.addEventListener('click',openCreateProjectModal);
+  }
+
+  // ─── Create Project Modal ───────────────────────
+  function openCreateProjectModal(){
+    const clients = db.users.filter(u=>u.role==='client');
+    const defaultSteps = [
+      'Prise de contact','Cahier des charges','Maquette validée',
+      'Développement','Tests & Recette','Mise en ligne'
+    ];
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Nouveau projet</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:14px;"><label class="label">Nom du projet *</label><input id="np-name" class="glass-input" placeholder="Ex : Site Vitrine Dupont" /></div>
+      <div style="margin-bottom:14px;">
+        <label class="label">Client associé</label>
+        <select id="np-client" class="glass-input">
+          <option value="">— Aucun pour l'instant —</option>
+          ${clients.map(c=>`<option value="${c.id}">${esc(c.username)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:20px;"><label class="label">URL du site (optionnel)</label><input id="np-url" class="glass-input" placeholder="https://..." /></div>
+      <div style="margin-bottom:8px;"><label class="label">Étapes de la timeline</label></div>
+      <div id="np-steps">
+        ${defaultSteps.map(s=>`
+          <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+            <input class="glass-input np-step-label" placeholder="Étape" value="${s}" style="flex:1;" />
+            <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" title="Supprimer">🗑</button>
+          </div>`).join('')}
+      </div>
+      <button id="np-add-step" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Étape</button>
+      <div id="np-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="np-save" class="btn btn-primary" style="flex:1;justify-content:center;">Créer</button>
+      </div>`,
+    ()=>{
+      document.getElementById('np-add-step').addEventListener('click',()=>{
+        const container = document.getElementById('np-steps');
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;';
+        row.innerHTML = `<input class="glass-input np-step-label" placeholder="Nouvelle étape" style="flex:1;" /><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">🗑</button>`;
+        container.appendChild(row);
+      });
+
+      document.getElementById('np-save').addEventListener('click',()=>{
+        const name = document.getElementById('np-name').value.trim();
+        const clientId = document.getElementById('np-client').value || null;
+        const url = document.getElementById('np-url').value.trim();
+        const msg = document.getElementById('np-msg');
+
+        if(!name){ showMsg(msg,'Le nom du projet est requis.','error'); return; }
+
+        const steps = [];
+        document.querySelectorAll('#np-steps .np-step-label').forEach(inp=>{
+          const label = inp.value.trim();
+          if(label) steps.push({id:uid(),label,status:'pending',date:null,note:''});
+        });
+        if(steps.length===0){ showMsg(msg,'Ajoutez au moins une étape.','error'); return; }
+
+        if(clientId){
+          db.projects.forEach(p=>{ if(p.clientId===clientId) p.clientId=null; });
+        }
+
+        const proj = {
+          id:uid(), name, clientId,
+          websiteUrl: url||'',
+          status:'in_progress',
+          createdAt: new Date().toISOString().slice(0,10),
+          timeline: steps
+        };
+        db.projects.push(proj);
+        saveDB();
+        toast('Projet créé avec succès !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ─── Tab: Admin Users ───────────────────────────
+  function renderAdminUsers(){
+    const isAdmin = me.role==='admin';
+    const users = db.users;
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h1 style="font-size:1.4rem;font-weight:700;">Utilisateurs</h1>
+          <p style="color:rgba(244,238,229,.45);font-size:.875rem;">${users.length} compte${users.length>1?'s':''} enregistré${users.length>1?'s':''}</p>
+        </div>
+        ${isAdmin||me.role==='controller'
+          ? `<button id="btn-new-user" class="btn btn-primary">${iconPlus()} Nouveau compte</button>`
+          : ''}
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <input id="user-search" class="glass-input" placeholder="🔍 Rechercher un utilisateur…" style="max-width:360px;" />
+      </div>
+
+      <div id="users-list" style="display:flex;flex-direction:column;gap:10px;">
+        ${users.map(u=>renderUserCard(u,isAdmin)).join('')}
+      </div>
+    </div>`;
+  }
+
+  function renderUserCard(u, canEdit){
+    const project = getUserProject(u.id);
+    return `<div class="glass-card" style="padding:16px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      ${avatar(u)}
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:.95rem;font-weight:600;">${esc(u.firstName||'')} ${esc(u.lastName||'')} <span style="color:rgba(244,238,229,.5);font-weight:400;">@${esc(u.username)}</span></div>
+        <div style="font-size:.78rem;color:rgba(244,238,229,.4);margin-top:2px;">${esc(u.email||'—')}</div>
+      </div>
+      ${roleBadge(u.role)}
+      ${project?`<span style="font-size:.78rem;color:rgba(244,238,229,.45);">📁 ${esc(project.name)}</span>`:'<span style="font-size:.78rem;color:rgba(244,238,229,.3);">Aucun projet</span>'}
+      ${canEdit&&u.id!==me.id
+        ? `<button class="btn btn-ghost btn-sm btn-edit-user" data-uid="${u.id}">✏️ Modifier</button>
+           <button class="btn btn-danger btn-sm btn-del-user" data-uid="${u.id}">🗑</button>`
+        : u.id===me.id ? `<span style="font-size:.75rem;color:rgba(244,238,229,.35);">Vous</span>` : ''}
+    </div>`;
+  }
+
+  function wireAdminUsers(){
+    const btnNew = document.getElementById('btn-new-user');
+    if(btnNew) btnNew.addEventListener('click',()=>openCreateUserModal());
+    document.querySelectorAll('.btn-edit-user').forEach(b=>{
+      b.addEventListener('click',()=>openEditUserModal(b.dataset.uid));
+    });
+    document.querySelectorAll('.btn-del-user').forEach(b=>{
+      b.addEventListener('click',()=>confirmDeleteUser(b.dataset.uid));
+    });
+    const searchInput = document.getElementById('user-search');
+    if(searchInput){
+      searchInput.addEventListener('input',()=>{
+        const q = searchInput.value.toLowerCase();
+        const list = document.getElementById('users-list');
+        list.querySelectorAll('.glass-card').forEach((card,i)=>{
+          const u = db.users[i];
+          if(!u) return;
+          const text = (u.username+' '+(u.firstName||'')+' '+(u.lastName||'')+' '+(u.email||'')).toLowerCase();
+          card.style.display = text.includes(q)?'':'none';
+        });
+      });
+    }
+  }
+
+  // ─── Tab: Admin Documents & Timeline ────────────
+  function renderAdminDocuments(){
+    const clients = db.users.filter(u=>u.role==='client');
+    const isAdmin = me.role==='admin';
+    return `<div class="fade-up">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Suivi & Documents</h1>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">
+        ${isAdmin?'Gérez les frises et envoyez des documents aux clients.':'Consultez les frises et documents (lecture seule).'}
+      </p>
+      ${clients.length===0
+        ? `<div class="glass-card" style="padding:40px;text-align:center;color:rgba(244,238,229,.4);">Aucun client enregistré.</div>`
+        : clients.map(u=>renderClientDocPanel(u,isAdmin)).join('')}
+    </div>`;
+  }
+
+  function renderClientDocPanel(u, canEdit){
+    const project = getUserProject(u.id);
+    const docs = project ? getProjectDocs(project.id) : [];
+    return `<div class="glass-card" style="padding:20px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        ${avatar(u)}
+        <div style="flex:1;">
+          <div style="font-weight:600;">${esc(u.username)}</div>
+          <div style="font-size:.78rem;color:rgba(244,238,229,.4);">${project?esc(project.name):'Aucun projet'}</div>
+        </div>
+        ${canEdit&&project?`
+          <button class="btn btn-ghost btn-sm btn-edit-timeline" data-pid="${project.id}" data-uid="${u.id}">⏱ Timeline</button>
+          <button class="btn btn-primary btn-sm btn-send-doc" data-uid="${u.id}" data-pid="${project?project.id:''}">+ Document</button>
+        `:''}
+      </div>
+      ${project?`
+        <div style="margin-bottom:12px;">
+          ${renderMiniTimeline(project.timeline)}
+        </div>
+        <div class="divider"></div>
+        <div style="font-size:.8rem;font-weight:600;color:rgba(244,238,229,.5);margin-bottom:8px;">DOCUMENTS (${docs.length})</div>
+        ${docs.length===0
+          ? `<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun document envoyé.</div>`
+          : docs.map(d=>renderDocRow(d,canEdit)).join('')}
+      `:`<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun projet associé.</div>`}
+    </div>`;
+  }
+
+  function renderMiniTimeline(tl){
+    return `<div style="display:flex;gap:0;align-items:center;overflow-x:auto;padding-bottom:6px;">
+      ${tl.map((s,i)=>{
+        const dotColor = s.status==='done'?'#93b594':s.status==='current'?'#d97757':'rgba(255,255,255,.2)';
+        const textColor= s.status==='done'?'rgba(244,238,229,.7)':s.status==='current'?'#d97757':'rgba(244,238,229,.35)';
+        return `
+          ${i>0?`<div style="flex:1;min-width:16px;height:1px;background:rgba(255,255,255,.1);"></div>`:''}
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;max-width:80px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${dotColor}33;border:2px solid ${dotColor};display:flex;align-items:center;justify-content:center;font-size:.65rem;">
+              ${s.status==='done'?'✓':s.status==='current'?'▶':'○'}
+            </div>
+            <div style="font-size:.65rem;text-align:center;color:${textColor};line-height:1.2;">${esc(s.label)}</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function renderDocRow(doc, canEdit){
+    const statusColor = {pending:'rgba(217,119,87,.8)',filled:'rgba(147,181,148,.8)',reviewed:'rgba(155,184,216,.8)'}[doc.status]||'#888';
+    const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'Validé'}[doc.status]||doc.status;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+      <span style="font-size:1.1rem;">📄</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.85rem;font-weight:500;">${esc(doc.name)}</div>
+        <div style="font-size:.75rem;color:rgba(244,238,229,.4);">Envoyé le ${esc(doc.sentAt||'—')}</div>
+      </div>
+      <span style="font-size:.75rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
+      ${canEdit?`<button class="btn btn-ghost btn-sm btn-view-doc" data-did="${doc.id}">👁 Voir</button>`:''}
+    </div>`;
+  }
+
+  function wireAdminDocuments(){
+    document.querySelectorAll('.btn-edit-timeline').forEach(b=>{
+      b.addEventListener('click',()=>openEditTimelineModal(b.dataset.pid,b.dataset.uid));
+    });
+    document.querySelectorAll('.btn-send-doc').forEach(b=>{
+      b.addEventListener('click',()=>openSendDocModal(b.dataset.uid,b.dataset.pid));
+    });
+    document.querySelectorAll('.btn-view-doc').forEach(b=>{
+      b.addEventListener('click',()=>openViewDocModal(b.dataset.did,true));
+    });
+  }
+
+  // ─── Tab: Admin Profile ─────────────────────────
+  function renderAdminProfile(){
+    return `<div class="fade-up" style="max-width:480px;">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:24px;">Mon Profil</h1>
+      <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:20px;">
+        <div style="display:flex;justify-content:center;margin-bottom:12px;">${avatarLg(me)}</div>
+        <div style="font-size:1.2rem;font-weight:700;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
+        <div style="color:rgba(244,238,229,.5);margin-bottom:10px;">@${esc(me.username)}</div>
+        ${roleBadge(me.role)}
+      </div>
+      <div class="glass-card" style="padding:24px;">
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:18px;">Modifier mes informations</h2>
+        <div style="margin-bottom:14px;">
+          <label class="label">Prénom</label>
+          <input id="p-fn" class="glass-input" value="${esc(me.firstName||'')}" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Nom</label>
+          <input id="p-ln" class="glass-input" value="${esc(me.lastName||'')}" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Pseudo</label>
+          <input id="p-un" class="glass-input" value="${esc(me.username)}" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Email</label>
+          <input id="p-em" class="glass-input" type="email" value="${esc(me.email||'')}" />
+        </div>
+        <div class="divider"></div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Nouveau mot de passe</label>
+          <input id="p-np" class="glass-input" type="password" placeholder="Laisser vide pour ne pas changer" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label class="label">Confirmer le mot de passe</label>
+          <input id="p-cp" class="glass-input" type="password" placeholder="••••••••" />
+        </div>
+        <div style="margin-bottom:16px;">
+          <label class="label">Photo de profil (URL)</label>
+          <input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" />
+        </div>
+        <div id="p-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+        <button id="p-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>`;
+  }
+
+  function wireAdminProfile(){
+    document.getElementById('p-save').addEventListener('click',()=>{
+      const fn=document.getElementById('p-fn').value.trim();
+      const ln=document.getElementById('p-ln').value.trim();
+      const un=document.getElementById('p-un').value.trim();
+      const em=document.getElementById('p-em').value.trim();
+      const np=document.getElementById('p-np').value;
+      const cp=document.getElementById('p-cp').value;
+      const ph=document.getElementById('p-ph').value.trim();
+      const msg=document.getElementById('p-msg');
+
+      if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
+      if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase()&&u.id!==me.id)){
+        showMsg(msg,'Ce pseudo est déjà utilisé.','error'); return;
+      }
+      if(np && np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
+
+      const u = db.users.find(u=>u.id===me.id);
+      u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null;
+      if(np) u.password=np;
+      me=u; saveDB();
+      toast('Profil mis à jour !','success');
+      showMsg(msg,'Profil mis à jour avec succès !','success');
+      document.getElementById('app').innerHTML=renderAdminShell();
+      wireAdmin();
+    });
+  }
+
+  function showMsg(el, text, type){
+    el.style.display='block';
+    el.textContent=text;
+    el.style.background=type==='success'?'rgba(147,181,148,.15)':'rgba(239,68,68,.15)';
+    el.style.border=`1px solid ${type==='success'?'rgba(147,181,148,.3)':'rgba(239,68,68,.3)'}`;
+    el.style.color=type==='success'?'#93b594':'#e08680';
+  }
+
+  // ════════════════════════════════════════════════
+  //  CLIENT SHELL
+  // ════════════════════════════════════════════════
+  const clientTabs = [
+    { id:'home',      icon:iconHome(),    label:'Accueil'   },
+    { id:'documents', icon:iconDocs(),    label:'Documents' },
+    { id:'profile',   icon:iconProfile(), label:'Profil'    }
+  ];
+
+  function renderClientShell(){
+    const project = getUserProject(me.id);
+    return `
+    <div id="sidebar" class="glass-dark">
+      <div class="logo-wrap" style="margin-bottom:28px;padding:0 4px;">
+        <div class="logo">flow</div>
+        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace Client</p>
+      </div>
+      ${clientTabs.map(t=>`
+        <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}">
+          ${t.icon} <span>${t.label}</span>
+        </button>`).join('')}
+      <div style="flex:1;"></div>
+      <div style="padding:12px 8px 0;border-top:1px solid rgba(255,255,255,.07);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          ${avatar(me)}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.username)}</div>
+            ${roleBadge(me.role)}
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:.8rem;">
+          ${iconLogout()} Déconnexion
+        </button>
+      </div>
+    </div>
+    <div id="main"><div id="tab-content">${renderClientTab()}</div></div>`;
+  }
+
+  function renderClientTab(){
+    if(activeTab==='home')      return renderClientHome();
+    if(activeTab==='documents') return renderClientDocuments();
+    if(activeTab==='profile')   return renderClientProfile();
+    return '';
+  }
+
+  function wireClient(){
+    document.querySelectorAll('[data-tab]').forEach(btn=>{
+      btn.addEventListener('click',()=>{ activeTab=btn.dataset.tab; refreshClientTab(); });
+    });
+    document.getElementById('btn-logout').addEventListener('click',logout);
+    wireClientTabContent();
+  }
+
+  function refreshClientTab(){
+    document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));
+    const c=document.getElementById('tab-content');
+    c.innerHTML=renderClientTab();
+    c.classList.remove('fade-up'); void c.offsetWidth; c.classList.add('fade-up');
+    wireClientTabContent();
+  }
+
+  function wireClientTabContent(){
+    if(activeTab==='home')      wireClientHome();
+    if(activeTab==='documents') wireClientDocuments();
+    if(activeTab==='profile')   wireClientProfile();
+  }
+
+  // ─── Client: Home ───────────────────────────────
+  function renderClientHome(){
+    const project = getUserProject(me.id);
+    return `<div class="fade-up">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">Bonjour, ${esc(me.firstName||me.username)} 👋</h1>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:28px;">Voici l'avancement de votre projet.</p>
+      ${project ? renderProjectCard(project) : renderNoProject()}
+    </div>`;
+  }
+
+  function renderProjectCard(p){
+    const done  = p.timeline.filter(s=>s.status==='done').length;
+    const total = p.timeline.length;
+    const pct   = Math.round((done/total)*100);
+    return `
+      <div class="glass-card" style="padding:24px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h2 style="font-size:1.1rem;font-weight:600;">${esc(p.name)}</h2>
+            <div style="font-size:.8rem;color:rgba(244,238,229,.45);margin-top:2px;">${pct}% complété</div>
+          </div>
+          ${p.websiteUrl?`<a href="${esc(p.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm">🔗 Voir mon site</a>`:''}
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.08);border-radius:4px;margin-bottom:28px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#d97757,#93b594);border-radius:4px;transition:width .5s;"></div>
+        </div>
+        ${renderFullTimeline(p.timeline)}
+      </div>`;
+  }
+
+  function renderFullTimeline(tl){
+    return `<div>
+      ${tl.map((s,i)=>`
+        <div class="tl-step ${s.status}">
+          <div class="tl-line-wrap">
+            <div class="tl-dot">${s.status==='done'?'✓':s.status==='current'?'▶':'○'}</div>
+            ${i<tl.length-1?`<div class="tl-connector"></div>`:''}
+          </div>
+          <div style="padding-top:4px;flex:1;">
+            <div style="font-size:.9rem;font-weight:${s.status==='pending'?'400':'600'};color:${s.status==='done'?'#f4eee5':s.status==='current'?'#d97757':'rgba(244,238,229,.4)'};">
+              ${esc(s.label)}
+            </div>
+            ${s.date?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);margin-top:2px;">📅 ${esc(s.date)}</div>`:''}
+            ${s.note?`<div style="font-size:.78rem;color:rgba(244,238,229,.45);margin-top:4px;">${esc(s.note)}</div>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  function renderNoProject(){
+    return `<div class="glass-card" style="padding:48px;text-align:center;">
+      <div style="font-size:3rem;margin-bottom:12px;">📋</div>
+      <div style="font-size:1rem;font-weight:600;color:rgba(244,238,229,.7);margin-bottom:6px;">Aucun projet associé</div>
+      <div style="font-size:.85rem;color:rgba(244,238,229,.4);">Votre gestionnaire de projet vous assignera bientôt un projet.</div>
+    </div>`;
+  }
+
+  function wireClientHome(){}
+
+  // ─── Client: Documents ──────────────────────────
+  function renderClientDocuments(){
+    const project = getUserProject(me.id);
+    const docs = project ? getProjectDocs(project.id) : [];
+    return `<div class="fade-up">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Mes Documents</h1>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Remplissez les formulaires envoyés par votre gestionnaire.</p>
+      ${docs.length===0
+        ? `<div class="glass-card" style="padding:48px;text-align:center;">
+             <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+             <div style="color:rgba(244,238,229,.4);">Aucun document à remplir pour le moment.</div>
+           </div>`
+        : docs.map(d=>renderClientDocCard(d)).join('')}
+    </div>`;
+  }
+
+  function renderClientDocCard(doc){
+    const statusColor = {pending:'#d97757',filled:'#93b594',reviewed:'#c5d6ea'}[doc.status];
+    const statusLabel = {pending:'À remplir',filled:'Rempli ✓',reviewed:'Validé ✓'}[doc.status];
+    return `<div class="glass-card" style="padding:20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <span style="font-size:1.5rem;">📄</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;">${esc(doc.name)}</div>
+          <div style="font-size:.75rem;color:rgba(244,238,229,.4);">Envoyé le ${esc(doc.sentAt||'—')}</div>
+        </div>
+        <span style="font-size:.8rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
+        ${doc.status!=='reviewed'?`<button class="btn btn-primary btn-sm btn-fill-doc" data-did="${doc.id}">✏️ ${doc.status==='pending'?'Remplir':'Modifier'}</button>`:''}
+      </div>
+    </div>`;
+  }
+
+  function wireClientDocuments(){
+    document.querySelectorAll('.btn-fill-doc').forEach(b=>{
+      b.addEventListener('click',()=>openFillDocModal(b.dataset.did));
+    });
+  }
+
+  // ─── Client: Profile ────────────────────────────
+  function renderClientProfile(){
+    return `<div class="fade-up" style="max-width:480px;">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:24px;">Mon Profil</h1>
+      <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:20px;">
+        <div style="display:flex;justify-content:center;margin-bottom:12px;">${avatarLg(me)}</div>
+        <div style="font-size:1.2rem;font-weight:700;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
+        <div style="color:rgba(244,238,229,.5);margin-bottom:10px;">@${esc(me.username)}</div>
+        ${roleBadge('client')}
+      </div>
+      <div class="glass-card" style="padding:24px;">
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:18px;">Modifier mes informations</h2>
+        <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="cp-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
+        <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="cp-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
+        <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="cp-un" class="glass-input" value="${esc(me.username)}" /></div>
+        <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="cp-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
+        <div class="divider"></div>
+        <div style="margin-bottom:14px;"><label class="label">Nouveau mot de passe</label><input id="cp-np" class="glass-input" type="password" placeholder="Laisser vide pour ne pas changer" /></div>
+        <div style="margin-bottom:20px;"><label class="label">Confirmer</label><input id="cp-cp" class="glass-input" type="password" /></div>
+        <div id="cp-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+        <button id="cp-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>`;
+  }
+
+  function wireClientProfile(){
+    document.getElementById('cp-save').addEventListener('click',()=>{
+      const fn=document.getElementById('cp-fn').value.trim();
+      const ln=document.getElementById('cp-ln').value.trim();
+      const un=document.getElementById('cp-un').value.trim();
+      const ph=document.getElementById('cp-ph').value.trim();
+      const np=document.getElementById('cp-np').value;
+      const cp=document.getElementById('cp-cp').value;
+      const msg=document.getElementById('cp-msg');
+
+      if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
+      if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase()&&u.id!==me.id)){
+        showMsg(msg,'Ce pseudo est déjà utilisé.','error'); return;
+      }
+      if(np&&np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
+
+      const u=db.users.find(u=>u.id===me.id);
+      u.firstName=fn; u.lastName=ln; u.username=un; u.photo=ph||null;
+      if(np) u.password=np;
+      me=u; saveDB();
+      toast('Profil mis à jour !','success');
+      showMsg(msg,'Profil mis à jour !','success');
+      document.getElementById('app').innerHTML=renderClientShell();
+      wireClient();
+    });
+  }
+
+  // ════════════════════════════════════════════════
+  //  MODALS
+  // ════════════════════════════════════════════════
+  function showModal(html, onWire){
+    let ov = document.getElementById('modal-overlay');
+    if(!ov){ ov=document.createElement('div'); ov.id='modal-overlay'; document.body.appendChild(ov); }
+    ov.innerHTML=`<div class="modal-box fade-up">${html}</div>`;
+    ov.style.display='flex';
+    ov.addEventListener('click',e=>{ if(e.target===ov) closeModal(); });
+    if(onWire) onWire();
+  }
+
+  function closeModal(){
+    const ov=document.getElementById('modal-overlay');
+    if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+  }
+
+  // ── Create User Modal ──────────────────────────
+  function openCreateUserModal(){
+    const canRoles = me.role==='admin'
+      ? [{v:'client',l:'Client'},{v:'controller',l:'Contrôleur'},{v:'admin',l:'Admin'}]
+      : [{v:'client',l:'Client'}];
+
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Nouveau compte</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="nu-fn" class="glass-input" placeholder="Prénom" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="nu-ln" class="glass-input" placeholder="Nom" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Pseudo *</label><input id="nu-un" class="glass-input" placeholder="Pseudo unique" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Email</label><input id="nu-em" class="glass-input" type="email" placeholder="email@exemple.com" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Mot de passe *</label><input id="nu-pw" class="glass-input" type="password" placeholder="••••••••" /></div>
+      <div style="margin-bottom:20px;">
+        <label class="label">Rôle</label>
+        <select id="nu-role" class="glass-input">
+          ${canRoles.map(r=>`<option value="${r.v}">${r.l}</option>`).join('')}
+        </select>
+      </div>
+      <div id="nu-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="nu-save" class="btn btn-primary" style="flex:1;justify-content:center;">Créer</button>
+      </div>`,
+    ()=>{
+      document.getElementById('nu-save').addEventListener('click',()=>{
+        const fn=document.getElementById('nu-fn').value.trim();
+        const ln=document.getElementById('nu-ln').value.trim();
+        const un=document.getElementById('nu-un').value.trim();
+        const em=document.getElementById('nu-em').value.trim();
+        const pw=document.getElementById('nu-pw').value;
+        const role=document.getElementById('nu-role').value;
+        const msg=document.getElementById('nu-msg');
+
+        if(!un||!pw){ showMsg(msg,'Pseudo et mot de passe requis.','error'); return; }
+        if(!canCreateRole(me.role,role)){ showMsg(msg,'Vous n\'avez pas la permission de créer ce type de compte.','error'); return; }
+        if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){ showMsg(msg,'Ce pseudo est déjà utilisé.','error'); return; }
+
+        const nu={ id:uid(), username:un, password:pw, role, firstName:fn, lastName:ln, email:em, photo:null, projectId:null, createdAt:new Date().toISOString() };
+        db.users.push(nu);
+        saveDB();
+        toast('Compte créé avec succès !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── Edit User Modal ────────────────────────────
+  function openEditUserModal(userId){
+    const u = db.users.find(x=>x.id===userId);
+    if(!u) return;
+    const projects = db.projects;
+    const isAdmin = me.role==='admin';
+
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Modifier @${esc(u.username)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="eu-fn" class="glass-input" value="${esc(u.firstName||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="eu-ln" class="glass-input" value="${esc(u.lastName||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="eu-un" class="glass-input" value="${esc(u.username)}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Email</label><input id="eu-em" class="glass-input" value="${esc(u.email||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Lien site web</label><input id="eu-url" class="glass-input" placeholder="https://..." value="${esc(projects.find(p=>p.clientId===u.id)?.websiteUrl||'')}" /></div>
+      ${isAdmin?`
+      <div style="margin-bottom:14px;">
+        <label class="label">Rôle</label>
+        <select id="eu-role" class="glass-input">
+          <option value="client" ${u.role==='client'?'selected':''}>Client</option>
+          <option value="controller" ${u.role==='controller'?'selected':''}>Contrôleur</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">Projet associé</label>
+        <select id="eu-proj" class="glass-input">
+          <option value="">— Aucun —</option>
+          ${projects.map(p=>`<option value="${p.id}" ${p.clientId===u.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>`:''}
+      <div style="margin-bottom:20px;"><label class="label">Nouveau mot de passe (laisser vide)</label><input id="eu-pw" class="glass-input" type="password" /></div>
+      <div id="eu-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="eu-save" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>`,
+    ()=>{
+      document.getElementById('eu-save').addEventListener('click',()=>{
+        const fn=document.getElementById('eu-fn').value.trim();
+        const ln=document.getElementById('eu-ln').value.trim();
+        const un=document.getElementById('eu-un').value.trim();
+        const em=document.getElementById('eu-em').value.trim();
+        const pw=document.getElementById('eu-pw').value;
+        const url=document.getElementById('eu-url').value.trim();
+        const role=isAdmin?document.getElementById('eu-role').value:u.role;
+        const projId=isAdmin?document.getElementById('eu-proj').value:'';
+        const msg=document.getElementById('eu-msg');
+
+        if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
+        if(db.users.some(x=>x.username.toLowerCase()===un.toLowerCase()&&x.id!==u.id)){
+          showMsg(msg,'Ce pseudo est déjà utilisé.','error'); return;
+        }
+
+        u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.role=role;
+        if(pw) u.password=pw;
+
+        if(isAdmin){
+          db.projects.forEach(p=>{ if(p.clientId===u.id) p.clientId=null; });
+          if(projId){
+            const proj=db.projects.find(p=>p.id===projId);
+            if(proj){ proj.clientId=u.id; if(url) proj.websiteUrl=url; }
+          }
+        }
+        saveDB();
+        toast('Utilisateur mis à jour !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── Confirm Delete User ────────────────────────
+  function confirmDeleteUser(userId){
+    const u=db.users.find(x=>x.id===userId);
+    if(!u) return;
+    showModal(`
+      <div style="text-align:center;padding:8px 0;">
+        <div style="font-size:2.5rem;margin-bottom:12px;">⚠️</div>
+        <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;">Supprimer @${esc(u.username)} ?</h2>
+        <p style="color:rgba(244,238,229,.5);font-size:.875rem;margin-bottom:24px;">Cette action est irréversible. Toutes les données associées seront supprimées.</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button onclick="closeModal()" class="btn btn-ghost">Annuler</button>
+          <button id="del-confirm" class="btn btn-danger">Supprimer</button>
+        </div>
+      </div>`,
+    ()=>{
+      document.getElementById('del-confirm').addEventListener('click',()=>{
+        db.users=db.users.filter(x=>x.id!==userId);
+        db.projects.forEach(p=>{ if(p.clientId===userId) p.clientId=null; });
+        saveDB();
+        toast('Utilisateur supprimé.','info');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── Edit Timeline Modal ────────────────────────
+  function openEditTimelineModal(projectId, userId){
+    const p=db.projects.find(x=>x.id===projectId);
+    if(!p) return;
+    const u=db.users.find(x=>x.id===userId);
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Timeline — ${esc(p.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div id="tl-steps">
+        ${p.timeline.map((s,i)=>`
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:10px;" data-sid="${s.id}">
+            <input class="glass-input tl-label-input" value="${esc(s.label)}" placeholder="Étape" data-sid="${s.id}" />
+            <select class="glass-input tl-status-select" style="width:120px;" data-sid="${s.id}">
+              <option value="done"    ${s.status==='done'   ?'selected':''}>✅ Fait</option>
+              <option value="current" ${s.status==='current'?'selected':''}>▶️ En cours</option>
+              <option value="pending" ${s.status==='pending'?'selected':''}>⏳ À faire</option>
+            </select>
+            <button class="btn btn-danger btn-sm tl-del" data-sid="${s.id}" title="Supprimer">🗑</button>
+          </div>`).join('')}
+      </div>
+      <button id="tl-add" class="btn btn-ghost" style="width:100%;justify-content:center;margin:10px 0;">+ Ajouter une étape</button>
+      <div style="margin-bottom:14px;">
+        <label class="label">Statut du projet</label>
+        <select id="tl-proj-status" class="glass-input">
+          <option value="in_progress" ${p.status==='in_progress'?'selected':''}>En cours</option>
+          <option value="done"        ${p.status==='done'?'selected':''}>Terminé</option>
+          <option value="pending"     ${p.status==='pending'?'selected':''}>En attente</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="tl-save" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>`,
+    ()=>{
+      document.getElementById('tl-add').addEventListener('click',()=>{
+        const container=document.getElementById('tl-steps');
+        const newId=uid();
+        const div=document.createElement('div');
+        div.style.cssText='display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:10px;';
+        div.dataset.sid=newId;
+        div.innerHTML=`
+          <input class="glass-input tl-label-input" value="" placeholder="Nouvelle étape" data-sid="${newId}" />
+          <select class="glass-input tl-status-select" style="width:120px;" data-sid="${newId}">
+            <option value="done">✅ Fait</option>
+            <option value="current">▶️ En cours</option>
+            <option value="pending" selected>⏳ À faire</option>
+          </select>
+          <button class="btn btn-danger btn-sm tl-del" data-sid="${newId}" title="Supprimer">🗑</button>`;
+        container.appendChild(div);
+        div.querySelector('.tl-del').addEventListener('click',()=>div.remove());
+      });
+
+      document.querySelectorAll('.tl-del').forEach(b=>{
+        b.addEventListener('click',()=>b.closest('[data-sid]').remove());
+      });
+
+      document.getElementById('tl-save').addEventListener('click',()=>{
+        const steps=[];
+        document.querySelectorAll('#tl-steps [data-sid]').forEach(row=>{
+          const sid=row.dataset.sid;
+          const label=row.querySelector('.tl-label-input').value.trim();
+          const status=row.querySelector('.tl-status-select').value;
+          if(label) steps.push({id:sid,label,status,date:null,note:''});
+        });
+        p.timeline=steps;
+        p.status=document.getElementById('tl-proj-status').value;
+        saveDB();
+        toast('Timeline mise à jour !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── Send Document Modal ────────────────────────
+  function openSendDocModal(clientId, projectId){
+    if(!projectId){ alert('Associez d\'abord un projet à ce client.'); return; }
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Envoyer un document</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:14px;"><label class="label">Nom du document</label><input id="sd-name" class="glass-input" placeholder="Ex : Questionnaire Brief Client" /></div>
+      <div id="sd-fields">
+        <div class="label" style="margin-bottom:8px;">Champs du formulaire</div>
+        <div id="sd-fields-list">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input class="glass-input sd-field-label" placeholder="Question ou champ" style="flex:1;" />
+            <select class="glass-input sd-field-type" style="width:110px;">
+              <option value="text">Texte</option>
+              <option value="textarea">Paragraphe</option>
+            </select>
+          </div>
+        </div>
+        <button id="sd-add-field" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Champ</button>
+      </div>
+      <div id="sd-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;">📤 Envoyer</button>
+      </div>`,
+    ()=>{
+      document.getElementById('sd-add-field').addEventListener('click',()=>{
+        const list=document.getElementById('sd-fields-list');
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;gap:8px;margin-bottom:8px;';
+        row.innerHTML=`
+          <input class="glass-input sd-field-label" placeholder="Question ou champ" style="flex:1;" />
+          <select class="glass-input sd-field-type" style="width:110px;">
+            <option value="text">Texte</option>
+            <option value="textarea">Paragraphe</option>
+          </select>
+          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;
+        list.appendChild(row);
+      });
+
+      document.getElementById('sd-send').addEventListener('click',()=>{
+        const name=document.getElementById('sd-name').value.trim();
+        const msg=document.getElementById('sd-msg');
+        if(!name){ showMsg(msg,'Le nom du document est requis.','error'); return; }
+
+        const fields=[];
+        document.querySelectorAll('#sd-fields-list > div').forEach(row=>{
+          const label=row.querySelector('.sd-field-label')?.value.trim();
+          const type=row.querySelector('.sd-field-type')?.value||'text';
+          if(label) fields.push({id:uid(),label,type,value:''});
+        });
+        if(fields.length===0){ showMsg(msg,'Ajoutez au moins un champ.','error'); return; }
+
+        const doc={ id:uid(), name, projectId, clientId,
+          sentBy:me.id, sentAt:new Date().toISOString().slice(0,10),
+          status:'pending', fields, filledAt:null };
+        db.documents.push(doc);
+        saveDB();
+        toast('Document envoyé !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── View Document Modal (admin) ────────────────
+  function openViewDocModal(docId, canValidate){
+    const doc=db.documents.find(d=>d.id===docId);
+    if(!doc) return;
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">📄 ${esc(doc.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="font-size:.8rem;color:rgba(244,238,229,.4);margin-bottom:20px;">
+        Envoyé le ${esc(doc.sentAt||'—')} · Statut : <strong style="color:#d97757;">${{pending:'En attente',filled:'Rempli',reviewed:'Validé'}[doc.status]||doc.status}</strong>
+      </div>
+      ${doc.fields.map(f=>`
+        <div class="pdf-field">
+          <label>${esc(f.label)}</label>
+          <div class="glass-input" style="opacity:.7;min-height:${f.type==='textarea'?'60px':'auto'};font-size:.85rem;cursor:default;">
+            ${f.value?esc(f.value):'<span style="color:rgba(244,238,229,.3);font-style:italic;">Non rempli</span>'}
+          </div>
+        </div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+        ${canValidate&&doc.status==='filled'
+          ?`<button id="doc-validate" class="btn btn-success">✅ Valider</button>`:''}
+        <button onclick="closeModal()" class="btn btn-ghost">Fermer</button>
+      </div>`,
+    ()=>{
+      const btn=document.getElementById('doc-validate');
+      if(btn) btn.addEventListener('click',()=>{
+        doc.status='reviewed';
+        saveDB();
+        toast('Document validé !','success');
+        closeModal();
+        refreshAdminTab();
+      });
+    });
+  }
+
+  // ── Fill Document Modal (client) ───────────────
+  function openFillDocModal(docId){
+    const doc=db.documents.find(d=>d.id===docId);
+    if(!doc) return;
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">✏️ ${esc(doc.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      ${doc.fields.map(f=>`
+        <div class="pdf-field">
+          <label>${esc(f.label)}</label>
+          ${f.type==='textarea'
+            ?`<textarea class="glass-input doc-field" data-fid="${f.id}">${esc(f.value)}</textarea>`
+            :`<input class="glass-input doc-field" type="text" data-fid="${f.id}" value="${esc(f.value)}" />`}
+        </div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="fill-submit" class="btn btn-primary" style="flex:1;justify-content:center;">📤 Envoyer à l'admin</button>
+      </div>`,
+    ()=>{
+      document.getElementById('fill-submit').addEventListener('click',()=>{
+        document.querySelectorAll('.doc-field').forEach(inp=>{
+          const f=doc.fields.find(x=>x.id===inp.dataset.fid);
+          if(f) f.value=inp.value;
+        });
+        doc.status='filled';
+        doc.filledAt=new Date().toISOString().slice(0,10);
+        saveDB();
+        toast('Document envoyé à l\'admin !','success');
+        closeModal();
+        refreshClientTab();
+      });
+    });
+  }
+
+  // ════════════════════════════════════════════════
+  //  SVG ICONS
+  // ════════════════════════════════════════════════
+  function iconHome(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`; }
+  function iconUsers(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
+  function iconDocs(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`; }
+  function iconProfile(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`; }
+  function iconLogout(){ return `<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`; }
+  function iconPlus(){ return `<svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`; }
+
+  // ════════════════════════════════════════════════
+  //  INIT
+  // ════════════════════════════════════════════════
+  bootApp();
+  </script>
+</body>
+</html>
