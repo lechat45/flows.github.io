@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flow — Gestion de Projet</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -215,18 +214,7 @@
       top: 35%; right: -120px;
       animation: drift3 48s ease-in-out infinite;
     }
-    .orb-4 {
-      width: 360px; height: 360px;
-      background: radial-gradient(circle, rgba(147,181,148,.30) 0%, transparent 70%);
-      bottom: 15%; left: -100px;
-      animation: drift4 56s ease-in-out infinite;
-    }
-    .orb-5 {
-      width: 300px; height: 300px;
-      background: radial-gradient(circle, rgba(196,163,212,.28) 0%, transparent 70%);
-      top: 55%; left: 38%;
-      animation: drift5 44s ease-in-out infinite;
-    }
+
 
     @keyframes drift1 {
       0%,100% { transform: translate(0,0) scale(1); }
@@ -242,15 +230,7 @@
       0%,100% { transform: translate(0,0) scale(1); }
       50%     { transform: translate(-120px,40px) scale(1.12); }
     }
-    @keyframes drift4 {
-      0%,100% { transform: translate(0,0) scale(1); }
-      45%     { transform: translate(80px,-60px) scale(1.15); }
-    }
-    @keyframes drift5 {
-      0%,100% { transform: translate(0,0) scale(1); }
-      33%     { transform: translate(-60px,30px) scale(1.08); }
-      66%     { transform: translate(70px,-40px) scale(.94); }
-    }
+
 
     /* Vignette — gentle darken at edges to focus center */
     #bg-vignette {
@@ -316,8 +296,8 @@
 
     .glass {
       background: var(--glass-bg-hi);
-      backdrop-filter: blur(40px) saturate(190%);
-      -webkit-backdrop-filter: blur(40px) saturate(190%);
+      backdrop-filter: blur(26px) saturate(190%);
+      -webkit-backdrop-filter: blur(26px) saturate(190%);
       border: 1px solid var(--glass-edge);
       border-radius: var(--radius-lg);
       box-shadow:
@@ -347,8 +327,9 @@
 
     .glass-card {
       background: var(--glass-bg);
-      backdrop-filter: blur(28px) saturate(180%);
-      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      contain: layout style;
+      backdrop-filter: blur(18px) saturate(180%);
+      -webkit-backdrop-filter: blur(18px) saturate(180%);
       border: 1px solid var(--glass-edge);
       border-radius: var(--radius-lg);
       box-shadow:
@@ -589,6 +570,29 @@
     .prio-urgent { background:rgba(220,80,80,.15);border-color:rgba(220,80,80,.36);color:#f08a8a; }
     .prio-normal { background:rgba(155,184,216,.10);border-color:rgba(155,184,216,.26);color:var(--sky); }
     .prio-low    { background:var(--glass-bg);border-color:var(--glass-edge);color:var(--ink-4); }
+
+    /* Kebab dropdown menu */
+    .kebab-wrap { position: relative; }
+    .kebab-menu {
+      display: none; position: absolute; right: 0; top: calc(100% + 6px);
+      background: var(--bg-1); border: 1px solid var(--glass-edge-hi);
+      border-radius: 14px; padding: 6px; min-width: 180px; z-index: 300;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+    }
+    .kebab-menu.open { display: block; }
+    .kebab-item {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 8px 12px; border-radius: 9px;
+      font-size: .83rem; font-family: inherit; color: var(--ink-2);
+      background: transparent; border: none; cursor: pointer;
+      transition: background .15s, color .15s; text-align: left;
+    }
+    .kebab-item:hover { background: var(--glass-bg-hi); color: var(--ink); }
+    .kebab-item.kebab-danger { color: #f08a8a; }
+    .kebab-item.kebab-danger:hover { background: rgba(220,80,80,.14); color: #f08a8a; }
+    .kebab-divider { height: 1px; background: var(--glass-edge); margin: 4px 2px; }
 
     /* ═══════════════════════════════════════════════
        PROFILE GRID
@@ -1117,8 +1121,6 @@
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
-  <div class="orb orb-4"></div>
-  <div class="orb orb-5"></div>
   <div id="bg-vignette"></div>
   <div id="cmd-palette" onclick="if(event.target===this)closeCmdPalette()"><div id="cmd-box"><input id="cmd-input" placeholder="Rechercher un client, projet, action…" autocomplete="off" /><div id="cmd-results"></div></div></div>
   <div id="toast-container"></div>
@@ -1141,9 +1143,11 @@
   const fbdb = firebase.database();
   const APP_VERSION = '2.3';
   function applyTheme(){
-    const t = localStorage.getItem('flow_theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', t);
+    let t = localStorage.getItem('flow_theme');
+    if(!t) t = window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme',t);
   }
+  if(window.matchMedia) window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{ if(!localStorage.getItem('flow_theme')) applyTheme(); });
   applyTheme();
   // ═══════════════════════════════════════════════
   //  FLOW — Project Management App
@@ -1194,18 +1198,26 @@
     return null;
   }
   function saveLocalDB(){ localStorage.setItem('flow_v3',JSON.stringify(db)); }
+  let _saveTimer = null;
+  let _refreshTimer = null;
   function saveDB(){
     saveLocalDB();
     setSyncState('syncing');
-    fbdb.ref('flow').set(db)
-      .then(()=>setSyncState('ok'))
-      .catch(()=>setSyncState('error'));
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(()=>{
+      fbdb.ref('flow').set(db)
+        .then(()=>setSyncState('ok'))
+        .catch(()=>setSyncState('error'));
+    }, 500);
   }
 
   let db = loadLocalDB() || JSON.parse(JSON.stringify(SEED));
   if(!db.activityLog) db.activityLog = [];
   if(!db.finance) db.finance = [];
   if(!db.financeGoal) db.financeGoal = {monthly:0, annual:0};
+  if(!db.pendingUsers) db.pendingUsers = [];
+  if(!db.blockedAccounts) db.blockedAccounts = [];
+  if(!db.docTemplates) db.docTemplates = [];
   db.projects.forEach(p=>{ if(!p.priority) p.priority='normal'; });
   db.projects.forEach(p=>{ if(!p.internalTasks) p.internalTasks=[]; });
   db.projects.forEach(p=>{ if(p.pinned===undefined) p.pinned=false; });
@@ -1337,7 +1349,10 @@
   }
 
   function getUserProject(userId){
-    return db.projects.find(p=>p.clientId===userId)||null;
+    return db.projects.find(p=>p.clientId===userId&&!p.archived)||null;
+  }
+  function getUserProjects(userId){
+    return db.projects.filter(p=>p.clientId===userId&&!p.archived);
   }
   function getProjectDocs(projectId){
     return db.documents.filter(d=>d.projectId===projectId);
@@ -1378,6 +1393,68 @@
 
     // F4 — Keyboard shortcuts
     document.addEventListener('keydown', e=>{
+  function openCmdPalette(){
+    const pal = document.getElementById('cmd-palette');
+    if(!pal) return;
+    pal.classList.add('open');
+    const inp = document.getElementById('cmd-input');
+    if(inp){ inp.value=''; inp.focus(); }
+    renderCmdResults('');
+    inp.addEventListener('input',()=>renderCmdResults(inp.value));
+    inp.addEventListener('keydown',(e)=>{
+      const items = document.querySelectorAll('#cmd-results .cmd-item');
+      const active = document.querySelector('#cmd-results .cmd-item.cmd-active');
+      const idx = Array.from(items).indexOf(active);
+      if(e.key==='ArrowDown'){ e.preventDefault(); const next=items[Math.min(idx+1,items.length-1)]; if(next){if(active)active.classList.remove('cmd-active');next.classList.add('cmd-active');next.scrollIntoView({block:'nearest'});} }
+      if(e.key==='ArrowUp'){ e.preventDefault(); const prev=items[Math.max(idx-1,0)]; if(prev){if(active)active.classList.remove('cmd-active');prev.classList.add('cmd-active');prev.scrollIntoView({block:'nearest'});} }
+      if(e.key==='Enter'){ const cur=document.querySelector('#cmd-results .cmd-item.cmd-active'); if(cur) cur.click(); }
+    });
+  }
+  function closeCmdPalette(){
+    const pal = document.getElementById('cmd-palette');
+    if(pal) pal.classList.remove('open');
+  }
+  function renderCmdResults(q){
+    const res = document.getElementById('cmd-results');
+    if(!res) return;
+    q = (q||'').toLowerCase().trim();
+    const items = [];
+    // Navigation tabs
+    const tabs = [{id:'home',label:'Accueil'},{id:'users',label:'Utilisateurs'},{id:'documents',label:'Suivi & Docs'},{id:'finance',label:'Finance'},{id:'requests',label:'Demandes'},{id:'history',label:'Historique'},{id:'profile',label:'Mon Profil'}];
+    tabs.forEach(t=>{ if(!q||t.label.toLowerCase().includes(q)) items.push({icon:'🧭',label:t.label,sub:'Navigation',action:()=>{activeTab=t.id;closeCmdPalette();refreshAdminTab();}}); });
+    // Clients/users
+    db.users.filter(u=>!q||(u.username+' '+(u.firstName||'')+' '+(u.lastName||'')).toLowerCase().includes(q)).slice(0,5).forEach(u=>{
+      items.push({icon:'👤',label:u.username+(u.firstName?` (${u.firstName} ${u.lastName||''})`.trim():''),sub:'Utilisateur · '+u.role,action:()=>{ activeTab='users'; closeCmdPalette(); refreshAdminTab(); }});
+    });
+    // Projects
+    db.projects.filter(p=>!p.archived&&(!q||p.name.toLowerCase().includes(q))).slice(0,5).forEach(p=>{
+      items.push({icon:'📁',label:p.name,sub:'Projet · '+(p.status==='done'?'Terminé':p.status==='in_progress'?'En cours':'En attente'),action:()=>{ activeTab='documents'; closeCmdPalette(); refreshAdminTab(); }});
+    });
+    // Finance entries
+    (db.finance||[]).filter(e=>!q||(e.label||'').toLowerCase().includes(q)||(db.projects.find(p=>p.id===e.projectId)?.name||'').toLowerCase().includes(q)).slice(0,4).forEach(e=>{
+      const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—';
+      items.push({icon:'💰',label:pname+' — '+(e.amount||0)+'€',sub:'Finance · '+(e.date||''),action:()=>{ activeTab='finance'; closeCmdPalette(); refreshAdminTab(); }});
+    });
+    // Actions
+    if(!q||'nouveau projet'.includes(q)) items.push({icon:'➕',label:'Nouveau projet',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='home'; refreshAdminTab(); setTimeout(openCreateProjectModal,100); }});
+    if(!q||'ajouter entrée finance'.includes(q)) items.push({icon:'💶',label:'Ajouter entrée finance',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='finance'; refreshAdminTab(); setTimeout(openAddRevenueModal,100); }});
+    if(!q||'déconnexion'.includes(q)) items.push({icon:'🔐',label:'Se déconnecter',sub:'Action',action:()=>{ closeCmdPalette(); logout(); }});
+
+    if(items.length===0){
+      res.innerHTML='<div style="padding:14px 16px;color:var(--ink-4);font-size:.85rem;">Aucun résultat pour "'+q+'"</div>';
+      return;
+    }
+    res.innerHTML = items.slice(0,12).map((it,i)=>`
+      <div class="cmd-item${i===0?' cmd-active':''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:9px;cursor:pointer;transition:background .12s;">
+        <span style="font-size:1.1rem;flex-shrink:0;">${it.icon}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:.875rem;font-weight:500;color:var(--ink);">${it.label}</div><div style="font-size:.72rem;color:var(--ink-4);">${it.sub}</div></div>
+      </div>`).join('');
+    res.querySelectorAll('.cmd-item').forEach((el,i)=>{
+      el.addEventListener('click',()=>items[i].action());
+      el.addEventListener('mouseenter',()=>{ res.querySelectorAll('.cmd-item').forEach(x=>x.classList.remove('cmd-active')); el.classList.add('cmd-active'); });
+    });
+  }
+
       if(e.key==='Escape'){ closeModal(); closeCmdPalette(); }
       if((e.key==='k'||e.key==='K')&&(e.ctrlKey||e.metaKey)&&me){ e.preventDefault(); openCmdPalette(); }
       const tag = document.activeElement?.tagName;
@@ -1450,7 +1527,7 @@
         });
         prevFilledDocIds = new Set(nowFilled.map(d=>d.id));
       }
-      if(me){ me = db.users.find(u=>u.id===me.id)||me; if(me.role==='client') refreshClientTab(); else refreshAdminTab(); }
+      if(me){ me = db.users.find(u=>u.id===me.id)||me; clearTimeout(_refreshTimer); _refreshTimer=setTimeout(()=>{ if(me.role==='client') refreshClientTab(); else refreshAdminTab(); },180); }
     });
   }
 
@@ -1494,12 +1571,91 @@
           <input id="li-pass" class="glass-input" type="password" placeholder="••••••••" autocomplete="current-password" />
         </div>
         <button id="li-btn" class="btn btn-primary" style="width:100%;justify-content:center;">Se connecter</button>
-        <p style="text-align:center;margin-top:18px;font-size:.78rem;color:rgba(244,238,229,.3);">Accès restreint — Invitation uniquement</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:18px;">
+          <div style="flex:1;height:1px;background:var(--glass-edge);"></div>
+          <span style="font-size:.78rem;color:var(--ink-4);">ou</span>
+          <div style="flex:1;height:1px;background:var(--glass-edge);"></div>
+        </div>
+        <button id="li-register" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px;">Créer un compte</button>
       </div>
     </div>`;
   }
 
+  function openRegisterModal(){
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">Créer un compte</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:18px;">Votre demande sera examinée par un administrateur avant activation.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div><label class="label">Prénom</label><input id="reg-fn" class="glass-input" placeholder="Prénom" /></div>
+        <div><label class="label">Nom</label><input id="reg-ln" class="glass-input" placeholder="Nom" /></div>
+      </div>
+      <div style="margin-bottom:14px;"><label class="label">Nom d'utilisateur *</label><input id="reg-un" class="glass-input" placeholder="Ex : jean.dupont" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Email</label><input id="reg-em" class="glass-input" type="email" placeholder="votre@email.com" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div><label class="label">Mot de passe *</label><input id="reg-pw" class="glass-input" type="password" placeholder="••••••••" /></div>
+        <div><label class="label">Confirmer *</label><input id="reg-pw2" class="glass-input" type="password" placeholder="••••••••" /></div>
+      </div>
+      <div id="reg-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="reg-submit" class="btn btn-primary" style="flex:1;justify-content:center;">Envoyer la demande</button>
+      </div>`,
+    ()=>{
+      document.getElementById('reg-submit').addEventListener('click', async ()=>{
+        const fn  = document.getElementById('reg-fn').value.trim();
+        const ln  = document.getElementById('reg-ln').value.trim();
+        const un  = document.getElementById('reg-un').value.trim();
+        const em  = document.getElementById('reg-em').value.trim();
+        const pw  = document.getElementById('reg-pw').value;
+        const pw2 = document.getElementById('reg-pw2').value;
+        const msg = document.getElementById('reg-msg');
+
+        if(!un || !pw){ showMsg(msg,'Le pseudo et le mot de passe sont requis.','error'); return; }
+        if(pw !== pw2){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
+        if(pw.length < 6){ showMsg(msg,'Le mot de passe doit faire au moins 6 caractères.','error'); return; }
+
+        // Check blocked
+        const blocked = (db.blockedAccounts||[]).some(b=>
+          b.username.toLowerCase()===un.toLowerCase() ||
+          (em && b.email && b.email.toLowerCase()===em.toLowerCase())
+        );
+        if(blocked){ showMsg(msg,'Ce compte a été bloqué. Contactez un administrateur.','error'); return; }
+
+        // Check duplicate
+        if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){
+          showMsg(msg,'Ce nom d\'utilisateur est déjà utilisé.','error'); return;
+        }
+        if((db.pendingUsers||[]).some(u=>u.username.toLowerCase()===un.toLowerCase())){
+          showMsg(msg,'Une demande avec ce pseudo est déjà en attente.','error'); return;
+        }
+
+        const btn = document.getElementById('reg-submit');
+        btn.disabled = true; btn.textContent = '…';
+        const hashed = await hashPwd(pw);
+        if(!db.pendingUsers) db.pendingUsers = [];
+        db.pendingUsers.push({
+          id: uid(),
+          username: un,
+          firstName: fn,
+          lastName: ln,
+          email: em,
+          password: hashed,
+          requestedAt: new Date().toISOString()
+        });
+        saveDB();
+        showMsg(msg,'Demande envoyée ! Un administrateur examinera votre compte.','success');
+        btn.textContent = 'Demande envoyée ✓';
+        setTimeout(closeModal, 2200);
+      });
+    });
+  }
+
   function wireLogin(){
+    const regBtn = document.getElementById('li-register');
+    if(regBtn) regBtn.addEventListener('click', openRegisterModal);
     const doLogin = async ()=>{
       const u = document.getElementById('li-user').value.trim();
       const p = document.getElementById('li-pass').value;
@@ -1544,12 +1700,13 @@
   //  ADMIN / CONTROLLER SHELL
   // ════════════════════════════════════════════════
   const adminTabs = [
-    { id:'home',      icon:iconHome(),     label:'Accueil'      },
-    { id:'users',     icon:iconUsers(),    label:'Utilisateurs' },
-    { id:'documents', icon:iconDocs(),     label:'Suivi & Docs' },
-    { id:'finance',   icon:iconFinance(),  label:'Finance'      },
-    { id:'history',   icon:iconHistory(),  label:'Historique'   },
-    { id:'profile',   icon:iconProfile(),  label:'Profil'       }
+    { id:'home',      icon:iconHome(),      label:'Accueil'      },
+    { id:'users',     icon:iconUsers(),     label:'Utilisateurs' },
+    { id:'documents', icon:iconDocs(),      label:'Suivi & Docs' },
+    { id:'finance',   icon:iconFinance(),   label:'Finance'      },
+    { id:'requests',  icon:iconRequests(),  label:'Demandes'     },
+    { id:'history',   icon:iconHistory(),   label:'Historique'   },
+    { id:'profile',   icon:iconProfile(),   label:'Profil'       }
   ];
 
   function renderAdminShell(){
@@ -1562,11 +1719,26 @@
         </div>
         <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace ${roleLabel(me.role)}</p>
       </div>
-      ${adminTabs.filter(t=>(t.id!=='history'||me.role==='admin')&&(t.id!=='finance'||(me.role==='admin'||me.role==='controller'))).map(t=>`
+      ${(()=>{
+        const pendingCount = (db.pendingUsers||[]).length;
+        const myProject = getUserProject(me.id);
+        return adminTabs.filter(t=>
+          (t.id!=='history'||me.role==='admin') &&
+          (t.id!=='finance'||(me.role==='admin'||me.role==='controller')) &&
+          (t.id!=='requests'||(me.role==='admin'||me.role==='controller'))
+        ).map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}" style="position:relative;">
           ${t.icon} <span>${t.label}</span>
           ${t.id==='documents'?`<span id="notif-badge" style="display:${notifBadge>0?'inline-flex':'none'};align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(220,80,80,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${notifBadge>9?'9+':notifBadge}</span>`:''}
-        </button>`).join('')}
+          ${t.id==='requests'&&pendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(155,184,216,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#0a0604;min-width:16px;">${pendingCount}</span>`:''}
+        </button>`).join('') +
+        (myProject ? `
+        <div style="height:1px;background:rgba(255,255,255,.07);margin:10px 4px;"></div>
+        <div style="font-size:.65rem;color:var(--ink-4);padding:0 12px 4px;letter-spacing:.06em;text-transform:uppercase;">Mon projet</div>
+        <button class="nav-item ${activeTab==='myproject'?'active':''}" data-tab="myproject" style="position:relative;">
+          ${iconProject()} <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">${esc(myProject.name)}</span>
+        </button>` : '');
+      })()}
       <div style="flex:1;"></div>
       <div style="padding:12px 8px 0;border-top:1px solid rgba(255,255,255,.07);">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -1590,6 +1762,8 @@
     if(activeTab==='documents') return renderAdminDocuments();
     if(activeTab==='history')   return renderAdminHistory();
     if(activeTab==='finance')   return renderAdminFinance();
+    if(activeTab==='requests')  return renderAdminRequests();
+    if(activeTab==='myproject') return renderAdminMyProject();
     if(activeTab==='profile')   return renderAdminProfile();
     return '';
   }
@@ -1620,6 +1794,8 @@
     if(activeTab==='documents') wireAdminDocuments();
     if(activeTab==='history')   wireAdminHistory();
     if(activeTab==='finance')   wireAdminFinance();
+    if(activeTab==='requests')  wireAdminRequests();
+    if(activeTab==='myproject'){ document.querySelectorAll('.btn-download-delivery').forEach(btn=>{ btn.addEventListener('click',()=>downloadDelivery(btn.dataset.pid)); }); }
     if(activeTab==='profile')   wireAdminProfile();
     renderMobileTabbar('admin');
   }
@@ -1660,7 +1836,7 @@
     // F13 — Archived projects section
     const archivedProjects = db.projects.filter(p=>p.archived);
 
-    const clients = db.users.filter(u=>u.role==='client');
+    const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
     const PRIO_ORDER = {urgent:0,normal:1,low:2};
     const pending = clients.filter(u=>{ const p=getUserProject(u.id); return p && p.status!=='done'; })
       .sort((a,b)=>{ const pa=getUserProject(a.id); const pb=getUserProject(b.id); return (pb?.pinned?1:0)-(pa?.pinned?1:0) || (PRIO_ORDER[pa?.priority||'normal']||1)-(PRIO_ORDER[pb?.priority||'normal']||1); });
@@ -1686,7 +1862,10 @@
     return `<div class="fade-up">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:12px;">
         <h1 style="font-size:1.4rem;font-weight:700;">Tableau de bord</h1>
-        ${me.role==='admin'?`<button id="btn-new-project" class="btn btn-primary">${iconPlus()} Nouveau projet</button>`:''}
+        <div style="display:flex;gap:8px;">
+          <button id="btn-view-toggle" class="btn btn-ghost btn-sm" title="Vue Kanban">${window._adminView==='kanban'?'☰ Liste':'⬛ Kanban'}</button>
+          ${(me.role==='admin'||me.role==='controller')?`<button id="btn-new-project" class="btn btn-primary">${iconPlus()} Nouveau projet</button>`:''}
+        </div>
       </div>
       <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:28px;">Bonjour ${esc(me.username)}, bienvenue sur Flow.</p>
 
@@ -1728,6 +1907,36 @@
         </div>`;
       })()}
 
+      ${window._adminView==='kanban' ? (()=>{
+        const allProjects = db.projects.filter(p=>!p.archived);
+        const cols = [
+          {id:'pending',    label:'En attente',  color:'var(--sky)',   ps: allProjects.filter(p=>p.status==='pending')},
+          {id:'in_progress',label:'En cours',    color:'var(--coral)', ps: allProjects.filter(p=>p.status==='in_progress')},
+          {id:'done',       label:'Terminé',     color:'var(--sage)',  ps: allProjects.filter(p=>p.status==='done')},
+        ];
+        return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;" id="kanban-board">
+          ${cols.map(col=>`
+            <div class="glass-card" style="padding:16px;" data-status="${col.id}">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h2 style="font-size:.9rem;font-weight:600;color:${col.color};">${col.label}</h2>
+                <span style="font-size:.75rem;color:var(--ink-4);background:rgba(255,255,255,.07);padding:2px 8px;border-radius:999px;">${col.ps.length}</span>
+              </div>
+              <div class="kanban-col" data-status="${col.id}" style="min-height:80px;">
+                ${col.ps.map(p=>{
+                  const client = db.users.find(u=>u.id===p.clientId);
+                  const done2 = p.timeline.filter(s=>s.status==='done').length;
+                  const pct = p.timeline.length>0?Math.round(done2/p.timeline.length*100):0;
+                  return `<div class="kanban-card glass-card" draggable="true" data-pid="${p.id}" style="padding:12px;margin-bottom:8px;cursor:grab;user-select:none;">
+                    <div style="font-size:.85rem;font-weight:600;margin-bottom:4px;">${esc(p.name)}</div>
+                    ${client?`<div style="font-size:.72rem;color:var(--ink-4);margin-bottom:6px;">👤 ${esc(client.username)}</div>`:''}
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--coral);border-radius:2px;"></div></div>
+                    <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">${pct}% complété</div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>`).join('')}
+        </div>`;
+      })() : `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
         <div class="glass-card" style="padding:20px;">
           <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:#9bb8d8;">Projets en cours</h2>
@@ -1741,7 +1950,7 @@
             ? `<div class="empty-state" style="padding:20px;">Aucun projet terminé</div>`
             : done.map(u=>{ const p=getUserProject(u.id); return renderClientRow(u,p); }).join('')}
         </div>
-      </div>
+      </div>`}
 
       <div class="glass-card" style="padding:20px;margin-bottom:24px;">
         <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:#9bb8d8;">Échéances — 30 prochains jours</h2>
@@ -1780,6 +1989,44 @@
               </div>`;
             }).join('')}
       </div>
+
+      ${(()=>{
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay();
+        const monthName = now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+        const projectsByDay = {};
+        db.projects.filter(p=>!p.archived&&p.dueDate).forEach(p=>{
+          const d = new Date(p.dueDate);
+          if(d.getFullYear()===year && d.getMonth()===month){
+            const day = d.getDate();
+            if(!projectsByDay[day]) projectsByDay[day]=[];
+            projectsByDay[day].push(p);
+          }
+        });
+        const hasDates = Object.keys(projectsByDay).length>0;
+        if(!hasDates) return '';
+        const startOffset = (firstDay+6)%7;
+        let cells = '';
+        for(let i=0;i<startOffset;i++) cells+=`<div></div>`;
+        for(let d=1;d<=daysInMonth;d++){
+          const isToday = d===now.getDate();
+          const projs = projectsByDay[d]||[];
+          cells+=`<div style="min-height:44px;padding:4px;border-radius:8px;background:${isToday?'rgba(217,119,87,.12)':projs.length?'rgba(155,184,216,.07)':'transparent'};border:1px solid ${isToday?'rgba(217,119,87,.3)':projs.length?'rgba(155,184,216,.2)':'transparent'};">
+            <div style="font-size:.72rem;font-weight:${isToday?'700':'400'};color:${isToday?'var(--coral)':'var(--ink-3)'};">${d}</div>
+            ${projs.map(p=>`<div style="font-size:.62rem;background:rgba(217,119,87,.2);color:var(--coral-soft);padding:1px 4px;border-radius:3px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.name)}">${esc(p.name)}</div>`).join('')}
+          </div>`;
+        }
+        return `<div class="glass-card" style="padding:20px;margin-bottom:24px;">
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:var(--plum);">📅 Calendrier — ${monthName}</h2>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
+            ${['L','M','M','J','V','S','D'].map(d=>`<div style="font-size:.7rem;color:var(--ink-4);text-align:center;font-weight:600;">${d}</div>`).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">${cells}</div>
+        </div>`;
+      })()}
 
       ${archivedProjects.length>0?`
       <div class="glass-card" style="padding:20px;margin-top:20px;">
@@ -1833,6 +2080,32 @@
   }
 
   function wireAdminHome(){
+    const btnViewToggle = document.getElementById('btn-view-toggle');
+    if(btnViewToggle) btnViewToggle.addEventListener('click',()=>{
+      window._adminView = window._adminView==='kanban' ? 'list' : 'kanban';
+      refreshAdminTab();
+    });
+    // Kanban drag & drop
+    document.querySelectorAll('.kanban-card').forEach(card=>{
+      card.addEventListener('dragstart',e=>{ e.dataTransfer.setData('pid',card.dataset.pid); card.style.opacity='.4'; });
+      card.addEventListener('dragend',()=>{ card.style.opacity=''; });
+    });
+    document.querySelectorAll('.kanban-col').forEach(col=>{
+      col.addEventListener('dragover',e=>{ e.preventDefault(); col.style.background='rgba(255,255,255,.05)'; });
+      col.addEventListener('dragleave',()=>{ col.style.background=''; });
+      col.addEventListener('drop',e=>{
+        e.preventDefault(); col.style.background='';
+        const pid = e.dataTransfer.getData('pid');
+        const p = db.projects.find(x=>x.id===pid);
+        if(!p) return;
+        const newStatus = col.dataset.status;
+        p.status = newStatus;
+        if(newStatus==='done') launchConfetti();
+        logActivity('project_status','Projet "'+p.name+'" → '+newStatus);
+        saveDB(); toast('Statut mis à jour.','success'); refreshAdminTab();
+      });
+    });
+
     const btnNew = document.getElementById('btn-new-project');
     if(btnNew) btnNew.addEventListener('click',openCreateProjectModal);
 
@@ -1860,7 +2133,7 @@
   }
 
   function openCreateProjectModal(){
-    const clients = db.users.filter(u=>u.role==='client');
+    const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
     const defaultSteps = ['Prise de contact','Cahier des charges','Maquette validée','Développement','Tests & Recette','Mise en ligne'];
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
@@ -1869,56 +2142,73 @@
       </div>
       <div style="margin-bottom:14px;"><label class="label">Nom du projet *</label><input id="np-name" class="glass-input" placeholder="Ex : Site Vitrine Dupont" /></div>
       <div style="margin-bottom:14px;">
-        <label class="label">Client associé</label>
+        <label class="label">Utilisateur associé</label>
         <select id="np-client" class="glass-input">
           <option value="">— Aucun pour l'instant —</option>
-          ${clients.map(c=>`<option value="${c.id}">${esc(c.username)}</option>`).join('')}
+          ${clients.map(c=>`<option value="${c.id}">${esc(c.username)} (${c.role==='controller'?'Contrôleur':'Client'})</option>`).join('')}
         </select>
       </div>
-      <div style="margin-bottom:14px;"><label class="label">Description (optionnel)</label><textarea id="np-desc" class="glass-input" placeholder="Décrivez brièvement le projet…"></textarea></div>
-      <div style="margin-bottom:14px;"><label class="label">URL du site (optionnel)</label><input id="np-url" class="glass-input" placeholder="https://..." /></div>
-      <div style="margin-bottom:14px;"><label class="label">Date de livraison (optionnel)</label><input id="np-due" class="glass-input" type="date" /></div>
-      <div style="margin-bottom:14px;">
-        <label class="label">Priorité</label>
-        <select id="np-priority" class="glass-input">
-          <option value="urgent">🔴 Urgent</option>
-          <option value="normal" selected>🔵 Normal</option>
-          <option value="low">⚪ Basse priorité</option>
-        </select>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label class="label">Tags (séparés par des virgules)</label>
-        <input id="np-tags" class="glass-input" placeholder="Ex : urgent, VIP, e-commerce" />
-      </div>
-      <div style="margin-bottom:14px;">
-        <label class="label">Couleur du projet</label>
-        <div id="np-colors" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-          ${['#d97757','#93b594','#9bb8d8','#c4a3d4','#f0c080','#e07080','#70b8b8','#b0b0b0'].map(c=>`
-            <div class="color-dot" data-color="${c}" style="background:${c};" title="${c}"></div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div>
+          <label class="label">Priorité</label>
+          <select id="np-priority" class="glass-input">
+            <option value="urgent">🔴 Urgent</option>
+            <option value="normal" selected>🔵 Normal</option>
+            <option value="low">⚪ Basse</option>
+          </select>
         </div>
-        <input type="hidden" id="np-color" value="" />
+        <div>
+          <label class="label">Date de livraison</label>
+          <input id="np-due" class="glass-input" type="date" />
+        </div>
       </div>
-      <div style="margin-bottom:14px;">
-        <label class="label">Modèle de timeline</label>
-        <select id="np-template" class="glass-input">
-          <option value="">— Personnalisé (par défaut) —</option>
-          <option value="vitrine">🌐 Site vitrine</option>
-          <option value="app">📱 Application mobile</option>
-          <option value="branding">🎨 Identité visuelle</option>
-          <option value="empty">📄 Vide (aucune étape)</option>
-        </select>
+      <button id="np-toggle-adv" class="btn btn-ghost btn-sm" style="margin-bottom:14px;width:100%;justify-content:center;">⚙️ Options avancées</button>
+      <div id="np-advanced" style="display:none;">
+        <div style="margin-bottom:14px;"><label class="label">Description</label><textarea id="np-desc" class="glass-input" placeholder="Décrivez brièvement le projet…"></textarea></div>
+        <div style="margin-bottom:14px;"><label class="label">URL du site</label><input id="np-url" class="glass-input" placeholder="https://..." /></div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Tags (séparés par des virgules)</label>
+          <input id="np-tags" class="glass-input" placeholder="Ex : urgent, VIP, e-commerce" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Couleur du projet</label>
+          <div id="np-colors" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+            ${['#d97757','#93b594','#9bb8d8','#c4a3d4','#f0c080','#e07080','#70b8b8','#b0b0b0'].map(c=>`
+              <div class="color-dot" data-color="${c}" style="background:${c};" title="${c}"></div>`).join('')}
+          </div>
+          <input type="hidden" id="np-color" value="" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="label">Modèle de timeline</label>
+          <select id="np-template" class="glass-input">
+            <option value="">— Personnalisé (par défaut) —</option>
+            <option value="vitrine">🌐 Site vitrine</option>
+            <option value="app">📱 Application mobile</option>
+            <option value="branding">🎨 Identité visuelle</option>
+            <option value="empty">📄 Vide (aucune étape)</option>
+          </select>
+        </div>
+        <div style="margin-bottom:8px;"><label class="label">Étapes de la timeline</label></div>
+        <div id="np-steps">
+          ${defaultSteps.map(s=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><input class="glass-input np-step-label" value="${s}" style="flex:1;" /><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">🗑</button></div>`).join('')}
+        </div>
+        <button id="np-add-step" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Étape</button>
       </div>
-      <div style="margin-bottom:8px;"><label class="label">Étapes de la timeline</label></div>
-      <div id="np-steps">
-        ${defaultSteps.map(s=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><input class="glass-input np-step-label" value="${s}" style="flex:1;" /><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">🗑</button></div>`).join('')}
-      </div>
-      <button id="np-add-step" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Étape</button>
       <div id="np-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
         <button id="np-save" class="btn btn-primary" style="flex:1;justify-content:center;">Créer</button>
       </div>`,
     ()=>{
+      // Toggle advanced section
+      const advBtn = document.getElementById('np-toggle-adv');
+      const advSection = document.getElementById('np-advanced');
+      if(advBtn && advSection) advBtn.addEventListener('click',()=>{
+        const open = advSection.style.display==='block';
+        advSection.style.display = open ? 'none' : 'block';
+        advBtn.textContent = open ? '⚙️ Options avancées' : '🔼 Masquer les options';
+      });
+
       // F10 — Template selector
       const tplSelect = document.getElementById('np-template');
       const NP_TEMPLATES = {
@@ -2084,22 +2374,41 @@
 
   // ─── Tab: Admin Documents & Timeline ────────────
   function renderAdminDocuments(){
-    const clients = db.users.filter(u=>u.role==='client');
+    const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
     const isAdmin = me.role==='admin';
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Suivi & Documents</h1>
       <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:16px;">
         ${isAdmin?'Gérez les frises et envoyez des documents aux clients.':'Consultez les frises et documents (lecture seule).'}
       </p>
-      <input id="doc-search" class="glass-input" placeholder="🔍 Chercher un client ou projet…" style="max-width:360px;margin-bottom:18px;" />
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">
+        <input id="doc-search" class="glass-input" placeholder="🔍 Chercher un client ou projet…" style="max-width:300px;" />
+        <select id="doc-filter-status" class="glass-input" style="width:150px;">
+          <option value="">Tous les statuts</option>
+          <option value="pending">En attente</option>
+          <option value="filled">Remplis</option>
+          <option value="reviewed">Validés</option>
+          <option value="nodoc">Sans document</option>
+        </select>
+        <select id="doc-filter-prio" class="glass-input" style="width:140px;">
+          <option value="">Toutes priorités</option>
+          <option value="urgent">🔴 Urgent</option>
+          <option value="normal">🔵 Normal</option>
+          <option value="low">⚪ Basse</option>
+        </select>
+      </div>
       ${clients.length===0
         ? `<div class="glass-card" style="padding:40px;text-align:center;color:rgba(244,238,229,.4);">Aucun client enregistré.</div>`
-        : clients.map(u=>`<div class="client-doc-panel-wrap" data-uid="${u.id}">${renderClientDocPanel(u,isAdmin)}</div>`).join('')}
+        : clients.map(u=>{
+            const projs = getUserProjects(u.id);
+            if(projs.length===0) return `<div class="client-doc-panel-wrap" data-uid="${u.id}">${renderClientDocPanel(u,isAdmin,null)}</div>`;
+            return projs.map((proj,idx)=>`<div class="client-doc-panel-wrap" data-uid="${u.id}">${renderClientDocPanel(u,isAdmin,proj,idx===0)}</div>`).join('');
+          }).join('')}
     </div>`;
   }
 
-  function renderClientDocPanel(u, canEdit){
-    const project = getUserProject(u.id);
+  function renderClientDocPanel(u, canEdit, project, showUserHeader=true){
+    if(project===undefined) project = getUserProject(u.id);
     const docs = project ? getProjectDocs(project.id) : [];
     const colorStyle = project&&project.color ? `border-left:3px solid ${project.color};padding-left:14px;` : '';
     return `<div class="glass-card" style="padding:20px;margin-bottom:16px;${colorStyle}">
@@ -2112,13 +2421,20 @@
           ${project&&project.tags&&project.tags.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${project.tags.map(tag=>`<span style="font-size:.68rem;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);">${esc(tag)}</span>`).join('')}</div>`:''}
         </div>
         ${canEdit&&project?`
-          <button class="btn btn-ghost btn-sm btn-pin-project" data-pid="${project.id}" title="${project.pinned?'Désépingler':'Épingler'}">${project.pinned?'📌':'📍'}</button>
           <button class="btn btn-ghost btn-sm btn-edit-timeline" data-pid="${project.id}" data-uid="${u.id}">⏱ Timeline</button>
-          <button class="btn btn-primary btn-sm btn-send-doc" data-uid="${u.id}" data-pid="${project?project.id:''}">+ Document</button>
-          <button class="btn btn-ghost btn-sm btn-report" data-uid="${u.id}">📄 Rapport</button>
-          <button class="btn btn-ghost btn-sm btn-dup-project" data-pid="${project.id}">📋 Dupliquer</button>
-          <button class="btn btn-ghost btn-sm btn-archive-project" data-pid="${project.id}">🗄️ Archiver</button>
-          <button class="btn btn-danger btn-sm btn-del-project" data-pid="${project.id}">🗑</button>
+          <button class="btn btn-primary btn-sm btn-send-doc" data-uid="${u.id}" data-pid="${project.id}">+ Document</button>
+          <div class="kebab-wrap">
+            <button class="btn btn-ghost btn-sm kebab-btn" data-pid="${project.id}" title="Plus d'actions">⋮</button>
+            <div class="kebab-menu" id="kebab-${project.id}">
+              <button class="kebab-item btn-pin-project" data-pid="${project.id}">${project.pinned?'📌 Désépingler':'📍 Épingler'}</button>
+              <button class="kebab-item btn-report" data-uid="${u.id}">📄 Rapport PDF</button>
+              <button class="kebab-item btn-dup-project" data-pid="${project.id}">📋 Dupliquer</button>
+              <button class="kebab-item btn-deliver-files" data-pid="${project.id}">${project.deliverable?'📦 Remplacer la livraison':'📦 Livrer les fichiers'}</button>
+              <div class="kebab-divider"></div>
+              <button class="kebab-item btn-archive-project" data-pid="${project.id}">🗄️ Archiver</button>
+              <button class="kebab-item kebab-danger btn-del-project" data-pid="${project.id}">🗑 Supprimer</button>
+            </div>
+          </div>
         `:''}
       </div>
       ${project?`
@@ -2182,16 +2498,34 @@
           ${doc.adminComment&&doc.status==='reviewed'?`<div style="font-size:.75rem;color:var(--sky);font-style:italic;margin-top:4px;">💬 "${esc(doc.adminComment)}"</div>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.3);padding:1px 7px;border-radius:8px;background:rgba(240,169,136,.08);">⚠️ ${daysPending}j sans réponse</span>`:''}
+          ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.4);padding:2px 8px;border-radius:8px;background:rgba(240,169,136,.12);font-weight:600;">⚠️ Relance — ${daysPending}j</span>`:''}
+          ${doc.status==='pending'&&daysPending>=14?`<span style="font-size:.68rem;color:#f08a8a;border:1px solid rgba(220,80,80,.3);padding:2px 8px;border-radius:8px;background:rgba(220,80,80,.1);font-weight:600;">🚨 ${daysPending}j sans réponse</span>`:''}
           <span style="font-size:.75rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
           ${canEdit?`<button class="btn btn-ghost btn-sm btn-view-doc" data-did="${doc.id}">👁 Voir</button>`:''}
-          ${canEdit&&doc.status==='pending'?`<button class="btn btn-danger btn-sm btn-del-doc" data-did="${doc.id}" title="Supprimer">🗑</button>`:''}
+          ${canEdit?`<button class="btn btn-danger btn-sm btn-del-doc" data-did="${doc.id}" title="Supprimer">🗑</button>`:''}
         </div>
       </div>
     </div>`;
   }
 
   function wireAdminDocuments(){
+    // Kebab menu toggle
+    document.querySelectorAll('.kebab-btn').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const pid = btn.dataset.pid;
+        const menu = document.getElementById('kebab-'+pid);
+        if(!menu) return;
+        const isOpen = menu.classList.contains('open');
+        document.querySelectorAll('.kebab-menu.open').forEach(m=>m.classList.remove('open'));
+        if(!isOpen) menu.classList.add('open');
+      });
+    });
+    if(!window._kebabCloseWired){
+      window._kebabCloseWired = true;
+      document.addEventListener('click',()=>document.querySelectorAll('.kebab-menu.open').forEach(m=>m.classList.remove('open')));
+    }
+
     document.querySelectorAll('.btn-pin-project').forEach(b=>{
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
@@ -2271,20 +2605,33 @@
         saveDB(); toast('Projet archivé.','info'); refreshAdminTab();
       });
     });
-    const docSearch = document.getElementById('doc-search');
-    if(docSearch){
-      docSearch.addEventListener('input',()=>{
-        const q = docSearch.value.toLowerCase();
-        document.querySelectorAll('.client-doc-panel-wrap').forEach(wrap=>{
-          const uid = wrap.dataset.uid;
-          const u = db.users.find(x=>x.id===uid);
-          if(!u){ wrap.style.display='none'; return; }
-          const project = getUserProject(u.id);
-          const hay = `${u.username} ${u.firstName||''} ${u.lastName||''} ${project?project.name:''}`.toLowerCase();
-          wrap.style.display = hay.includes(q) ? '' : 'none';
-        });
+    document.querySelectorAll('.btn-deliver-files').forEach(b=>{
+      b.addEventListener('click',()=>openDeliverFilesModal(b.dataset.pid));
+    });
+    function applyDocFilters(){
+      const q = (document.getElementById('doc-search')?.value||'').toLowerCase();
+      const statusF = document.getElementById('doc-filter-status')?.value||'';
+      const prioF   = document.getElementById('doc-filter-prio')?.value||'';
+      document.querySelectorAll('.client-doc-panel-wrap').forEach(wrap=>{
+        const uid = wrap.dataset.uid;
+        const u = db.users.find(x=>x.id===uid);
+        if(!u){ wrap.style.display='none'; return; }
+        const project = getUserProject(u.id);
+        const hay = `${u.username} ${u.firstName||''} ${u.lastName||''} ${project?project.name:''}`.toLowerCase();
+        const matchQ = !q || hay.includes(q);
+        let matchStatus = true;
+        if(statusF && project){
+          const docs = getProjectDocs(project.id);
+          if(statusF==='nodoc') matchStatus = docs.length===0;
+          else matchStatus = docs.some(d=>d.status===statusF);
+        } else if(statusF) { matchStatus = false; }
+        let matchPrio = !prioF || (project&&(project.priority||'normal')===prioF);
+        wrap.style.display = (matchQ&&matchStatus&&matchPrio) ? '' : 'none';
       });
     }
+    document.getElementById('doc-search')?.addEventListener('input', applyDocFilters);
+    document.getElementById('doc-filter-status')?.addEventListener('change', applyDocFilters);
+    document.getElementById('doc-filter-prio')?.addEventListener('change', applyDocFilters);
   }
 
   // ─── Tab: Admin Profile ─────────────────────────
@@ -2458,7 +2805,8 @@
 
   // ─── Client: Home ───────────────────────────────
   function renderClientHome(){
-    const project = getUserProject(me.id);
+    const projects = getUserProjects(me.id);
+    const project = projects[0]||null;
 
     // F7 — Countdown
     const ctrDue = project && project.dueDate && project.status!=='done' ? (()=>{
@@ -2479,7 +2827,7 @@
       <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:28px;">Voici l'avancement de votre projet.</p>
       ${welcomeBanner}
       ${ctrDue}
-      ${project ? renderProjectCard(project) : renderNoProject()}
+      ${projects.length===0 ? renderNoProject() : projects.length===1 ? renderProjectCard(projects[0]) : `<div>${projects.map(p=>`<div style="margin-bottom:16px;"><div style="font-size:.78rem;color:var(--ink-4);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Projet ${projects.indexOf(p)+1} / ${projects.length}</div>${renderProjectCard(p)}</div>`).join('')}</div>`}
       ${project&&project.faq&&project.faq.length>0?`
       <div class="glass-card" style="padding:20px;margin-top:16px;">
         <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">❓ Questions fréquentes</h2>
@@ -2517,6 +2865,15 @@
         </div>
         ${dueLine}
         ${dueLine?'<div style="margin-bottom:20px;"></div>':''}
+        ${p.deliverable?`
+        <div style="background:rgba(147,181,148,.10);border:1px solid rgba(147,181,148,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <span style="font-size:1.6rem;">📦</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrés — ${esc(p.deliverable.name)}</div>
+            <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">Livré le ${new Date(p.deliverable.deliveredAt).toLocaleDateString('fr-FR')} · ${(p.deliverable.size/1024/1024).toFixed(2)} Mo</div>
+          </div>
+          <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${p.id}">⬇️ Télécharger</button>
+        </div>`:''}
         ${renderFullTimeline(p.timeline)}
       </div>`;
   }
@@ -2551,7 +2908,11 @@
     </div>`;
   }
 
-  function wireClientHome(){}
+  function wireClientHome(){
+    document.querySelectorAll('.btn-download-delivery').forEach(btn=>{
+      btn.addEventListener('click',()=>downloadDelivery(btn.dataset.pid));
+    });
+  }
 
   // ─── Client: Documents ──────────────────────────
   function renderClientDocuments(){
@@ -2832,6 +3193,103 @@
   }
 
   // ── Confirm Delete Project ─────────────────────
+  // ── Deliver Files Modal ───────────────────────
+  function openDeliverFilesModal(projectId){
+    const p = db.projects.find(x=>x.id===projectId);
+    if(!p) return;
+    const existing = p.deliverable;
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">📦 Livrer les fichiers</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:18px;">Projet : <strong>${esc(p.name)}</strong></p>
+      ${existing?`<div style="background:rgba(147,181,148,.1);border:1px solid rgba(147,181,148,.25);border-radius:12px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+        <span>📦</span>
+        <div style="flex:1;font-size:.85rem;color:#b6d1b7;">${esc(existing.name)} <span style="color:var(--ink-4);font-size:.75rem;">(${(existing.size/1024/1024).toFixed(2)} Mo — livré le ${new Date(existing.deliveredAt).toLocaleDateString('fr-FR')})</span></div>
+        <button id="btn-remove-delivery" class="btn btn-danger btn-sm">✕ Retirer</button>
+      </div>`:''}
+      <div style="border:2px dashed var(--glass-edge-hi);border-radius:14px;padding:28px;text-align:center;margin-bottom:16px;transition:border-color .2s;" id="drop-zone">
+        <div style="font-size:2rem;margin-bottom:8px;">📂</div>
+        <div style="font-size:.875rem;color:var(--ink-2);margin-bottom:10px;">Glisser un fichier ici ou</div>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer;">Parcourir<input type="file" id="deliver-file-input" style="display:none;" /></label>
+        <div id="deliver-file-info" style="margin-top:12px;font-size:.82rem;color:var(--ink-3);"></div>
+      </div>
+      <div id="deliver-progress" style="display:none;margin-bottom:14px;">
+        <div style="height:6px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;">
+          <div id="deliver-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--coral),var(--sage));border-radius:4px;transition:width .3s;"></div>
+        </div>
+        <div id="deliver-progress-txt" style="font-size:.75rem;color:var(--ink-4);margin-top:6px;text-align:center;">Lecture en cours…</div>
+      </div>
+      <div id="deliver-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="deliver-save" class="btn btn-primary" style="flex:1;justify-content:center;" disabled>📤 Enregistrer la livraison</button>
+      </div>`,
+    ()=>{
+      let fileData = null;
+      const MAX_SIZE = 9 * 1024 * 1024; // 9MB base64 limit (~6.5MB file)
+      const input = document.getElementById('deliver-file-input');
+      const info  = document.getElementById('deliver-file-info');
+      const saveBtn = document.getElementById('deliver-save');
+      const msg   = document.getElementById('deliver-msg');
+
+      function handleFile(file){
+        if(!file) return;
+        if(file.size > MAX_SIZE){
+          showMsg(msg, `Fichier trop volumineux (${(file.size/1024/1024).toFixed(1)} Mo). Limite : 6,5 Mo.`, 'error');
+          return;
+        }
+        info.innerHTML = `<span style="color:var(--sage);">✓</span> ${esc(file.name)} — ${(file.size/1024/1024).toFixed(2)} Mo`;
+        document.getElementById('deliver-progress').style.display = 'block';
+        const reader = new FileReader();
+        reader.onprogress = e=>{ if(e.lengthComputable){ const pct=Math.round(e.loaded/e.total*100); document.getElementById('deliver-progress-bar').style.width=pct+'%'; document.getElementById('deliver-progress-txt').textContent=pct+'% lu…'; } };
+        reader.onload = e=>{
+          fileData = {name:file.name, size:file.size, type:file.type, data:e.target.result, deliveredAt:new Date().toISOString(), deliveredBy:me.username};
+          document.getElementById('deliver-progress-bar').style.width='100%';
+          document.getElementById('deliver-progress-txt').textContent='Prêt à enregistrer';
+          saveBtn.disabled = false;
+        };
+        reader.onerror = ()=>showMsg(msg,'Erreur de lecture du fichier.','error');
+        reader.readAsDataURL(file);
+      }
+
+      input.addEventListener('change',()=>handleFile(input.files[0]));
+
+      const dropZone = document.getElementById('drop-zone');
+      dropZone.addEventListener('dragover',e=>{ e.preventDefault(); dropZone.style.borderColor='var(--coral)'; });
+      dropZone.addEventListener('dragleave',()=>{ dropZone.style.borderColor=''; });
+      dropZone.addEventListener('drop',e=>{ e.preventDefault(); dropZone.style.borderColor=''; handleFile(e.dataTransfer.files[0]); });
+
+      document.getElementById('btn-remove-delivery')?.addEventListener('click',()=>{
+        if(!confirm('Retirer la livraison existante ?')) return;
+        p.deliverable = null;
+        logActivity('delivery_removed','Livraison retirée : '+p.name);
+        saveDB(); toast('Livraison retirée.','info'); closeModal(); refreshAdminTab();
+      });
+
+      saveBtn.addEventListener('click',()=>{
+        if(!fileData){ showMsg(msg,'Sélectionnez un fichier.','error'); return; }
+        saveBtn.disabled=true; saveBtn.textContent='Enregistrement…';
+        p.deliverable = fileData;
+        logActivity('delivery_uploaded','Fichiers livrés pour : '+p.name+' ('+fileData.name+')');
+        saveDB();
+        toast('Fichiers livrés à '+p.name+' !','success');
+        closeModal(); refreshAdminTab();
+      });
+    });
+  }
+
+  function downloadDelivery(projectId){
+    const p = db.projects.find(x=>x.id===projectId);
+    if(!p||!p.deliverable) return;
+    const a = document.createElement('a');
+    a.href = p.deliverable.data;
+    a.download = p.deliverable.name;
+    a.click();
+    toast('Téléchargement démarré…','success');
+  }
+
   function confirmDeleteProject(projectId){
     const p=db.projects.find(x=>x.id===projectId);
     if(!p) return;
@@ -2868,8 +3326,9 @@
       </div>
       <div id="tl-steps">
         ${p.timeline.map((s,i)=>`
-          <div style="margin-bottom:8px;padding:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;" data-sid="${s.id}">
-            <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;margin-bottom:6px;">
+          <div style="margin-bottom:8px;padding:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;cursor:grab;" draggable="true" data-sid="${s.id}">
+            <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;margin-bottom:6px;">
+              <span style="color:var(--ink-4);font-size:.85rem;cursor:grab;" title="Glisser pour réordonner">⠿</span>
               <input class="glass-input tl-label-input" value="${esc(s.label)}" placeholder="Étape" data-sid="${s.id}" />
               <input type="date" class="glass-input tl-date-input" style="width:130px;" data-sid="${s.id}" value="${s.dueDate||''}" />
               <select class="glass-input tl-status-select" style="width:120px;" data-sid="${s.id}">
@@ -2937,8 +3396,19 @@
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="tl-save" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
-      </div>`,
+        <button id="tl-save" class="btn btn-primary" style="flex:1;justify-content:center;">💾 Enregistrer</button>
+      </div>
+      ${(()=>{
+        const projLogs = (db.activityLog||[]).filter(e=>e.projectId===projectId||e.description&&e.description.includes(p.name)).slice(0,8);
+        if(!projLogs.length) return '';
+        return `<div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.07);padding-top:16px;">
+          <div style="font-size:.78rem;font-weight:600;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Historique du projet</div>
+          ${projLogs.map(e=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+            <span style="font-size:.8rem;color:var(--ink-3);flex:1;">${esc(e.description)}</span>
+            <span style="font-size:.7rem;color:var(--ink-4);white-space:nowrap;">${e.at?new Date(e.at).toLocaleDateString('fr-FR'):'—'}</span>
+          </div>`).join('')}
+        </div>`;
+      })()}`,
     ()=>{
       document.getElementById('tl-add').addEventListener('click',()=>{
         const container=document.getElementById('tl-steps');
@@ -2960,6 +3430,23 @@
           <input class="glass-input tl-note-input" placeholder="Note sur cette étape (optionnel)…" value="" data-sid="${newId}" style="font-size:.8rem;" />`;
         container.appendChild(div);
         div.querySelector('.tl-del').addEventListener('click',()=>div.remove());
+      });
+
+      // Drag & drop reorder steps
+      const tlSteps = document.getElementById('tl-steps');
+      let dragSrc = null;
+      tlSteps.querySelectorAll('[data-sid]').forEach(row=>{
+        row.addEventListener('dragstart',e=>{ dragSrc=row; row.style.opacity='.4'; e.dataTransfer.effectAllowed='move'; });
+        row.addEventListener('dragend',()=>{ row.style.opacity=''; dragSrc=null; });
+        row.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+        row.addEventListener('drop',e=>{
+          e.preventDefault();
+          if(dragSrc&&dragSrc!==row){
+            const rows=Array.from(tlSteps.querySelectorAll('[data-sid]'));
+            const srcIdx=rows.indexOf(dragSrc), tgtIdx=rows.indexOf(row);
+            if(srcIdx<tgtIdx) row.after(dragSrc); else row.before(dragSrc);
+          }
+        });
       });
 
       document.querySelectorAll('.tl-del').forEach(b=>{
@@ -3030,6 +3517,7 @@
         <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Nom du document</label><input id="sd-name" class="glass-input" placeholder="Ex : Questionnaire Brief Client" /></div>
+      ${(db.docTemplates||[]).length>0?`<div style="margin-bottom:14px;"><label class="label">Charger un modèle</label><div style="display:flex;gap:8px;"><select id="sd-tpl" class="glass-input" style="flex:1;"><option value="">— Choisir un modèle —</option>${(db.docTemplates||[]).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button id="sd-load-tpl" class="btn btn-ghost btn-sm">Charger</button></div></div>`:''}
       <div id="sd-fields">
         <div class="label" style="margin-bottom:8px;">Champs du formulaire</div>
         <div id="sd-fields-list">
@@ -3045,11 +3533,42 @@
         <button id="sd-add-field" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Champ</button>
       </div>
       <div id="sd-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;">📤 Envoyer</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;min-width:100px;">Annuler</button>
+        <button id="sd-save-tpl" class="btn btn-ghost btn-sm" style="flex-shrink:0;" title="Sauvegarder comme modèle">💾 Modèle</button>
+        <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;min-width:100px;">📤 Envoyer</button>
       </div>`,
     ()=>{
+      const tplLoadBtn = document.getElementById('sd-load-tpl');
+      if(tplLoadBtn) tplLoadBtn.addEventListener('click',()=>{
+        const tplId = document.getElementById('sd-tpl').value;
+        const tpl = (db.docTemplates||[]).find(t=>t.id===tplId);
+        if(!tpl) return;
+        document.getElementById('sd-name').value = tpl.name;
+        const list = document.getElementById('sd-fields-list');
+        list.innerHTML = tpl.fields.map(f=>`<div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input class="glass-input sd-field-label" placeholder="Question ou champ" style="flex:1;" value="${esc(f.label)}" />
+          <select class="glass-input sd-field-type" style="width:110px;"><option value="text"${f.type==='text'?' selected':''}>Texte</option><option value="textarea"${f.type==='textarea'?' selected':''}>Paragraphe</option></select>
+          <input type="checkbox" class="sd-field-req" title="Champ requis" style="width:16px;height:16px;accent-color:var(--coral);cursor:pointer;"${f.required?' checked':''} />
+          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+        toast('Modèle chargé.','success');
+      });
+
+      document.getElementById('sd-save-tpl').addEventListener('click',()=>{
+        const name = document.getElementById('sd-name').value.trim();
+        if(!name){ toast('Donnez un nom au document d\'abord.','error'); return; }
+        const fields = [];
+        document.querySelectorAll('#sd-fields-list > div').forEach(row=>{
+          const label = row.querySelector('.sd-field-label')?.value.trim();
+          const type  = row.querySelector('.sd-field-type')?.value||'text';
+          const req   = row.querySelector('.sd-field-req')?.checked||false;
+          if(label) fields.push({label,type,required:req});
+        });
+        if(!db.docTemplates) db.docTemplates=[];
+        db.docTemplates.push({id:uid(),name,fields});
+        saveDB(); toast('Modèle "'+name+'" sauvegardé !','success');
+      });
+
       document.getElementById('sd-add-field').addEventListener('click',()=>{
         const list=document.getElementById('sd-fields-list');
         const row=document.createElement('div');
@@ -3217,6 +3736,190 @@
     });
   }
 
+  // ─── Tab: Admin Requests ────────────────────────
+  function renderAdminRequests(){
+    const pending = db.pendingUsers||[];
+    const blocked = db.blockedAccounts||[];
+    return `<div class="fade-up">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Demandes d'inscription</h1>
+      <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:24px;">Acceptez, refusez ou bloquez les demandes de création de compte.</p>
+
+      ${pending.length===0
+        ? `<div class="glass-card" style="padding:48px;text-align:center;">
+            <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
+            <div style="color:var(--ink-3);font-size:.9rem;">Aucune demande en attente.</div>
+           </div>`
+        : `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:32px;">
+            ${pending.map(u=>`
+              <div class="glass-card" style="padding:18px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--plum));display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;flex-shrink:0;">${esc((u.firstName||u.username||'?')[0].toUpperCase())}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:600;font-size:.95rem;">${esc(u.firstName||'')} ${esc(u.lastName||'')} <span style="color:var(--ink-3);font-weight:400;">@${esc(u.username)}</span></div>
+                  ${u.email?`<div style="font-size:.78rem;color:var(--ink-4);">✉️ ${esc(u.email)}</div>`:''}
+                  <div style="font-size:.72rem;color:var(--ink-4);margin-top:2px;">Demandé le ${u.requestedAt?new Date(u.requestedAt).toLocaleString('fr-FR'):'—'}</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <select class="glass-input req-role-select" data-uid="${u.id}" style="width:130px;padding:7px 10px;font-size:.8rem;">
+                    <option value="client">Client</option>
+                    <option value="controller">Contrôleur</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button class="btn btn-success btn-sm btn-approve-req" data-uid="${u.id}" title="Approuver">✅ Approuver</button>
+                  <button class="btn btn-ghost btn-sm btn-reject-req" data-uid="${u.id}" title="Refuser">❌ Refuser</button>
+                  <button class="btn btn-danger btn-sm btn-block-req" data-uid="${u.id}" title="Bloquer">🚫 Bloquer</button>
+                </div>
+              </div>`).join('')}
+           </div>`}
+
+      ${blocked.length>0?`
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:#f08a8a;">🚫 Comptes bloqués (${blocked.length})</h2>
+        ${blocked.map(b=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--glass-edge);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;font-weight:500;">@${esc(b.username)}</div>
+              ${b.email?`<div style="font-size:.75rem;color:var(--ink-4);">${esc(b.email)}</div>`:''}
+              <div style="font-size:.7rem;color:var(--ink-4);">Bloqué le ${b.blockedAt?new Date(b.blockedAt).toLocaleString('fr-FR'):'—'}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm btn-unblock-req" data-username="${esc(b.username)}" title="Débloquer">↩ Débloquer</button>
+          </div>`).join('')}
+      </div>`:''}
+    </div>`;
+  }
+
+  function wireAdminRequests(){
+    document.querySelectorAll('.btn-approve-req').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
+        if(!req) return;
+        const roleEl = document.querySelector(`.req-role-select[data-uid="${req.id}"]`);
+        const role = roleEl ? roleEl.value : 'client';
+        db.users.push({
+          id: req.id,
+          username: req.username,
+          firstName: req.firstName||'',
+          lastName: req.lastName||'',
+          email: req.email||'',
+          password: req.password,
+          photo: null,
+          role: role,
+          internalNote: ''
+        });
+        db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
+        logActivity('user_created','Compte approuvé : @'+req.username+' ('+role+')');
+        saveDB(); toast('Compte @'+req.username+' approuvé !','success'); refreshAdminTab();
+      });
+    });
+
+    document.querySelectorAll('.btn-reject-req').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
+        if(!req) return;
+        if(!confirm('Refuser la demande de @'+req.username+' ?')) return;
+        db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
+        logActivity('request_rejected','Demande refusée : @'+req.username);
+        saveDB(); toast('Demande refusée.','info'); refreshAdminTab();
+      });
+    });
+
+    document.querySelectorAll('.btn-block-req').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
+        if(!req) return;
+        if(!confirm('Bloquer @'+req.username+' ? Aucune future demande ne sera acceptée avec ce pseudo/email.')) return;
+        if(!db.blockedAccounts) db.blockedAccounts = [];
+        db.blockedAccounts.push({ username: req.username, email: req.email||'', blockedAt: new Date().toISOString(), blockedBy: me.username });
+        db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
+        logActivity('request_blocked','Compte bloqué : @'+req.username);
+        saveDB(); toast('Compte bloqué.','info'); refreshAdminTab();
+      });
+    });
+
+    document.querySelectorAll('.btn-unblock-req').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const uname = btn.dataset.username;
+        if(!confirm('Débloquer @'+uname+' ?')) return;
+        db.blockedAccounts = (db.blockedAccounts||[]).filter(b=>b.username!==uname);
+        logActivity('request_unblocked','Compte débloqué : @'+uname);
+        saveDB(); toast('Compte débloqué.','success'); refreshAdminTab();
+      });
+    });
+  }
+
+  // ─── Tab: Mon Projet (admin/controller with project) ───
+  function renderAdminMyProject(){
+    const project = getUserProject(me.id);
+    if(!project) return `<div class="fade-up"><div class="glass-card" style="padding:48px;text-align:center;"><div style="font-size:3rem;margin-bottom:12px;">📋</div><div style="color:var(--ink-3);">Aucun projet associé à votre compte.</div></div></div>`;
+
+    const done  = project.timeline.filter(s=>s.status==='done').length;
+    const total = project.timeline.length;
+    const pct   = total>0 ? Math.round(done/total*100) : 0;
+
+    const ctrDue = project.dueDate && project.status!=='done' ? (()=>{
+      const diff = Math.ceil((new Date(project.dueDate)-new Date())/(1000*60*60*24));
+      if(diff<0)   return `<div style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">⏰</span><div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">Livraison dépassée de ${Math.abs(diff)} jour(s)</div></div></div>`;
+      if(diff<=30) return `<div style="background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.2);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">🎯</span><div><div style="font-size:.9rem;font-weight:600;color:var(--sky);">Livraison dans ${diff} jour(s)</div><div style="font-size:.75rem;color:var(--ink-4);">${new Date(project.dueDate).toLocaleDateString('fr-FR')}</div></div></div>`;
+      return '';
+    })() : '';
+
+    const prioBadge = {urgent:`<span style="background:rgba(220,80,80,.15);border:1px solid rgba(220,80,80,.35);color:#f08a8a;padding:3px 10px;border-radius:999px;font-size:.72rem;">🔴 Urgent</span>`,normal:'',low:`<span style="background:var(--glass-bg);border:1px solid var(--glass-edge);color:var(--ink-4);padding:3px 10px;border-radius:999px;font-size:.72rem;">⚪ Basse</span>`}[project.priority||'normal']||'';
+
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">${esc(project.name)}</h1>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            ${prioBadge}
+            ${project.dueDate?`<span style="font-size:.78rem;color:var(--ink-4);">📅 ${new Date(project.dueDate).toLocaleDateString('fr-FR')}</span>`:''}
+            <span style="font-size:.78rem;color:var(--ink-4);">· ${pct}% complété</span>
+          </div>
+        </div>
+        ${project.websiteUrl?`<a href="${esc(project.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm">🔗 Voir le site</a>`:''}
+      </div>
+      ${project.description?`<p style="color:var(--ink-3);font-size:.875rem;margin-bottom:20px;">${esc(project.description)}</p>`:'<div style="margin-bottom:20px;"></div>'}
+
+      ${ctrDue}
+
+      ${project.welcomeMessage?`<div style="background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.18);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+        <div style="font-size:.78rem;font-weight:600;color:var(--sky);letter-spacing:.05em;margin-bottom:6px;">MESSAGE DE L'ÉQUIPE</div>
+        <div style="font-size:.9rem;color:var(--ink-2);line-height:1.5;">${esc(project.welcomeMessage)}</div>
+      </div>`:''}
+
+      <div class="glass-card" style="padding:24px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <h2 style="font-size:.95rem;font-weight:600;color:var(--coral-soft);">Progression</h2>
+          <span style="font-size:.85rem;font-weight:700;color:var(--coral);">${pct}%</span>
+        </div>
+        <div style="height:8px;background:rgba(255,255,255,.08);border-radius:6px;margin-bottom:24px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#d97757,#93b594);border-radius:6px;transition:width .5s;"></div>
+        </div>
+        ${renderFullTimeline(project.timeline)}
+      </div>
+
+      ${project.deliverable?`
+      <div style="background:rgba(147,181,148,.10);border:1px solid rgba(147,181,148,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:1.6rem;">📦</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrés — ${esc(project.deliverable.name)}</div>
+          <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">Livré le ${new Date(project.deliverable.deliveredAt).toLocaleDateString('fr-FR')} · ${(project.deliverable.size/1024/1024).toFixed(2)} Mo</div>
+        </div>
+        <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${project.id}">⬇️ Télécharger</button>
+      </div>`:''}
+
+      ${project.tags&&project.tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">${project.tags.map(t=>`<span style="font-size:.72rem;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);">${esc(t)}</span>`).join('')}</div>`:''}
+
+      ${project.faq&&project.faq.length>0?`
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">❓ Questions fréquentes</h2>
+        ${project.faq.map(f=>`
+          <div style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.07);">
+            <div style="font-size:.875rem;font-weight:600;color:var(--ink-2);margin-bottom:6px;">Q : ${esc(f.q)}</div>
+            <div style="font-size:.85rem;color:var(--ink-3);line-height:1.5;">↳ ${esc(f.a||'—')}</div>
+          </div>`).join('')}
+      </div>`:''}
+    </div>`;
+  }
+
   // ─── Tab: Admin History ─────────────────────────
   function renderAdminHistory(){
     const logs = db.activityLog || [];
@@ -3357,7 +4060,8 @@
     // Revenue by project
     const byProject = {};
     entries.forEach(e=>{
-      const key = e.projectId||e.label||'—';
+      const proj = db.projects.find(p=>p.id===e.projectId);
+      const key = proj ? proj.name : (e.label||'—');
       byProject[key] = (byProject[key]||0)+Number(e.amount||0);
     });
     const projectEntries = Object.entries(byProject).sort((a,b)=>b[1]-a[1]);
@@ -3390,6 +4094,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:12px;">
         <h1 style="font-size:1.4rem;font-weight:700;">Finance</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btn-export-finance-csv" class="btn btn-ghost btn-sm">📊 Exporter CSV</button>
           <button id="btn-gen-devis" class="btn btn-ghost">📄 Devis / Facture</button>
           <button id="btn-add-revenue" class="btn btn-primary">${iconPlus()} Ajouter entrée</button>
         </div>
@@ -3502,6 +4207,7 @@
                   <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Projet</th>
                   <th style="text-align:right;padding:8px 10px;color:var(--ink-3);font-weight:500;">Montant</th>
                   <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Date</th>
+                  <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Statut</th>
                   <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Note</th>
                   <th style="padding:8px 10px;"></th>
                 </tr>
@@ -3509,10 +4215,11 @@
               <tbody>
                 ${[...entries].reverse().map(e=>`
                   <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
-                    <td style="padding:9px 10px;color:var(--ink-2);">${esc(e.label||'—')}</td>
+                    <td style="padding:9px 10px;color:var(--ink-2);">${esc(db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—')}</td>
                     <td style="padding:9px 10px;text-align:right;font-weight:600;color:var(--sage);">${fmtAmt(Number(e.amount||0))}</td>
                     <td style="padding:9px 10px;color:var(--ink-3);">${esc(e.date||'—')}</td>
-                    <td style="padding:9px 10px;color:var(--ink-4);font-size:.8rem;">${esc(e.note||'')}</td>
+                    <td style="padding:9px 10px;"><span style="font-size:.72rem;padding:2px 8px;border-radius:999px;${e.paymentStatus==='paid'?'background:rgba(147,181,148,.18);color:#b6d1b7;border:1px solid rgba(147,181,148,.3);':e.paymentStatus==='partial'?'background:rgba(240,169,136,.18);color:var(--peach);border:1px solid rgba(240,169,136,.3);':'background:rgba(155,184,216,.12);color:var(--sky);border:1px solid rgba(155,184,216,.3);'}">${e.paymentStatus==='paid'?'✅ Payé':e.paymentStatus==='partial'?'🔶 Partiel':'⏳ Attente'}</span></td>
+                    <td style="padding:9px 10px;color:var(--ink-4);font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.note||e.label||'')}</td>
                     <td style="padding:9px 10px;text-align:right;">
                       <button class="btn btn-danger btn-sm btn-del-finance" data-fid="${e.id}">🗑</button>
                     </td>
@@ -3525,6 +4232,18 @@
   }
 
   function wireAdminFinance(){
+    document.getElementById('btn-export-finance-csv')?.addEventListener('click',()=>{
+      const rows = [['Projet','Montant','Date','Statut paiement','Note','Ajouté par']];
+      (db.finance||[]).forEach(e=>{
+        const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—';
+        rows.push([pname, e.amount||0, e.date||'', e.paymentStatus||'paid', e.note||e.label||'', e.addedBy||'']);
+      });
+      const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='flow_finance_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+      toast('CSV exporté !','success');
+    });
     const btnAdd = document.getElementById('btn-add-revenue');
     if(btnAdd) btnAdd.addEventListener('click',()=>openAddRevenueModal());
 
@@ -3587,9 +4306,17 @@
         <div><label class="label">Montant (€) *</label><input id="fin-amount" class="glass-input" type="number" min="0" placeholder="2500" /></div>
         <div><label class="label">Date (mois) *</label><input id="fin-date" class="glass-input" type="month" value="${new Date().toISOString().slice(0,7)}" /></div>
       </div>
-      <div style="margin-bottom:20px;">
+      <div style="margin-bottom:14px;">
         <label class="label">Note (optionnel)</label>
         <input id="fin-note" class="glass-input" placeholder="Ex : Paiement final, acompte…" />
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">Statut de paiement</label>
+        <select id="rev-pstatus" class="glass-input">
+          <option value="paid">✅ Payé</option>
+          <option value="pending">⏳ En attente</option>
+          <option value="partial">🔶 Partiel</option>
+        </select>
       </div>
       <div id="fin-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
@@ -3612,8 +4339,9 @@
         if(!label){ showMsg(msg,'Entrez un libellé ou sélectionnez un projet.','error'); return; }
         if(!amount||isNaN(amount)||amount<=0){ showMsg(msg,'Entrez un montant valide.','error'); return; }
         if(!date){ showMsg(msg,'Sélectionnez une date.','error'); return; }
+        const pstatus = document.getElementById('rev-pstatus')?.value||'paid';
         if(!db.finance) db.finance=[];
-        db.finance.push({id:uid(),projectId:projId||null,label,amount,date,note});
+        db.finance.push({id:uid(),projectId:projId||null,label,amount,date,note,paymentStatus:pstatus,addedBy:me.username,addedAt:new Date().toISOString()});
         logActivity('finance_added','Revenu enregistré : '+label+' — '+amount+'€');
         saveDB(); toast('Entrée ajoutée !','success'); closeModal(); refreshAdminTab();
       });
@@ -3755,6 +4483,8 @@
   function iconLogout(){ return `<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`; }
   function iconPlus(){ return `<svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`; }
   function iconFinance(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`; }
+  function iconRequests(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`; }
+  function iconProject(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>`; }
   function iconHistory(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
 
   // ════════════════════════════════════════════════
