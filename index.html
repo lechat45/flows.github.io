@@ -51,6 +51,9 @@
       --glass-spec: linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.12) 40%,rgba(255,255,255,0) 60%,rgba(255,255,255,.12) 100%);
     }
 
+    .profile-grid { display:grid; grid-template-columns:260px 1fr; gap:24px; align-items:start; }
+    @media(max-width:768px){ .profile-grid { grid-template-columns:1fr; } }
+
     .role-chip {
       padding: 5px 14px; border-radius: 999px; font-size: .8rem; font-weight: 500;
       background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
@@ -634,6 +637,7 @@
 
   let db = loadLocalDB() || JSON.parse(JSON.stringify(SEED));
   if(!db.activityLog) db.activityLog = [];
+  if(!db.finance) db.finance = [];
   let me = null;
   let activeTab = 'home';
   let modalStack = [];
@@ -971,6 +975,7 @@
     { id:'home',      icon:iconHome(),     label:'Accueil'      },
     { id:'users',     icon:iconUsers(),    label:'Utilisateurs' },
     { id:'documents', icon:iconDocs(),     label:'Suivi & Docs' },
+    { id:'finance',   icon:iconFinance(),  label:'Finance'      },
     { id:'history',   icon:iconHistory(),  label:'Historique'   },
     { id:'profile',   icon:iconProfile(),  label:'Profil'       }
   ];
@@ -985,7 +990,7 @@
         </div>
         <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace ${roleLabel(me.role)}</p>
       </div>
-      ${adminTabs.filter(t=>t.id!=='history'||me.role==='admin').map(t=>`
+      ${adminTabs.filter(t=>(t.id!=='history'||me.role==='admin')&&(t.id!=='finance'||(me.role==='admin'||me.role==='controller'))).map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}" style="position:relative;">
           ${t.icon} <span>${t.label}</span>
           ${t.id==='documents'?`<span id="notif-badge" style="display:${notifBadge>0?'inline-flex':'none'};align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(220,80,80,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${notifBadge>9?'9+':notifBadge}</span>`:''}
@@ -1012,6 +1017,7 @@
     if(activeTab==='users')     return renderAdminUsers();
     if(activeTab==='documents') return renderAdminDocuments();
     if(activeTab==='history')   return renderAdminHistory();
+    if(activeTab==='finance')   return renderAdminFinance();
     if(activeTab==='profile')   return renderAdminProfile();
     return '';
   }
@@ -1041,6 +1047,7 @@
     if(activeTab==='users')     wireAdminUsers();
     if(activeTab==='documents') wireAdminDocuments();
     if(activeTab==='history')   wireAdminHistory();
+    if(activeTab==='finance')   wireAdminFinance();
     if(activeTab==='profile')   wireAdminProfile();
     renderMobileTabbar('admin');
   }
@@ -1579,6 +1586,7 @@
           ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.3);padding:1px 7px;border-radius:8px;background:rgba(240,169,136,.08);">⚠️ ${daysPending}j sans réponse</span>`:''}
           <span style="font-size:.75rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
           ${canEdit?`<button class="btn btn-ghost btn-sm btn-view-doc" data-did="${doc.id}">👁 Voir</button>`:''}
+          ${canEdit&&doc.status==='pending'?`<button class="btn btn-danger btn-sm btn-del-doc" data-did="${doc.id}" title="Supprimer">🗑</button>`:''}
         </div>
       </div>
     </div>`;
@@ -1599,6 +1607,30 @@
     });
     document.querySelectorAll('.btn-report').forEach(b=>{
       b.addEventListener('click',()=>generateClientReport(b.dataset.uid));
+    });
+
+    document.querySelectorAll('.btn-del-doc').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const doc=db.documents.find(d=>d.id===b.dataset.did);
+        if(!doc) return;
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1.05rem;font-weight:700;">🗑 Supprimer le document</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(doc.name)}</strong> ? Cette action est irréversible.</p>
+          <div style="display:flex;gap:10px;">
+            <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+            <button id="confirm-del-doc" class="btn btn-danger" style="flex:1;justify-content:center;">Supprimer</button>
+          </div>`,
+        ()=>{
+          document.getElementById('confirm-del-doc').addEventListener('click',()=>{
+            db.documents=db.documents.filter(d=>d.id!==doc.id);
+            logActivity('doc_deleted','Document supprimé : '+doc.name);
+            saveDB(); toast('Document supprimé.','info'); closeModal(); refreshAdminTab();
+          });
+        });
+      });
     });
 
     // F9 — Duplicate project
@@ -1647,57 +1679,48 @@
 
   // ─── Tab: Admin Profile ─────────────────────────
   function renderAdminProfile(){
-    return `<div class="fade-up" style="max-width:480px;">
+    return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:24px;">Mon Profil</h1>
-      <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:20px;">
-        <div style="display:flex;justify-content:center;margin-bottom:12px;">${avatarLg(me)}</div>
-        <div style="font-size:1.2rem;font-weight:700;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
-        <div style="color:rgba(244,238,229,.5);margin-bottom:10px;">@${esc(me.username)}</div>
-        ${roleBadge(me.role)}
-      </div>
-      <div class="glass-card" style="padding:24px;">
-        <h2 style="font-size:1rem;font-weight:600;margin-bottom:18px;">Modifier mes informations</h2>
-        <div style="margin-bottom:14px;">
-          <label class="label">Prénom</label>
-          <input id="p-fn" class="glass-input" value="${esc(me.firstName||'')}" />
-        </div>
-        <div style="margin-bottom:14px;">
-          <label class="label">Nom</label>
-          <input id="p-ln" class="glass-input" value="${esc(me.lastName||'')}" />
-        </div>
-        <div style="margin-bottom:14px;">
-          <label class="label">Pseudo</label>
-          <input id="p-un" class="glass-input" value="${esc(me.username)}" />
-        </div>
-        <div style="margin-bottom:14px;">
-          <label class="label">Email</label>
-          <input id="p-em" class="glass-input" type="email" value="${esc(me.email||'')}" />
-        </div>
-        <div class="divider"></div>
-        <div style="margin-bottom:14px;">
-          <label class="label">Nouveau mot de passe</label>
-          <input id="p-np" class="glass-input" type="password" placeholder="Laisser vide pour ne pas changer" />
-        </div>
-        <div style="margin-bottom:20px;">
-          <label class="label">Confirmer le mot de passe</label>
-          <input id="p-cp" class="glass-input" type="password" placeholder="••••••••" />
-        </div>
-        <div style="margin-bottom:16px;">
-          <label class="label">Photo de profil (URL)</label>
-          <input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" />
-        </div>
-        <div id="p-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
-        <div class="divider"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <div>
-            <div style="font-size:.9rem;font-weight:600;">Thème</div>
-            <div style="font-size:.75rem;color:var(--ink-4);">Clair ou sombre</div>
+      <div class="profile-grid">
+        <!-- Colonne gauche : avatar + thème -->
+        <div>
+          <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:16px;">
+            <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarLg(me)}</div>
+            <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
+            <div style="color:rgba(244,238,229,.5);font-size:.9rem;margin-bottom:10px;">@${esc(me.username)}</div>
+            ${roleBadge(me.role)}
+            ${me.email?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:10px;">✉️ ${esc(me.email)}</div>`:''}
           </div>
-          <button id="btn-toggle-theme" class="btn btn-ghost" style="min-width:120px;">
-            ${localStorage.getItem('flow_theme')==='light' ? '☀️ Mode clair' : '🌙 Mode sombre'}
-          </button>
+          <div class="glass-card" style="padding:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:.9rem;font-weight:600;">Thème</div>
+                <div style="font-size:.72rem;color:var(--ink-4);">Clair ou sombre</div>
+              </div>
+              <button id="btn-toggle-theme" class="btn btn-ghost btn-sm">
+                ${localStorage.getItem('flow_theme')==='light' ? '☀️ Clair' : '🌙 Sombre'}
+              </button>
+            </div>
+          </div>
         </div>
-        <button id="p-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+        <!-- Colonne droite : formulaire -->
+        <div class="glass-card" style="padding:28px;">
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:20px;">Modifier mes informations</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div><label class="label">Prénom</label><input id="p-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
+            <div><label class="label">Nom</label><input id="p-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
+          </div>
+          <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="p-un" class="glass-input" value="${esc(me.username)}" /></div>
+          <div style="margin-bottom:14px;"><label class="label">Email</label><input id="p-em" class="glass-input" type="email" value="${esc(me.email||'')}" /></div>
+          <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
+          <div class="divider"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+            <div><label class="label">Nouveau mot de passe</label><input id="p-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
+            <div><label class="label">Confirmer</label><input id="p-cp" class="glass-input" type="password" placeholder="••••••••" /></div>
+          </div>
+          <div id="p-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+          <button id="p-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+        </div>
       </div>
     </div>`;
   }
@@ -1942,25 +1965,38 @@
 
   // ─── Client: Profile ────────────────────────────
   function renderClientProfile(){
-    return `<div class="fade-up" style="max-width:480px;">
+    const project = getUserProject(me.id);
+    return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:24px;">Mon Profil</h1>
-      <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:20px;">
-        <div style="display:flex;justify-content:center;margin-bottom:12px;">${avatarLg(me)}</div>
-        <div style="font-size:1.2rem;font-weight:700;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
-        <div style="color:rgba(244,238,229,.5);margin-bottom:10px;">@${esc(me.username)}</div>
-        ${roleBadge('client')}
-      </div>
-      <div class="glass-card" style="padding:24px;">
-        <h2 style="font-size:1rem;font-weight:600;margin-bottom:18px;">Modifier mes informations</h2>
-        <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="cp-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
-        <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="cp-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
-        <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="cp-un" class="glass-input" value="${esc(me.username)}" /></div>
-        <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="cp-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
-        <div class="divider"></div>
-        <div style="margin-bottom:14px;"><label class="label">Nouveau mot de passe</label><input id="cp-np" class="glass-input" type="password" placeholder="Laisser vide pour ne pas changer" /></div>
-        <div style="margin-bottom:20px;"><label class="label">Confirmer</label><input id="cp-cp" class="glass-input" type="password" /></div>
-        <div id="cp-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
-        <button id="cp-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+      <div class="profile-grid">
+        <!-- Colonne gauche : avatar -->
+        <div>
+          <div class="glass-card" style="padding:28px;text-align:center;">
+            <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarLg(me)}</div>
+            <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
+            <div style="color:rgba(244,238,229,.5);font-size:.9rem;margin-bottom:10px;">@${esc(me.username)}</div>
+            ${roleBadge('client')}
+            ${project?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:12px;">📁 ${esc(project.name)}</div>`:''}
+            ${me.email?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:6px;">✉️ ${esc(me.email)}</div>`:''}
+          </div>
+        </div>
+        <!-- Colonne droite : formulaire -->
+        <div class="glass-card" style="padding:28px;">
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:20px;">Modifier mes informations</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div><label class="label">Prénom</label><input id="cp-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
+            <div><label class="label">Nom</label><input id="cp-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
+          </div>
+          <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="cp-un" class="glass-input" value="${esc(me.username)}" /></div>
+          <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="cp-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
+          <div class="divider"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+            <div><label class="label">Nouveau mot de passe</label><input id="cp-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
+            <div><label class="label">Confirmer</label><input id="cp-cp" class="glass-input" type="password" placeholder="••••••••" /></div>
+          </div>
+          <div id="cp-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+          <button id="cp-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
+        </div>
       </div>
     </div>`;
   }
@@ -2610,6 +2646,250 @@
   }
 
   // ════════════════════════════════════════════════
+  //  FINANCE
+  // ════════════════════════════════════════════════
+  function renderAdminFinance(){
+    const entries = db.finance||[];
+    const projects = db.projects.filter(p=>!p.archived);
+
+    // KPIs
+    const total = entries.reduce((s,e)=>s+Number(e.amount||0),0);
+    const avgPerProject = entries.length ? Math.round(total/entries.length) : 0;
+    const thisMonth = new Date().toISOString().slice(0,7);
+    const monthTotal = entries.filter(e=>e.date&&e.date.slice(0,7)===thisMonth).reduce((s,e)=>s+Number(e.amount||0),0);
+
+    // Revenue by project
+    const byProject = {};
+    entries.forEach(e=>{
+      const key = e.projectId||e.label||'—';
+      byProject[key] = (byProject[key]||0)+Number(e.amount||0);
+    });
+    const projectEntries = Object.entries(byProject).sort((a,b)=>b[1]-a[1]);
+    const maxAmt = projectEntries.length ? projectEntries[0][1] : 1;
+
+    // Revenue by month (last 12)
+    const monthMap = {};
+    entries.forEach(e=>{
+      if(!e.date) return;
+      const m = e.date.slice(0,7);
+      monthMap[m] = (monthMap[m]||0)+Number(e.amount||0);
+    });
+    const months = Object.keys(monthMap).sort().slice(-12);
+    const maxMonth = months.length ? Math.max(...months.map(m=>monthMap[m])) : 1;
+
+    // Pie chart data (by project, conic-gradient)
+    let cumulPct = 0;
+    const COLORS = ['#d97757','#93b594','#9bb8d8','#c4a3d4','#f0c080','#e07080','#70b8b8','#b0b0b0'];
+    const pieSegments = projectEntries.slice(0,8).map((e,i)=>{
+      const pct = total>0 ? (e[1]/total*100) : (100/projectEntries.length);
+      const start = cumulPct;
+      cumulPct += pct;
+      return {label:e[0], pct, start, color:COLORS[i%COLORS.length]};
+    });
+    const pieGradient = total===0 ? 'rgba(255,255,255,.1)' : pieSegments.map(s=>`${s.color} ${s.start.toFixed(1)}% ${(s.start+s.pct).toFixed(1)}%`).join(', ');
+
+    const fmtAmt = n => n.toLocaleString('fr-FR')+'€';
+
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Finance</h1>
+        <button id="btn-add-revenue" class="btn btn-primary">${iconPlus()} Ajouter une entrée</button>
+      </div>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Revenus par projet · Visible uniquement par admin et contrôleur</p>
+
+      <!-- KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px;">
+        <div class="glass-card stat-card">
+          <span style="font-size:1.5rem;">💰</span>
+          <div style="font-size:1.8rem;font-weight:700;color:var(--sage);margin-top:8px;">${fmtAmt(total)}</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Revenu total</div>
+          <div style="font-size:.72rem;color:var(--ink-4);">${entries.length} entrée(s)</div>
+        </div>
+        <div class="glass-card stat-card">
+          <span style="font-size:1.5rem;">📅</span>
+          <div style="font-size:1.8rem;font-weight:700;color:var(--sky);margin-top:8px;">${fmtAmt(monthTotal)}</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Ce mois</div>
+          <div style="font-size:.72rem;color:var(--ink-4);">${thisMonth}</div>
+        </div>
+        <div class="glass-card stat-card">
+          <span style="font-size:1.5rem;">📊</span>
+          <div style="font-size:1.8rem;font-weight:700;color:var(--peach);margin-top:8px;">${fmtAmt(avgPerProject)}</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Moy. par entrée</div>
+          <div style="font-size:.72rem;color:var(--ink-4);">${projectEntries.length} projet(s)</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+        <!-- Bar chart : revenus par projet -->
+        <div class="glass-card" style="padding:20px;">
+          <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">Revenus par projet</h2>
+          ${projectEntries.length===0
+            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnée.</div>'
+            : projectEntries.slice(0,8).map(([label,amt])=>`
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="font-size:.78rem;color:var(--ink-2);width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;" title="${esc(label)}">${esc(label)}</div>
+                <div style="flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden;">
+                  <div style="height:100%;width:${Math.round(amt/maxAmt*100)}%;background:linear-gradient(90deg,var(--coral),var(--peach));border-radius:6px;transition:width .4s;"></div>
+                </div>
+                <div style="font-size:.78rem;font-weight:600;color:var(--coral-soft);flex-shrink:0;">${fmtAmt(amt)}</div>
+              </div>`).join('')}
+        </div>
+
+        <!-- Pie chart : répartition -->
+        <div class="glass-card" style="padding:20px;">
+          <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--sky);">Répartition</h2>
+          ${pieSegments.length===0
+            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnée.</div>'
+            : `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+                <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${pieGradient});flex-shrink:0;"></div>
+                <div style="flex:1;min-width:120px;">
+                  ${pieSegments.map(s=>`
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+                      <div style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;"></div>
+                      <span style="font-size:.75rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.label)}</span>
+                      <span style="font-size:.72rem;color:var(--ink-4);margin-left:auto;">${s.pct.toFixed(0)}%</span>
+                    </div>`).join('')}
+                </div>
+              </div>`}
+        </div>
+      </div>
+
+      <!-- Monthly bar chart -->
+      ${months.length>0?`
+      <div class="glass-card" style="padding:20px;margin-bottom:24px;">
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--sage);">Évolution mensuelle</h2>
+        <div style="display:flex;align-items:flex-end;gap:8px;height:80px;overflow-x:auto;padding-bottom:4px;">
+          ${months.map(m=>{
+            const h = Math.max(4, Math.round(monthMap[m]/maxMonth*72));
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:40px;">
+              <div style="font-size:.68rem;color:var(--ink-4);">${fmtAmt(monthMap[m])}</div>
+              <div style="width:28px;height:${h}px;background:linear-gradient(180deg,var(--sage),rgba(147,181,148,.4));border-radius:4px 4px 0 0;"></div>
+              <div style="font-size:.65rem;color:var(--ink-4);">${m.slice(5)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`:''}
+
+      <!-- Table des entrées -->
+      <div class="glass-card" style="padding:20px;">
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--ink-2);">Toutes les entrées</h2>
+        ${entries.length===0
+          ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;padding:8px 0;">Aucune entrée. Cliquez sur "+ Ajouter" pour commencer.</div>'
+          : `<div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+              <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,.1);">
+                  <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Projet</th>
+                  <th style="text-align:right;padding:8px 10px;color:var(--ink-3);font-weight:500;">Montant</th>
+                  <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Date</th>
+                  <th style="text-align:left;padding:8px 10px;color:var(--ink-3);font-weight:500;">Note</th>
+                  <th style="padding:8px 10px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${[...entries].reverse().map(e=>`
+                  <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                    <td style="padding:9px 10px;color:var(--ink-2);">${esc(e.label||'—')}</td>
+                    <td style="padding:9px 10px;text-align:right;font-weight:600;color:var(--sage);">${fmtAmt(Number(e.amount||0))}</td>
+                    <td style="padding:9px 10px;color:var(--ink-3);">${esc(e.date||'—')}</td>
+                    <td style="padding:9px 10px;color:var(--ink-4);font-size:.8rem;">${esc(e.note||'')}</td>
+                    <td style="padding:9px 10px;text-align:right;">
+                      <button class="btn btn-danger btn-sm btn-del-finance" data-fid="${e.id}">🗑</button>
+                    </td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`}
+      </div>
+    </div>`;
+  }
+
+  function wireAdminFinance(){
+    const btnAdd = document.getElementById('btn-add-revenue');
+    if(btnAdd) btnAdd.addEventListener('click',()=>openAddRevenueModal());
+
+    document.querySelectorAll('.btn-del-finance').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const e = (db.finance||[]).find(x=>x.id===b.dataset.fid);
+        if(!e) return;
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1.05rem;font-weight:700;">🗑 Supprimer l'entrée</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(e.label)}</strong> — <strong>${Number(e.amount).toLocaleString('fr-FR')}€</strong> ?</p>
+          <div style="display:flex;gap:10px;">
+            <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+            <button id="confirm-del-fin" class="btn btn-danger" style="flex:1;justify-content:center;">Supprimer</button>
+          </div>`,
+        ()=>{
+          document.getElementById('confirm-del-fin').addEventListener('click',()=>{
+            db.finance = db.finance.filter(x=>x.id!==e.id);
+            saveDB(); toast('Entrée supprimée.','info'); closeModal(); refreshAdminTab();
+          });
+        });
+      });
+    });
+  }
+
+  function openAddRevenueModal(){
+    const projects = db.projects.filter(p=>!p.archived);
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">💰 Nouvelle entrée</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">Projet</label>
+        <select id="fin-proj" class="glass-input">
+          <option value="">— Saisie manuelle —</option>
+          ${projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">Libellé (si saisie manuelle)</label>
+        <input id="fin-label" class="glass-input" placeholder="Ex : Refonte site Dupont" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div><label class="label">Montant (€) *</label><input id="fin-amount" class="glass-input" type="number" min="0" placeholder="2500" /></div>
+        <div><label class="label">Date (mois) *</label><input id="fin-date" class="glass-input" type="month" value="${new Date().toISOString().slice(0,7)}" /></div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label class="label">Note (optionnel)</label>
+        <input id="fin-note" class="glass-input" placeholder="Ex : Paiement final, acompte…" />
+      </div>
+      <div id="fin-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="fin-save" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>`,
+    ()=>{
+      const projSel = document.getElementById('fin-proj');
+      projSel.addEventListener('change',()=>{
+        const p = db.projects.find(x=>x.id===projSel.value);
+        if(p) document.getElementById('fin-label').value = p.name;
+      });
+      document.getElementById('fin-save').addEventListener('click',()=>{
+        const projId = projSel.value;
+        const label = document.getElementById('fin-label').value.trim() || (db.projects.find(x=>x.id===projId)?.name||'');
+        const amount = parseFloat(document.getElementById('fin-amount').value);
+        const date = document.getElementById('fin-date').value;
+        const note = document.getElementById('fin-note').value.trim();
+        const msg = document.getElementById('fin-msg');
+        if(!label){ showMsg(msg,'Entrez un libellé ou sélectionnez un projet.','error'); return; }
+        if(!amount||isNaN(amount)||amount<=0){ showMsg(msg,'Entrez un montant valide.','error'); return; }
+        if(!date){ showMsg(msg,'Sélectionnez une date.','error'); return; }
+        if(!db.finance) db.finance=[];
+        db.finance.push({id:uid(),projectId:projId||null,label,amount,date,note});
+        logActivity('finance_added','Revenu enregistré : '+label+' — '+amount+'€');
+        saveDB(); toast('Entrée ajoutée !','success'); closeModal(); refreshAdminTab();
+      });
+    });
+  }
+
+  // ════════════════════════════════════════════════
   //  SVG ICONS
   // ════════════════════════════════════════════════
   function iconHome(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`; }
@@ -2618,6 +2898,7 @@
   function iconProfile(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`; }
   function iconLogout(){ return `<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`; }
   function iconPlus(){ return `<svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`; }
+  function iconFinance(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`; }
   function iconHistory(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
 
   // ════════════════════════════════════════════════
