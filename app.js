@@ -25,10 +25,10 @@
   // ─── Default data ───────────────────────────────
   const SEED = {
     users: [
-      { id:'u1', username:'Sacha',  password:'$mila2012', role:'admin',
+      { id:'u1', username:'Sacha',  password:'sha256:8e2ff622e0da75207ff78f74a625b54e76bf2187d069964ee73af155b43bda03', role:'admin',
         firstName:'Sacha', lastName:'', email:'sacha@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' },
-      { id:'u2', username:'Alexis', password:'0000',      role:'controller',
+      { id:'u2', username:'Alexis', password:'sha256:9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', role:'controller',
         firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' }
     ],
@@ -125,7 +125,7 @@
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
     const icon = {success:'✅',error:'âŒ',info:'ℹï¸'}[type]||'ℹï¸';
-    el.innerHTML = '<span>'+icon+'</span><span>'+msg+'</span>';
+    el.innerHTML = '<span>'+icon+'</span><span>'+esc(msg)+'</span>';
     container.appendChild(el);
     setTimeout(()=>{ el.classList.add('hide'); setTimeout(()=>el.remove(), 280); }, duration);
   }
@@ -567,8 +567,8 @@
       btn.disabled = true; btn.textContent = '…';
 
       // F2 — Login attempt limit
-      const attempts = parseInt(sessionStorage.getItem('flow_attempts')||'0');
-      const lockUntil = parseInt(sessionStorage.getItem('flow_lock')||'0');
+      const attempts = parseInt(localStorage.getItem('flow_attempts')||'0');
+      const lockUntil = parseInt(localStorage.getItem('flow_lock')||'0');
       if(Date.now() < lockUntil){
         const remaining = Math.ceil((lockUntil-Date.now())/60000);
         document.getElementById('app').innerHTML = renderLogin(`Trop de tentatives. Réessayez dans ${remaining} min.`);
@@ -578,20 +578,20 @@
       const known = db.users.some(x=>x.username.toLowerCase()===u.toLowerCase());
       if(!known){
         const newAttempts = attempts+1;
-        sessionStorage.setItem('flow_attempts', newAttempts);
-        if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
+        localStorage.setItem('flow_attempts', newAttempts);
+        if(newAttempts>=5){ localStorage.setItem('flow_lock', Date.now()+5*60*1000); }
         document.getElementById('app').innerHTML = renderLogin('Accès refusé : Ceci est un site privé.');
         wireLogin(); return;
       }
       const ok = await loginAsync(u,p);
       if(!ok){
         const newAttempts = attempts+1;
-        sessionStorage.setItem('flow_attempts', newAttempts);
-        if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
+        localStorage.setItem('flow_attempts', newAttempts);
+        if(newAttempts>=5){ localStorage.setItem('flow_lock', Date.now()+5*60*1000); }
         document.getElementById('app').innerHTML = renderLogin('Mot de passe incorrect. Veuillez réessayer.');
         wireLogin(); return;
       }
-      sessionStorage.removeItem('flow_attempts'); sessionStorage.removeItem('flow_lock');
+      localStorage.removeItem('flow_attempts'); localStorage.removeItem('flow_lock');
       render();
     };
     document.getElementById('li-btn').addEventListener('click',doLogin);

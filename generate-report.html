@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow — Générer Rapport PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: #15100b;
+    color: #f5ece0;
+  }
+  .card {
+    text-align: center;
+    padding: 52px 48px;
+    background: rgba(255,250,242,.05);
+    border: 1px solid rgba(255,250,242,.10);
+    border-radius: 24px;
+    max-width: 440px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.5);
+  }
+  .logo {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    margin-bottom: 4px;
+  }
+  .logo span { color: #d97757; }
+  .sub { color: rgba(245,236,224,.45); font-size: .9rem; margin-bottom: 32px; line-height: 1.5; }
+  .btn {
+    padding: 13px 36px;
+    background: linear-gradient(180deg, #e58867, #c25a3a);
+    color: #1a0e08;
+    border: none; border-radius: 999px;
+    font-size: 1rem; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(217,119,87,.4);
+    transition: transform .15s, box-shadow .2s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(217,119,87,.5); }
+  .btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .status {
+    margin-top: 18px;
+    font-size: .85rem;
+    color: rgba(245,236,224,.4);
+    min-height: 22px;
+  }
+  .status.ok { color: #93b594; }
+  .status.err { color: #f08a8a; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Flow<span>·</span></div>
+  <p style="font-size:.75rem;color:rgba(245,236,224,.35);margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">Rapport Technologique v2.3</p>
+  <p class="sub">Analyse de l'architecture, axes d'amélioration<br>et intégrations IA possibles.</p>
+  <button class="btn" id="btn" onclick="generatePDF()">Télécharger le rapport PDF</button>
+  <div class="status" id="status">Prêt à générer…</div>
+</div>
+
+<script>
+async function generatePDF() {
+  const btn = document.getElementById('btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Génération en cours…';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+    const PW = 210, PH = 297;
+    const ml = 22, mr = 22, mt = 28, mb = 22;
+    const cw = PW - ml - mr;
+    let y = mt;
+
+    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const C = {
+      coral:  [217, 119, 87],
+      coral2: [232, 150, 115],
+      bg:     [21, 16, 11],
+      bgHdr:  [40, 28, 18],
+      ink:    [30, 22, 14],
+      ink2:   [80, 65, 50],
+      ink3:   [130, 110, 88],
+      light:  [245, 236, 224],
+      sage:   [100, 160, 100],
+      sky:    [100, 150, 200],
+      sep:    [55, 40, 28],
+    };
+
+    function rgb(c) { doc.setTextColor(c[0], c[1], c[2]); }
+    function fill(c) { doc.setFillColor(c[0], c[1], c[2]); }
+    function draw(c) { doc.setDrawColor(c[0], c[1], c[2]); }
+
+    // ── Header drawn on every content page ──────────────
+    function addHeader() {
+      fill(C.bgHdr);
+      doc.rect(0, 0, PW, 18, 'F');
+      fill(C.coral);
+      doc.rect(0, 0, PW, 2.5, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      rgb(C.coral2);
+      doc.text('FLOW', ml, 12);
+      doc.setFont('helvetica', 'normal');
+      rgb(C.ink3);
+      doc.text('Rapport d\'Analyse Technologique & IA', ml + 11, 12);
+      doc.text(date, PW - mr, 12, { align: 'right' });
+      y = mt;
+    }
+
+    function addFooters() {
+      const total = doc.internal.getNumberOfPages();
+      for (let i = 2; i <= total; i++) {
+        doc.setPage(i);
+        fill(C.bgHdr);
+        doc.rect(0, PH - 12, PW, 12, 'F');
+        fill(C.coral);
+        doc.rect(0, PH - 1.5, PW, 1.5, 'F');
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        rgb(C.ink3);
+        doc.text('flow.github.io  ·  Confidentiel', ml, PH - 5);
+        doc.text(`Page ${i - 1}`, PW - mr, PH - 5, { align: 'right' });
+      }
+    }
+
+    function check(needed = 8) {
+      if (y + needed > PH - mb - 4) {
+        doc.addPage();
+        addHeader();
+      }
+    }
+
+    // ── Section headings ─────────────────────────────────
+    function h1(text) {
+      check(20);
+      fill(C.bgHdr);
+      doc.rect(ml - 2, y - 6, cw + 4, 15, 'F');
+      fill(C.coral);
+      doc.rect(ml - 2, y - 6, 3.5, 15, 'F');
+      doc.setFontSize(11.5);
+      doc.setFont('helvetica', 'bold');
+      rgb(C.light);
+      doc.text(text, ml + 6, y + 4);
+      y += 17;
+    }
+
+    function h2(text) {
+      check(14);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      rgb(C.coral);
+      doc.text(text, ml, y);
+      draw(C.coral);
+      doc.setLineWidth(0.35);
+      doc.line(ml, y + 1.8, ml + doc.getTextWidth(text), y + 1.8);
+      y += 8;
+    }
+
+    function h3(text) {
+      check(10);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      rgb(C.ink);
+      doc.text('▸  ' + text, ml, y);
+      y += 6;
+    }
+
+    function p(text, indent = 0) {
+      const lines = doc.splitTextToSize(text, cw - indent);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      rgb(C.ink2);
+      lines.forEach(line => {
+        check(5.5);
+        doc.text(line, ml + indent, y);
+        y += 5;
+      });
+      y += 1.5;
+    }
+
+    function bullet(text, indent = 0, color = C.coral) {
+      check(6);
+      const lines = doc.splitTextToSize(text, cw - indent - 5);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      rgb(color);
+      doc.text('•', ml + indent, y);
+      rgb(C.ink2);
+      lines.forEach((line, i) => {
+        check(5.5);
+        doc.text(line, ml + indent + 5, y);
+        if (i < lines.length - 1) y += 5;
+      });
+      y += 5.5;
+    }
+
+    function spacer(h = 4) { y += h; }
+
+    function sep() {
+      check(8);
+      draw(C.sep);
+      doc.setLineWidth(0.25);
+      doc.line(ml, y, PW - mr, y);
+      y += 5;
+    }
+
+    // ────────────────────────────────────────────────────
+    //  PAGE DE COUVERTURE
+    // ────────────────────────────────────────────────────
+    fill(C.bg);
+    doc.rect(0, 0, PW, PH, 'F');
+
+    // Bandes décoratives
+    fill(C.coral);
+    doc.rect(0, 0, PW, 4, 'F');
+    doc.rect(0, PH - 4, PW, 4, 'F');
+    fill(C.bgHdr);
+    doc.rect(0, 4, PW, 18, 'F');
+
+    // Nom de l'app
+    doc.setFontSize(58);
+    doc.setFont('helvetica', 'bold');
+    rgb(C.light);
+    doc.text('Flow', PW / 2, 105, { align: 'center' });
+
+    // Point coral (logo)
+    fill(C.coral);
+    doc.circle(PW / 2 + 36, 97, 3.2, 'F');
+
+    // Ligne de séparation
+    draw(C.coral);
+    doc.setLineWidth(0.6);
+    doc.line(PW / 2 - 38, 115, PW / 2 + 38, 115);
+
+    // Sous-titre
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    rgb(C.coral2);
+    doc.text("Rapport d'Analyse Technologique", PW / 2, 126, { align: 'center' });
+    doc.setFontSize(10.5);
+    rgb(C.ink3);
+    doc.text('& Recommandations d\'Amélioration par IA', PW / 2, 135, { align: 'center' });
+
+    // Meta
+    doc.setFontSize(8.5);
+    rgb(C.ink2);
+    doc.text(`Version 2.3  ·  ${date}  ·  flow.github.io`, PW / 2, 148, { align: 'center' });
+
+    // Encadré sommaire
+    fill(C.bgHdr);
+    doc.roundedRect(ml, 165, cw, 90, 4, 4, 'F');
+    draw(C.sep);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(ml, 165, cw, 90, 4, 4, 'S');
+    // Trait coral gauche
+    fill(C.coral);
+    doc.rect(ml, 165, 3, 90, 'F');
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    rgb(C.coral2);
+    doc.text('Contenu du rapport', ml + 9, 177);
+
+    const sommaire = [
+      '1.  Vue d\'ensemble de l\'application',
+      '2.  Stack technologique actuelle',
+      '3.  Points forts du projet',
+      '4.  Axes d\'amélioration technique',
+      '5.  Intégrations par Intelligence Artificielle',
+      '6.  Feuille de route recommandée',
+      '7.  Conclusion',
+    ];
+    doc.setFont('helvetica', 'normal');
+    rgb(C.ink3);
+    sommaire.forEach((item, i) => {
+      doc.text(item, ml + 9, 188 + i * 9);
+    });
+
+    // ────────────────────────────────────────────────────
+    //  PAGES DE CONTENU
+    // ────────────────────────────────────────────────────
+    doc.addPage();
+    addHeader();
+
+    // ── 1. VUE D'ENSEMBLE ───────────────────────────────
+    h1('1. Vue d\'ensemble');
+    spacer(2);
+    p('Flow est une application web de gestion de projet en mode SaaS léger, déployée statiquement sur GitHub Pages. Elle offre un environnement complet de suivi de projets clients (web, design, développement) avec synchronisation en temps réel via Firebase Realtime Database.');
+    spacer(2);
+    p('L\'application adopte un design "liquid glass" soigné, inspiré de l\'esthétique de Claude.ai, avec support du mode sombre/clair, responsive mobile complet, et une expérience utilisateur nettement au-dessus des outils de gestion courants de même complexité technique.');
+    spacer(6);
+
+    // ── 2. STACK ────────────────────────────────────────
+    h1('2. Stack Technologique Actuelle');
+    spacer(2);
+
+    h2('Frontend');
+    bullet('HTML5 / CSS3 — application single-page entièrement statique');
+    bullet('JavaScript vanilla ES6+ — aucun framework ni dépendance build');
+    bullet('Système de design complet : tokens CSS, glassmorphism, animations');
+    bullet('Google Fonts : Instrument Serif (titres) + Geist (interface)');
+    spacer(2);
+
+    h2('Infrastructure & Services');
+    bullet('Firebase Realtime Database — synchronisation temps réel multi-appareils');
+    bullet('GitHub Pages — hébergement gratuit, déploiement via git push');
+    bullet('jsPDF — génération de documents PDF directement dans le navigateur');
+    bullet('localStorage — cache local et mode hors-ligne partiel');
+    spacer(2);
+
+    h2('Fonctionnalités embarquées');
+    bullet('Gestion multi-rôles : Admin / Contrôleur / Client');
+    bullet('Projets avec timeline visuelle (étapes personnalisables + notes)');
+    bullet('Système de documents / formulaires envoyés aux clients');
+    bullet('Suivi financier avec objectifs mensuels et annuels');
+    bullet('Journal d\'activité en temps réel');
+    bullet('Notifications navigateur (Web Notifications API)');
+    bullet('Palette de commandes Cmd+K (Command Palette)');
+    bullet('Export PDF des projets et archivage');
+    bullet('Déconnexion automatique après 30 min d\'inactivité');
+    bullet('Support mobile complet avec tabbar native iOS/Android');
+    spacer(6);
+
+    // ── 3. POINTS FORTS ─────────────────────────────────
+    h1('3. Points Forts');
+    spacer(2);
+
+    h2('Design system de qualité professionnelle');
+    p('Le système de tokens CSS (couleurs, ombres, rayons, typographie) est cohérent et sophistiqué. Le glassmorphism est appliqué avec précision — backdrop-filter, reflets spéculaires, rim colorés — dans les deux thèmes. Très peu d\'applications vanilla JS atteignent ce niveau de polish visuel.');
+    spacer(3);
+
+    h2('Architecture zéro-coût, zéro-serveur');
+    p('L\'absence de serveur backend et le déploiement sur GitHub Pages rendent l\'application gratuite à maintenir, résiliente aux pannes, et très rapide à distribuer. Firebase absorbe toute la complexité de la persistance sans gestion d\'infrastructure.');
+    spacer(3);
+
+    h2('Expérience mobile soignée');
+    p('La tabbar mobile, les kebab menus repositionnés pour les petits écrans, les touch targets de 44px minimum et le support safe-area iOS démontrent une attention sérieuse au responsive design, rare pour un projet solo.');
+    spacer(3);
+
+    h2('Richesse fonctionnelle pour un projet solo');
+    p('L\'étendue des fonctionnalités — timelines, documents, finance, notifications, palette de commandes, PDF, archivage, tags, modèles — est remarquable pour une application sans framework ni équipe.');
+    spacer(6);
+
+    // ── 4. AMÉLIORATIONS TECHNIQUES ─────────────────────
+    h1('4. Axes d\'Amélioration Technique');
+    spacer(2);
+
+    h2('4.1 Modularisation du code');
+    p('Le code est actuellement monolithique (app.js > 3 000 lignes, index.html > 2 000 lignes). Cela rend la maintenance, le débogage et l\'ajout de fonctionnalités de plus en plus difficiles.');
+    spacer(1);
+    bullet('Découper app.js en modules ES6 : auth.js, projects.js, finance.js, ui.js, firebase.js');
+    bullet('Adopter Vite comme build tool (gratuit, open-source) — HMR, bundling, tree-shaking');
+    bullet('Extraire les templates HTML inline en fichiers séparés');
+    bullet('Mettre en place ESLint + Prettier pour la qualité et la cohérence du code');
+    spacer(3);
+
+    h2('4.2 Performance');
+    bullet('Lazy loading des vues : ne charger le DOM que de la vue active');
+    bullet('Activer Firebase offline persistence pour un mode hors-ligne complet');
+    bullet('Virtualiser les longues listes (projets, logs) pour éviter le DOM bloat');
+    bullet('Service Worker (PWA) pour la mise en cache des assets statiques CSS/JS');
+    spacer(3);
+
+    h2('4.3 Authentification renforcée');
+    bullet('Migrer vers Firebase Authentication (email/password + OAuth Google)');
+    bullet('Implémenter des règles de sécurité Firebase granulaires par rôle');
+    bullet('Ajouter Firebase App Check pour protéger l\'API contre les abus');
+    bullet('Rate limiting via Firebase Functions (gratuit jusqu\'à 2 M invocations/mois)');
+    spacer(3);
+
+    h2('4.4 Tests & CI/CD');
+    bullet('Vitest pour les tests unitaires des fonctions métier (finance, calculs timeline)');
+    bullet('Playwright pour les tests E2E automatisés (connexion, création de projet, PDF)');
+    bullet('GitHub Actions pour un pipeline CI/CD gratuit : lint → test → deploy automatique');
+    spacer(3);
+
+    h2('4.5 Accessibilité (WCAG AA)');
+    bullet('Attributs ARIA sur tous les composants interactifs (modals, menus déroulants)');
+    bullet('Navigation complète au clavier avec gestion du focus');
+    bullet('Live regions ARIA pour les notifications toast dynamiques');
+    bullet('Audit automatisé avec axe-core intégré dans le pipeline GitHub Actions');
+    spacer(3);
+
+    h2('4.6 Progressive Web App (PWA)');
+    bullet('Ajouter manifest.json pour l\'installation sur l\'écran d\'accueil mobile');
+    bullet('Service Worker pour le cache offline des assets statiques');
+    bullet('Notifications push via Firebase Cloud Messaging (FCM — gratuit)');
+    spacer(6);
+
+    // ── 5. IA ────────────────────────────────────────────
+    h1('5. Améliorations par Intelligence Artificielle');
+    spacer(2);
+
+    p('L\'intégration d\'IA peut transformer Flow d\'un outil de suivi passif en un assistant de gestion de projet actif. Les pistes ci-dessous sont toutes réalisables avec des APIs gratuites ou à coût inférieur à 5 €/mois pour un usage typique.');
+    spacer(4);
+
+    h2('5.1 Génération de contenu assistée');
+
+    h3('Auto-remplissage des briefs clients');
+    p('Intégrer l\'API Claude (Anthropic) : l\'admin décrit un projet en 2-3 phrases, l\'IA génère un brief structuré complet avec toutes les sections et questions appropriées au type de projet.', 5);
+    spacer(2);
+
+    h3('Suggestions de timeline intelligente');
+    p('Sur la base du type de projet (site vitrine, e-commerce, application mobile), l\'IA propose automatiquement un modèle de timeline avec étapes, durées estimées et jalons typiques.', 5);
+    spacer(2);
+
+    h3('Génération de rapports d\'avancement');
+    p('Création automatique de résumés lisibles pour les clients à partir des données de la timeline et du journal d\'activité — sans rédaction manuelle.', 5);
+    spacer(4);
+
+    h2('5.2 Analyse prédictive');
+
+    h3('Prédiction de dépassement de délai');
+    p('En analysant la vélocité d\'avancement (temps réel par étape vs estimation), l\'IA signale en amont un risque de dépassement de la date de livraison — avant que le client ne s\'en aperçoive.', 5);
+    spacer(2);
+
+    h3('Score de santé projet automatique');
+    p('Indicateur vert/orange/rouge calculé automatiquement à partir du taux de complétion, des documents en attente et des délais écoulés. Aucune saisie manuelle requise.', 5);
+    spacer(2);
+
+    h3('Détection d\'anomalies financières');
+    p('Signalement automatique des entrées inhabituelles : montant anormalement bas, client sans activité depuis X mois, objectif mensuel en danger. Alertes proactives pour l\'admin.', 5);
+    spacer(4);
+
+    h2('5.3 Communication intelligente');
+
+    h3('Rédaction automatique de relances client');
+    p('Quand un document est en attente depuis plus de N jours, l\'IA rédige un message de relance personnalisé (ton adapté au profil client) prêt à copier-coller ou envoyer.', 5);
+    spacer(2);
+
+    h3('Traduction automatique des documents');
+    p('Pour les clients internationaux : traduction des briefs et cahiers des charges via l\'API DeepL Free (500 000 caractères/mois gratuits, sans carte bancaire).', 5);
+    spacer(2);
+
+    h3('Analyse de sentiment des retours');
+    p('Analyse des commentaires clients pour détecter une insatisfaction latente avant qu\'elle ne devienne un problème — indicateur préventif de churn.', 5);
+    spacer(4);
+
+    h2('5.4 Automatisation intelligente');
+
+    h3('Extraction de tâches depuis les notes');
+    p('L\'admin écrit une note libre, l\'IA en extrait automatiquement les actions à faire et les ajoute à la liste des tâches internes du projet — sans structuration manuelle.', 5);
+    spacer(2);
+
+    h3('Classement automatique des documents');
+    p('Les documents sont catégorisés automatiquement (contrat, brief, facture, rapport, maquette) par reconnaissance de contenu IA — plus de classement manuel.', 5);
+    spacer(2);
+
+    h3('Timing optimal de relance');
+    p('L\'IA apprend les patterns de réponse de chaque client (heure, jour de la semaine) et suggère le meilleur moment pour envoyer une relance afin de maximiser les chances de réponse.', 5);
+    spacer(4);
+
+    h2('5.5 Recherche sémantique');
+    p('Remplacer la recherche textuelle exacte par une recherche sémantique : "retard sur le logo" retrouve le bon projet même si ces mots exacts n\'y figurent pas. Réalisable avec les embeddings de Voyage AI (50 M tokens/mois gratuits).');
+    spacer(4);
+
+    h2('5.6 Assistant conversationnel intégré');
+    p('Un chatbot contextuel dans la sidebar permettant des requêtes en langage naturel : "Quel client a le plus de documents en attente ?", "Résume l\'activité de cette semaine", "Quels projets risquent de dépasser leur délai ?". Réalisable avec Claude API — modèle claude-haiku-4-5 pour un coût < 0,50 €/mois.');
+    spacer(6);
+
+    // ── 6. FEUILLE DE ROUTE ──────────────────────────────
+    h1('6. Feuille de Route Recommandée');
+    spacer(2);
+
+    h2('Court terme — 1 à 3 mois');
+    bullet('Modularisation du code en fichiers ES6 séparés (maintenabilité)');
+    bullet('Mise en place de GitHub Actions — déploiement automatique au push');
+    bullet('Ajout du manifest.json pour installation PWA sur mobile');
+    bullet('Audit accessibilité WCAG + corrections des points critiques');
+    bullet('Activation de Firebase offline persistence');
+    spacer(3);
+
+    h2('Moyen terme — 3 à 6 mois');
+    bullet('Intégration Claude API pour génération de briefs (claude-haiku-4-5, coût minimal)');
+    bullet('Score de santé projet automatique basé sur les données existantes');
+    bullet('Notifications push via Firebase Cloud Messaging (FCM)');
+    bullet('Tests automatisés avec Vitest + GitHub Actions CI');
+    bullet('Recherche sémantique avec embeddings Voyage AI (free tier)');
+    spacer(3);
+
+    h2('Long terme — 6 à 12 mois');
+    bullet('Prédiction de délais par analyse IA de l\'historique des projets');
+    bullet('Assistant conversationnel contextuel intégré dans la sidebar');
+    bullet('Migration vers Firebase Authentication complète');
+    bullet('Dashboard analytics avancé avec graphiques dynamiques (Chart.js)');
+    bullet('Application installable complète via PWA avancée');
+    spacer(6);
+
+    // ── 7. CONCLUSION ────────────────────────────────────
+    h1('7. Conclusion');
+    spacer(2);
+
+    p('Flow est un projet remarquablement abouti pour une application vanilla JS sans build tool ni framework. Le design system, la richesse fonctionnelle et la synchronisation Firebase temps réel en font une base solide pour un vrai produit de gestion de projet.');
+    spacer(3);
+    p('Les améliorations prioritaires sont : la modularisation du code (maintenabilité à long terme), l\'activation PWA offline (résilience en conditions réelles), et l\'intégration d\'une première fonctionnalité IA — idéalement la génération de briefs — qui apporterait une valeur visible immédiate avec un coût quasi nul.');
+    spacer(3);
+    p('L\'ensemble des pistes IA décrites dans ce rapport sont réalisables avec des APIs gratuites ou dont le coût total reste inférieur à 5 €/mois pour un usage typique de cette application. L\'IA n\'est pas ici un gadget : elle répond à des besoins réels de gain de temps et de qualité pour les équipes de petite taille.');
+    spacer(4);
+    sep();
+    spacer(2);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    rgb(C.ink3);
+    doc.text(`Rapport généré le ${date} — Flow v2.3 — flow.github.io`, ml, y);
+
+    // ── Footers ──────────────────────────────────────────
+    addFooters();
+
+    doc.save('Flow-Rapport-Technologique.pdf');
+
+    status.className = 'status ok';
+    status.textContent = '✓ PDF téléchargé avec succès !';
+    btn.disabled = false;
+
+  } catch (err) {
+    console.error(err);
+    status.className = 'status err';
+    status.textContent = 'Erreur : ' + err.message;
+    document.getElementById('btn').disabled = false;
+  }
+}
+
+window.onload = () => setTimeout(generatePDF, 500);
+</script>
+</body>
+</html>

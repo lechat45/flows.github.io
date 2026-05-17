@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flow — Gestion de Projet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -863,7 +862,7 @@
         animation-duration: .001ms !important;
         transition-duration: .001ms !important;
       }
-      #bg-canvas::before, #bg-canvas::after { animation: none !important; }
+      body::before, body::after { animation: none !important; }
     }
 
     /* ═══════════════════════════════════════════════
@@ -1119,7 +1118,7 @@
 /* Mobile polish pass */
 @media (max-width: 768px) {
   body { font-size: 14px; }
-  #bg-canvas::before, #bg-canvas::after, .orb { animation: none !important; }
+  body::before, body::after, .orb { animation: none !important; }
   .orb { opacity: .28; filter: blur(60px); }
   #main { padding: 12px 12px 104px; }
   .glass-card { padding: 16px !important; box-shadow: inset 0 1px 0 var(--glass-edge-hi), var(--shadow-sm); }
@@ -1141,6 +1140,12 @@
 }
 
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#d97757">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Flow">
 </head>
 <body>
   <div id="bg-canvas"></div>
@@ -1148,11 +1153,11 @@
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
   <div id="bg-vignette"></div>
-  <div id="cmd-palette" onclick="if(event.target===this)closeCmdPalette()"><div id="cmd-box"><input id="cmd-input" placeholder="Rechercher un client, projet, action…" autocomplete="off" /><div id="cmd-results"></div></div></div>
-  <div id="toast-container"></div>
-  <div id="sync-dot" title="Firebase sync"></div>
-  <div id="mobile-tabbar"></div>
-  <div id="app"></div>
+  <div id="cmd-palette" role="dialog" aria-modal="true" aria-label="Palette de commandes" onclick="if(event.target===this)closeCmdPalette()"><div id="cmd-box"><input id="cmd-input" placeholder="Rechercher un client, projet, action…" autocomplete="off" aria-label="Rechercher dans Flow" aria-autocomplete="list" aria-controls="cmd-results" /><div id="cmd-results" role="listbox" aria-label="Résultats de recherche"></div></div></div>
+  <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+  <div id="sync-dot" title="Firebase sync" role="status" aria-label="Synchronisation Firebase"></div>
+  <div id="mobile-tabbar" role="navigation" aria-label="Navigation mobile"></div>
+  <div id="app" role="main"></div>
 
     <script>
 // ─── Firebase config ────────────────────────────
@@ -1182,10 +1187,10 @@
   // ─── Default data ───────────────────────────────
   const SEED = {
     users: [
-      { id:'u1', username:'Sacha',  password:'$mila2012', role:'admin',
+      { id:'u1', username:'Sacha',  password:'sha256:8e2ff622e0da75207ff78f74a625b54e76bf2187d069964ee73af155b43bda03', role:'admin',
         firstName:'Sacha', lastName:'', email:'sacha@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' },
-      { id:'u2', username:'Alexis', password:'0000',      role:'controller',
+      { id:'u2', username:'Alexis', password:'sha256:9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', role:'controller',
         firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' }
     ],
@@ -1282,7 +1287,7 @@
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
     const icon = {success:'✅',error:'❌',info:'ℹ️'}[type]||'ℹ️';
-    el.innerHTML = '<span>'+icon+'</span><span>'+msg+'</span>';
+    el.innerHTML = '<span>'+icon+'</span><span>'+esc(msg)+'</span>';
     container.appendChild(el);
     setTimeout(()=>{ el.classList.add('hide'); setTimeout(()=>el.remove(), 280); }, duration);
   }
@@ -1454,44 +1459,78 @@
     const pal = document.getElementById('cmd-palette');
     if(pal) pal.classList.remove('open');
   }
+  function fuzzyScore(text, q) {
+    if (!q) return 2;
+    text = text.toLowerCase();
+    if (text.includes(q)) return 3;
+    // Fuzzy: tous les caractères de q apparaissent dans l'ordre dans text
+    let tIdx = 0;
+    for (let i = 0; i < q.length; i++) {
+      tIdx = text.indexOf(q[i], tIdx);
+      if (tIdx === -1) return 0;
+      tIdx++;
+    }
+    // Bonus si les premiers caractères matchent
+    return text.startsWith(q[0]) ? 2 : 1;
+  }
+
   function renderCmdResults(q){
     const res = document.getElementById('cmd-results');
     if(!res) return;
     q = (q||'').toLowerCase().trim();
-    const items = [];
-    // Navigation tabs
+    const scored = [];
+
+    function push(score, item){ if(score>0) scored.push({score, item}); }
+
+    // Navigation
     const tabs = [{id:'home',label:'Accueil'},{id:'users',label:'Utilisateurs'},{id:'documents',label:'Suivi & Docs'},{id:'finance',label:'Finance'},{id:'requests',label:'Demandes'},{id:'history',label:'Historique'},{id:'profile',label:'Mon Profil'}];
-    tabs.forEach(t=>{ if(!q||t.label.toLowerCase().includes(q)) items.push({icon:'🧭',label:t.label,sub:'Navigation',action:()=>{activeTab=t.id;closeCmdPalette();refreshAdminTab();}}); });
+    tabs.forEach(t=>push(fuzzyScore(t.label,q),{icon:'🧭',label:t.label,sub:'Navigation',action:()=>{activeTab=t.id;closeCmdPalette();refreshAdminTab();}}));
+
     // Clients/users
-    db.users.filter(u=>!q||(u.username+' '+(u.firstName||'')+' '+(u.lastName||'')).toLowerCase().includes(q)).slice(0,5).forEach(u=>{
-      items.push({icon:'👤',label:u.username+(u.firstName?` (${u.firstName} ${u.lastName||''})`.trim():''),sub:'Utilisateur · '+u.role,action:()=>{ activeTab='users'; closeCmdPalette(); refreshAdminTab(); }});
+    db.users.slice(0,20).forEach(u=>{
+      const hay = u.username+' '+(u.firstName||'')+' '+(u.lastName||'')+' '+u.email;
+      const s = fuzzyScore(hay, q);
+      if(s>0) push(s,{icon:'👤',label:u.username+(u.firstName?` (${u.firstName} ${u.lastName||''})`.trim():''),sub:'Utilisateur · '+u.role,action:()=>{ activeTab='users'; closeCmdPalette(); refreshAdminTab(); }});
     });
+
     // Projects
-    db.projects.filter(p=>!p.archived&&(!q||p.name.toLowerCase().includes(q))).slice(0,5).forEach(p=>{
-      items.push({icon:'📁',label:p.name,sub:'Projet · '+(p.status==='done'?'Terminé':p.status==='in_progress'?'En cours':'En attente'),action:()=>{ activeTab='documents'; closeCmdPalette(); refreshAdminTab(); }});
+    db.projects.filter(p=>!p.archived).slice(0,30).forEach(p=>{
+      const hay = p.name+' '+(p.tags||[]).join(' ')+' '+(p.description||'');
+      const s = fuzzyScore(hay, q);
+      if(s>0) push(s,{icon:'📁',label:p.name,sub:'Projet · '+(p.status==='done'?'Terminé':p.status==='in_progress'?'En cours':'En attente'),action:()=>{ activeTab='documents'; closeCmdPalette(); refreshAdminTab(); }});
     });
-    // Finance entries
-    (db.finance||[]).filter(e=>!q||(e.label||'').toLowerCase().includes(q)||(db.projects.find(p=>p.id===e.projectId)?.name||'').toLowerCase().includes(q)).slice(0,4).forEach(e=>{
-      const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—';
-      items.push({icon:'💰',label:pname+' — '+(e.amount||0)+'€',sub:'Finance · '+(e.date||''),action:()=>{ activeTab='finance'; closeCmdPalette(); refreshAdminTab(); }});
+
+    // Finance
+    (db.finance||[]).slice(0,30).forEach(e=>{
+      const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'';
+      const hay = pname+' '+(e.label||'')+' '+(e.date||'');
+      const s = fuzzyScore(hay, q);
+      if(s>0) push(s,{icon:'💰',label:(pname||e.label||'—')+' — '+(e.amount||0)+'€',sub:'Finance · '+(e.date||''),action:()=>{ activeTab='finance'; closeCmdPalette(); refreshAdminTab(); }});
     });
-    // Actions
-    if(!q||'nouveau projet'.includes(q)) items.push({icon:'➕',label:'Nouveau projet',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='home'; refreshAdminTab(); setTimeout(openCreateProjectModal,100); }});
-    if(!q||'ajouter entrée finance'.includes(q)) items.push({icon:'💶',label:'Ajouter entrée finance',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='finance'; refreshAdminTab(); setTimeout(openAddRevenueModal,100); }});
-    if(!q||'déconnexion'.includes(q)) items.push({icon:'🔐',label:'Se déconnecter',sub:'Action',action:()=>{ closeCmdPalette(); logout(); }});
+
+    // Actions fixes
+    [
+      {q:'nouveau projet',   icon:'➕',label:'Nouveau projet',   sub:'Action', fn:()=>{ closeCmdPalette(); activeTab='home'; refreshAdminTab(); setTimeout(openCreateProjectModal,100); }},
+      {q:'ajouter finance',  icon:'💶',label:'Ajouter entrée finance',sub:'Action', fn:()=>{ closeCmdPalette(); activeTab='finance'; refreshAdminTab(); setTimeout(openAddRevenueModal,100); }},
+      {q:'déconnexion',      icon:'🔐',label:'Se déconnecter',   sub:'Action', fn:()=>{ closeCmdPalette(); logout(); }},
+      {q:'thème',            icon:'🎨',label:'Changer le thème', sub:'Action', fn:()=>{ const t=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme',t); localStorage.setItem('flow_theme',t); closeCmdPalette(); toast('Thème '+t+' activé','info'); }},
+    ].forEach(a=>push(fuzzyScore(a.q,q),{icon:a.icon,label:a.label,sub:a.sub,action:a.fn}));
+
+    scored.sort((a,b)=>b.score-a.score);
+    const items = scored.slice(0,12).map(x=>x.item);
 
     if(items.length===0){
-      res.innerHTML='<div style="padding:14px 16px;color:var(--ink-4);font-size:.85rem;">Aucun résultat pour "'+q+'"</div>';
+      res.innerHTML=`<div style="padding:14px 16px;color:var(--ink-4);font-size:.85rem;" role="option">Aucun résultat pour "${esc(q)}"</div>`;
       return;
     }
-    res.innerHTML = items.slice(0,12).map((it,i)=>`
-      <div class="cmd-item${i===0?' cmd-active':''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:9px;cursor:pointer;transition:background .12s;">
-        <span style="font-size:1.1rem;flex-shrink:0;">${it.icon}</span>
-        <div style="flex:1;min-width:0;"><div style="font-size:.875rem;font-weight:500;color:var(--ink);">${it.label}</div><div style="font-size:.72rem;color:var(--ink-4);">${it.sub}</div></div>
+    res.innerHTML = items.map((it,i)=>`
+      <div class="cmd-item${i===0?' cmd-active':''}" role="option" aria-selected="${i===0}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:9px;cursor:pointer;transition:background .12s;">
+        <span style="font-size:1.1rem;flex-shrink:0;" aria-hidden="true">${it.icon}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:.875rem;font-weight:500;color:var(--ink);">${esc(it.label)}</div><div style="font-size:.72rem;color:var(--ink-4);">${esc(it.sub)}</div></div>
       </div>`).join('');
     res.querySelectorAll('.cmd-item').forEach((el,i)=>{
       el.addEventListener('click',()=>items[i].action());
-      el.addEventListener('mouseenter',()=>{ res.querySelectorAll('.cmd-item').forEach(x=>x.classList.remove('cmd-active')); el.classList.add('cmd-active'); });
+      el.addEventListener('mouseenter',()=>{ res.querySelectorAll('.cmd-item').forEach(x=>{ x.classList.remove('cmd-active'); x.setAttribute('aria-selected','false'); }); el.classList.add('cmd-active'); el.setAttribute('aria-selected','true'); });
     });
   }
 
@@ -1623,14 +1662,14 @@
         </div>
         ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${errMsg}</div>`:''}
         <div style="margin-bottom:14px;">
-          <label class="label">Identifiant</label>
-          <input id="li-user" class="glass-input" placeholder="Votre nom d'utilisateur" autocomplete="username" />
+          <label class="label" for="li-user">Identifiant</label>
+          <input id="li-user" class="glass-input" placeholder="Votre nom d'utilisateur" autocomplete="username" aria-required="true" />
         </div>
         <div style="margin-bottom:22px;">
-          <label class="label">Mot de passe</label>
-          <input id="li-pass" class="glass-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <label class="label" for="li-pass">Mot de passe</label>
+          <input id="li-pass" class="glass-input" type="password" placeholder="••••••••" autocomplete="current-password" aria-required="true" />
         </div>
-        <button id="li-btn" class="btn btn-primary" style="width:100%;justify-content:center;">Se connecter</button>
+        <button id="li-btn" class="btn btn-primary" style="width:100%;justify-content:center;" aria-label="Se connecter à Flow">Se connecter</button>
         <div style="display:flex;align-items:center;gap:12px;margin-top:18px;">
           <div style="flex:1;height:1px;background:var(--glass-edge);"></div>
           <span style="font-size:.78rem;color:var(--ink-4);">ou</span>
@@ -1724,8 +1763,8 @@
       btn.disabled = true; btn.textContent = '…';
 
       // F2 — Login attempt limit
-      const attempts = parseInt(sessionStorage.getItem('flow_attempts')||'0');
-      const lockUntil = parseInt(sessionStorage.getItem('flow_lock')||'0');
+      const attempts = parseInt(localStorage.getItem('flow_attempts')||'0');
+      const lockUntil = parseInt(localStorage.getItem('flow_lock')||'0');
       if(Date.now() < lockUntil){
         const remaining = Math.ceil((lockUntil-Date.now())/60000);
         document.getElementById('app').innerHTML = renderLogin(`Trop de tentatives. Réessayez dans ${remaining} min.`);
@@ -1735,20 +1774,20 @@
       const known = db.users.some(x=>x.username.toLowerCase()===u.toLowerCase());
       if(!known){
         const newAttempts = attempts+1;
-        sessionStorage.setItem('flow_attempts', newAttempts);
-        if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
+        localStorage.setItem('flow_attempts', newAttempts);
+        if(newAttempts>=5){ localStorage.setItem('flow_lock', Date.now()+5*60*1000); }
         document.getElementById('app').innerHTML = renderLogin('Accès refusé : Ceci est un site privé.');
         wireLogin(); return;
       }
       const ok = await loginAsync(u,p);
       if(!ok){
         const newAttempts = attempts+1;
-        sessionStorage.setItem('flow_attempts', newAttempts);
-        if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
+        localStorage.setItem('flow_attempts', newAttempts);
+        if(newAttempts>=5){ localStorage.setItem('flow_lock', Date.now()+5*60*1000); }
         document.getElementById('app').innerHTML = renderLogin('Mot de passe incorrect. Veuillez réessayer.');
         wireLogin(); return;
       }
-      sessionStorage.removeItem('flow_attempts'); sessionStorage.removeItem('flow_lock');
+      localStorage.removeItem('flow_attempts'); localStorage.removeItem('flow_lock');
       render();
     };
     document.getElementById('li-btn').addEventListener('click',doLogin);
@@ -1772,6 +1811,105 @@
   function canAccessFinance(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function canReviewRequests(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function canViewHistory(user=me){ return !!user && user.role==='admin'; }
+
+  // ═══════════════════════════════════════════════
+  //  SMART FEATURES — Analyse algorithmique gratuite
+  // ═══════════════════════════════════════════════
+
+  function projectHealthScore(p) {
+    let score = 100;
+    const reasons = [];
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tl = p.timeline||[];
+    const doneCnt = tl.filter(s=>s.status==='done').length;
+    const pct = tl.length>0 ? doneCnt/tl.length : 0;
+
+    if (p.dueDate) {
+      const due = new Date(p.dueDate);
+      const diffDays = Math.ceil((due-today)/(1000*60*60*24));
+      if (diffDays < 0) {
+        score -= Math.min(45, Math.abs(diffDays)*5);
+        reasons.push(`En retard de ${Math.abs(diffDays)}j`);
+      } else if (diffDays <= 7 && pct < 0.85) {
+        score -= 30;
+        reasons.push(`Échéance dans ${diffDays}j, ${Math.round(pct*100)}% fait`);
+      } else if (p.createdAt) {
+        const start = new Date(p.createdAt);
+        const total = due - start;
+        const elapsed = Date.now() - start;
+        const expPct = total>0 ? Math.min(1, elapsed/total) : 0;
+        if (pct < expPct - 0.25) { score -= 20; reasons.push('Progression en retard sur planning'); }
+      }
+    }
+
+    const docs = db.documents.filter(d=>d.projectId===p.id);
+    docs.filter(d=>d.status==='pending').forEach(d=>{
+      if (!d.sentAt) return;
+      const days = Math.ceil((Date.now()-new Date(d.sentAt))/(1000*60*60*24));
+      if (days > 14) { score -= 15; reasons.push(`"${(d.name||'Doc').slice(0,18)}" en attente ${days}j`); }
+      else if (days > 7) { score -= 7; reasons.push(`Doc en attente ${days}j`); }
+    });
+
+    if (p.priority==='urgent') score -= 5;
+    score = Math.max(0, Math.min(100, score));
+
+    const label = score>=75 ? 'Bonne santé' : score>=45 ? 'Attention' : 'Critique';
+    const color = score>=75 ? 'var(--sage)' : score>=45 ? 'var(--peach)' : '#f08a8a';
+    return { score, label, color, reasons };
+  }
+
+  function detectFinanceAnomalies() {
+    const entries = db.finance||[];
+    if (entries.length < 4) return [];
+    const monthMap = {};
+    entries.forEach(e=>{ if(!e.date) return; const m=e.date.slice(0,7); monthMap[m]=(monthMap[m]||0)+Number(e.amount||0); });
+    const months = Object.keys(monthMap).sort();
+    if (months.length < 4) return [];
+    const amounts = months.map(m=>monthMap[m]);
+    const avg = amounts.reduce((s,v)=>s+v,0)/amounts.length;
+    if (avg===0) return [];
+    const anomalies = [];
+    months.slice(-4).forEach(m=>{
+      if (monthMap[m] < avg*0.45) {
+        const lbl = new Date(m+'-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+        anomalies.push({ type:'low', message:`Revenus faibles en ${lbl} : ${monthMap[m].toLocaleString('fr-FR')}€ (moy. ${Math.round(avg).toLocaleString('fr-FR')}€)` });
+      }
+    });
+    if (months.length >= 6) {
+      const avgLast3 = amounts.slice(-3).reduce((s,v)=>s+v,0)/3;
+      const avgPrev3 = amounts.slice(-6,-3).reduce((s,v)=>s+v,0)/3;
+      if (avgPrev3>0 && avgLast3 < avgPrev3*0.55) {
+        anomalies.push({ type:'trend', message:`Tendance baissière détectée : -${Math.round((1-avgLast3/avgPrev3)*100)}% sur les 3 derniers mois` });
+      }
+    }
+    return anomalies;
+  }
+
+  function extractTasksFromText(text) {
+    if (!text||text.trim().length<8) return [];
+    const tasks = [];
+    text.split(/[\n;]/).forEach(line=>{
+      const t = line.trim();
+      if (t.length<5||t.length>180) return;
+      const m = t.match(/^[\-*•]\s+(.+)$/) ||
+                t.match(/^(à faire|todo|faire|finir|terminer|envoyer|appeler|contacter|préparer|relancer|vérifier|corriger|ajouter|créer|modifier|penser à)[:\s]+(.+)/i);
+      if (m) tasks.push((m[2]||m[1]).trim());
+    });
+    return [...new Set(tasks)].slice(0, 8);
+  }
+
+  function autoClassifyDoc(name) {
+    const n = (name||'').toLowerCase();
+    if (/brief|créatif|graphi|couleur|référen/.test(n)) return { icon:'🎨', label:'Brief créatif' };
+    if (/contrat|accord|mission|prestation|sign/.test(n)) return { icon:'📝', label:'Contrat' };
+    if (/devis|facture|prix|tarif|budget/.test(n)) return { icon:'💶', label:'Devis / Facture' };
+    if (/retour|feedback|commentaire|correction|modif/.test(n)) return { icon:'💬', label:'Retour client' };
+    if (/cahier|charge|fonctionnel|spec|exig/.test(n)) return { icon:'📋', label:'Cahier des charges' };
+    if (/checklist|liste|valider|confirm/.test(n)) return { icon:'✅', label:'Checklist' };
+    if (/rapport|compte.rendu|bilan|résumé/.test(n)) return { icon:'📊', label:'Rapport' };
+    return null;
+  }
+
   function getAdminVisibleTabs(){
     return adminTabs.filter(t=>
       (t.id!=='history'||canViewHistory()) &&
@@ -1782,7 +1920,7 @@
 
   function renderAdminShell(){
     return `
-    <div id="sidebar" class="glass-dark">
+    <div id="sidebar" class="glass-dark" role="navigation" aria-label="Navigation principale">
       <div class="logo-wrap" style="margin-bottom:28px;padding:0 4px;">
         <div style="display:flex;align-items:baseline;gap:0;">
           <button onclick="showWhatsNew()" class="logo" style="background:none;border:none;cursor:pointer;padding:0;font-family:'Instrument Serif',serif;font-size:1.7rem;font-weight:400;letter-spacing:-.025em;color:var(--ink);">flow</button>
@@ -1955,6 +2093,35 @@
         <span style="font-size:1.4rem;">⚠️</span>
         <div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">${overdueCount} projet(s) en retard</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">Date de livraison dépassée</div></div>
       </div>`:''}
+
+      ${(()=>{
+        // Smart insights — projets à surveiller
+        const activeProjects = db.projects.filter(p=>!p.archived&&p.status!=='done');
+        const atRisk = activeProjects
+          .map(p=>({ p, h: projectHealthScore(p) }))
+          .filter(({h})=>h.score<55)
+          .sort((a,b)=>a.h.score-b.h.score)
+          .slice(0,4);
+        if (!atRisk.length) return '';
+        return `<div class="glass-card" style="padding:18px;margin-bottom:20px;border-color:rgba(240,169,136,.22);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:1.1rem;">🔍</span>
+            <h2 style="font-size:.95rem;font-weight:600;color:var(--peach);">Projets à surveiller</h2>
+            <span style="font-size:.72rem;color:var(--ink-4);margin-left:auto;">${atRisk.length} projet(s) nécessitent votre attention</span>
+          </div>
+          ${atRisk.map(({p,h})=>{
+            const client = db.users.find(u=>u.id===p.clientId);
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);margin-bottom:6px;">
+              <span style="width:28px;height:28px;border-radius:50%;background:${h.color}22;border:1.5px solid ${h.color};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:${h.color};flex-shrink:0;">${h.score}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div>
+                <div style="font-size:.72rem;color:var(--ink-4);">${client?esc(client.username):'—'} · ${h.reasons[0]||h.label}</div>
+              </div>
+              <span style="font-size:.72rem;color:${h.color};font-weight:600;white-space:nowrap;">${h.label}</span>
+            </div>`;
+          }).join('')}
+        </div>`;
+      })()}
 
       ${(()=>{
         // F5 — Project status chart
@@ -2130,6 +2297,7 @@
     }
     const prioBadge = {urgent:`<span class="role-chip prio-urgent" style="font-size:.68rem;padding:2px 8px;">🔴 Urgent</span>`,normal:'',low:`<span class="role-chip prio-low" style="font-size:.68rem;padding:2px 8px;">⚪ Basse</span>`}[project?.priority||'normal']||'';
     const colorStyle = project&&project.color ? `border-left:3px solid ${project.color};padding-left:14px;` : '';
+    const health = project&&project.status!=='done' ? projectHealthScore(project) : null;
     return `<div class="glass-card" style="padding:14px;margin-bottom:10px;${colorStyle}">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:${tl.length>0?'10':'0'}px;">
         ${avatar(u)}
@@ -2145,7 +2313,9 @@
       ${tl.length>0?`
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgProgressCircle(pct,'#d97757',52)}
+          ${health?`<div style="margin-left:auto;display:flex;align-items:center;gap:5px;" title="${esc(health.reasons.join(' · ')||health.label)}"><span style="width:8px;height:8px;border-radius:50%;background:${health.color};display:inline-block;flex-shrink:0;box-shadow:0 0 6px ${health.color}55;"></span><span style="font-size:.72rem;color:${health.color};font-weight:500;">${health.label}</span>${health.reasons[0]?`<span style="font-size:.65rem;color:var(--ink-4);">· ${esc(health.reasons[0])}</span>`:''}</div>`:''}
         </div>`:''}
+      ${health&&tl.length===0?`<div style="display:flex;align-items:center;gap:5px;margin-top:6px;"><span style="width:8px;height:8px;border-radius:50%;background:${health.color};display:inline-block;flex-shrink:0;"></span><span style="font-size:.72rem;color:${health.color};">${health.label}</span>${health.reasons[0]?`<span style="font-size:.65rem;color:var(--ink-4);margin-left:4px;">· ${esc(health.reasons[0])}</span>`:''}</div>`:''}
     </div>`;
   }
 
@@ -2498,6 +2668,7 @@
             <div class="kebab-menu" id="kebab-${project.id}">
               <button class="kebab-item btn-pin-project" data-pid="${project.id}">${project.pinned?'📌 Désépingler':'📍 Épingler'}</button>
               <button class="kebab-item btn-report" data-uid="${u.id}">📄 Rapport PDF</button>
+              <button class="kebab-item btn-text-summary" data-pid="${project.id}" data-uid="${u.id}">📝 Résumé texte</button>
               <button class="kebab-item btn-dup-project" data-pid="${project.id}">📋 Dupliquer</button>
               <button class="kebab-item btn-deliver-files" data-pid="${project.id}">${project.deliverable?'📦 Remplacer la livraison':'📦 Livrer les fichiers'}</button>
               <div class="kebab-divider"></div>
@@ -2518,13 +2689,13 @@
             <div style="margin:10px 0 0;padding:10px 14px;background:rgba(255,255,255,.02);border-radius:10px;border:1px solid rgba(255,255,255,.06);">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                 <span style="font-size:.78rem;font-weight:600;color:var(--ink-3);">✅ TÂCHES INTERNES (${tasksDoneCount}/${tasks.length})</span>
-                <button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}">Gérer</button>
+                <div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}">Gérer</button><button class="btn btn-ghost btn-sm btn-extract-tasks" data-pid="${project.id}" title="Extraire des tâches depuis la description du projet">✨</button></div>
               </div>
               ${tasks.map(t=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
                 <div style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${t.done?'var(--sage)':'rgba(255,255,255,.2)'};background:${t.done?'rgba(147,181,148,.2)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--sage);flex-shrink:0;">${t.done?'✓':''}</div>
                 <span style="font-size:.78rem;color:${t.done?'var(--ink-4)':'var(--ink-2)'};text-decoration:${t.done?'line-through':'none'};">${esc(t.label)}</span>
               </div>`).join('')}
-            </div>`:canEdit&&tasks.length===0?`<button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}" style="margin-top:8px;font-size:.75rem;">+ Tâches internes</button>`:'';
+            </div>`:canEdit&&tasks.length===0?`<div style="display:flex;gap:6px;margin-top:8px;"><button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}" style="font-size:.75rem;">+ Tâches internes</button><button class="btn btn-ghost btn-sm btn-extract-tasks" data-pid="${project.id}" title="Extraire des tâches depuis la description" style="font-size:.75rem;">✨ Extraire</button></div>`:'';
         })()}
         <div class="divider"></div>
         <div style="font-size:.8rem;font-weight:600;color:rgba(244,238,229,.5);margin-bottom:8px;">DOCUMENTS (${docs.length})</div>
@@ -2571,6 +2742,7 @@
           ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.4);padding:2px 8px;border-radius:8px;background:rgba(240,169,136,.12);font-weight:600;">⚠️ Relance — ${daysPending}j</span>`:''}
           ${doc.status==='pending'&&daysPending>=14?`<span style="font-size:.68rem;color:#f08a8a;border:1px solid rgba(220,80,80,.3);padding:2px 8px;border-radius:8px;background:rgba(220,80,80,.1);font-weight:600;">🚨 ${daysPending}j sans réponse</span>`:''}
           <span style="font-size:.75rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
+          ${canEdit&&relance?`<button class="btn btn-ghost btn-sm btn-relance" data-did="${doc.id}" title="Générer un message de relance" style="border-color:rgba(240,169,136,.4);color:var(--peach);">✉ Relancer</button>`:''}
           ${canEdit?`<button class="btn btn-ghost btn-sm btn-view-doc" data-did="${doc.id}">👁 Voir</button>`:''}
           ${canEdit?`<button class="btn btn-danger btn-sm btn-del-doc" data-did="${doc.id}" title="Supprimer">🗑</button>`:''}
         </div>
@@ -2606,6 +2778,39 @@
     });
     document.querySelectorAll('.btn-manage-tasks').forEach(b=>{
       b.addEventListener('click',()=>openManageTasksModal(b.dataset.pid));
+    });
+    document.querySelectorAll('.btn-extract-tasks').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const p = db.projects.find(x=>x.id===b.dataset.pid);
+        if (!p) return;
+        const textSources = [
+          p.description||'', p.name,
+          ...db.documents.filter(d=>d.projectId===p.id&&d.status==='filled').flatMap(d=>d.fields.map(f=>f.value||''))
+        ];
+        const extracted = extractTasksFromText(textSources.join('\n'));
+        if (!extracted.length) { toast('Aucune tâche détectée. Ajoutez une description au projet.','info'); return; }
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1rem;font-weight:700;">✨ Tâches extraites automatiquement</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:14px;">Sélectionnez les tâches à ajouter à <strong>${esc(p.name)}</strong> :</p>
+          ${extracted.map((t,i)=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);margin-bottom:6px;cursor:pointer;"><input type="checkbox" id="et-${i}" checked style="accent-color:var(--coral);" /><span style="font-size:.84rem;">${esc(t)}</span></label>`).join('')}
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+            <button id="et-confirm" class="btn btn-primary" style="flex:1;justify-content:center;">Ajouter les tâches</button>
+          </div>`,
+        ()=>{
+          document.getElementById('et-confirm').addEventListener('click',()=>{
+            const selected = extracted.filter((_,i)=>document.getElementById('et-'+i)?.checked);
+            if (!selected.length) { toast('Aucune tâche sélectionnée.','info'); return; }
+            if (!p.internalTasks) p.internalTasks = [];
+            selected.forEach(label=>p.internalTasks.push({id:uid(),label,done:false,createdAt:new Date().toISOString()}));
+            logActivity('tasks_extracted', `${selected.length} tâche(s) extraites pour "${p.name}"`);
+            saveDB(); toast(`${selected.length} tâche(s) ajoutée(s) !`,'success'); closeModal(); refreshAdminTab();
+          });
+        });
+      });
     });
     document.querySelectorAll('.btn-edit-timeline').forEach(b=>{
       b.addEventListener('click',()=>openEditTimelineModal(b.dataset.pid,b.dataset.uid));
@@ -2678,6 +2883,91 @@
     document.querySelectorAll('.btn-deliver-files').forEach(b=>{
       b.addEventListener('click',()=>openDeliverFilesModal(b.dataset.pid));
     });
+
+    // Relance client — génère un message de rappel et copie dans le presse-papier
+    document.querySelectorAll('.btn-relance').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const doc = db.documents.find(d=>d.id===b.dataset.did);
+        if(!doc) return;
+        const project = db.projects.find(p=>p.id===doc.projectId);
+        const client = project ? db.users.find(u=>u.id===project.clientId) : null;
+        const daysPending = doc.sentAt ? Math.floor((Date.now()-new Date(doc.sentAt))/(1000*60*60*24)) : '?';
+        const prenom = client?.firstName || client?.username || 'Client';
+        const projetNom = project?.name || 'votre projet';
+        const msg = `Bonjour ${prenom},\n\nJ'espère que vous allez bien. Je me permets de vous relancer concernant le document "${doc.name}" envoyé il y a ${daysPending} jours dans le cadre de ${projetNom}.\n\nCe document est nécessaire pour avancer sur votre projet. N'hésitez pas à me contacter si vous avez des questions ou des difficultés à le remplir.\n\nMerci d'avance,\nL'équipe Flow`;
+        const copy = ()=>{
+          navigator.clipboard.writeText(msg).then(()=>{ toast('Message copié dans le presse-papier !','success'); closeModal(); }).catch(()=>{ toast('Copiez le texte manuellement.','info'); });
+        };
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1rem;font-weight:700;">✉ Message de relance</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <p style="font-size:.78rem;color:var(--ink-3);margin-bottom:10px;">Document : <strong>${esc(doc.name)}</strong> · ${daysPending} jours sans réponse</p>
+          <textarea id="relance-msg" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;color:var(--ink);font-size:.84rem;line-height:1.55;resize:vertical;" readonly>${msg}</textarea>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Fermer</button>
+            <button id="btn-copy-relance" class="btn btn-primary" style="flex:1;justify-content:center;">📋 Copier</button>
+          </div>`,
+        ()=>{ document.getElementById('btn-copy-relance').addEventListener('click', copy); });
+      });
+    });
+
+    // Résumé d'avancement texte
+    document.querySelectorAll('.btn-text-summary').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const p = db.projects.find(x=>x.id===b.dataset.pid);
+        const u = db.users.find(x=>x.id===b.dataset.uid);
+        if(!p||!u) return;
+        const tl = p.timeline||[];
+        const done = tl.filter(s=>s.status==='done').length;
+        const pct = tl.length ? Math.round(done/tl.length*100) : 0;
+        const docs = getProjectDocs(p.id);
+        const docsDone = docs.filter(d=>d.status==='reviewed').length;
+        const docsPending = docs.filter(d=>d.status==='pending').length;
+        const now = new Date();
+        const dueDiff = p.dueDate ? Math.ceil((new Date(p.dueDate)-now)/(1000*60*60*24)) : null;
+        const dueTxt = dueDiff===null ? 'Non définie' : dueDiff>0 ? `Dans ${dueDiff} jour(s) (${p.dueDate})` : `Dépassée de ${Math.abs(dueDiff)} jour(s)`;
+        const etapesDone = tl.filter(s=>s.status==='done').map(s=>`  ✅ ${s.label}`).join('\n') || '  Aucune';
+        const etapesPending = tl.filter(s=>s.status!=='done').map(s=>`  ⏳ ${s.label}${s.dueDate?' (échéance: '+s.dueDate+')':''}`).join('\n') || '  Aucune';
+        const summary = `═══════════════════════════════════
+RÉSUMÉ D'AVANCEMENT — ${p.name.toUpperCase()}
+Généré le ${now.toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'})}
+═══════════════════════════════════
+
+CLIENT        : ${(u.firstName||'')+' '+(u.lastName||'')||u.username} (@${u.username})
+STATUT        : ${{pending:'En attente',active:'En cours',done:'Terminé',paused:'En pause'}[p.status]||p.status}
+AVANCEMENT    : ${pct}% (${done}/${tl.length} étapes)
+ÉCHÉANCE      : ${dueTxt}
+
+ÉTAPES TERMINÉES
+${etapesDone}
+
+ÉTAPES EN COURS / À VENIR
+${etapesPending}
+
+DOCUMENTS
+  Total : ${docs.length}  |  Validés : ${docsDone}  |  En attente : ${docsPending}
+
+═══════════════════════════════════`;
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1rem;font-weight:700;">📝 Résumé d'avancement</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <textarea id="summary-txt" style="width:100%;min-height:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;color:var(--ink);font-size:.78rem;font-family:monospace;line-height:1.55;resize:vertical;" readonly>${summary}</textarea>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Fermer</button>
+            <button id="btn-copy-summary" class="btn btn-primary" style="flex:1;justify-content:center;">📋 Copier</button>
+          </div>`,
+        ()=>{
+          document.getElementById('btn-copy-summary').addEventListener('click',()=>{
+            navigator.clipboard.writeText(summary).then(()=>{ toast('Résumé copié !','success'); closeModal(); }).catch(()=>toast('Copiez le texte manuellement.','info'));
+          });
+        });
+      });
+    });
+
     function applyDocFilters(){
       const q = (document.getElementById('doc-search')?.value||'').toLowerCase();
       const statusF = document.getElementById('doc-filter-status')?.value||'';
@@ -3093,8 +3383,9 @@
   function showModal(html, onWire){
     let ov = document.getElementById('modal-overlay');
     if(!ov){ ov=document.createElement('div'); ov.id='modal-overlay'; document.body.appendChild(ov); }
-    ov.innerHTML=`<div class="modal-box fade-up">${html}</div>`;
+    ov.innerHTML=`<div class="modal-box fade-up" role="dialog" aria-modal="true">${html}</div>`;
     ov.style.display='flex';
+    ov.setAttribute('role','presentation');
     ov.addEventListener('click',e=>{ if(e.target===ov) closeModal(); });
     if(onWire) onWire();
   }
@@ -3589,7 +3880,7 @@
         <h2 style="font-size:1.1rem;font-weight:700;">Envoyer un document</h2>
         <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
-      <div style="margin-bottom:14px;"><label class="label">Nom du document</label><input id="sd-name" class="glass-input" placeholder="Ex : Questionnaire Brief Client" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Nom du document</label><input id="sd-name" class="glass-input" placeholder="Ex : Questionnaire Brief Client" /><div id="sd-classify-hint" style="margin-top:5px;font-size:.76rem;min-height:16px;transition:color .2s;"></div></div>
       ${(db.docTemplates||[]).length>0?`<div style="margin-bottom:14px;"><label class="label">Charger un modèle</label><div style="display:flex;gap:8px;"><select id="sd-tpl" class="glass-input" style="flex:1;"><option value="">— Choisir un modèle —</option>${(db.docTemplates||[]).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button id="sd-load-tpl" class="btn btn-ghost btn-sm">Charger</button></div></div>`:''}
       <div id="sd-fields">
         <div class="label" style="margin-bottom:8px;">Champs du formulaire</div>
@@ -3612,6 +3903,13 @@
         <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;min-width:100px;">📤 Envoyer</button>
       </div>`,
     ()=>{
+      document.getElementById('sd-name').addEventListener('input', ()=>{
+        const hint = document.getElementById('sd-classify-hint');
+        if (!hint) return;
+        const cls = autoClassifyDoc(document.getElementById('sd-name').value);
+        hint.textContent = cls ? `${cls.icon} Classifié comme : ${cls.label}` : '';
+        hint.style.color = cls ? 'var(--coral-soft)' : '';
+      });
       const tplLoadBtn = document.getElementById('sd-load-tpl');
       if(tplLoadBtn) tplLoadBtn.addEventListener('click',()=>{
         const tplId = document.getElementById('sd-tpl').value;
@@ -4174,6 +4472,21 @@
       </div>
       <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Revenus par projet · Visible uniquement par admin et contrôleur</p>
 
+      ${(()=>{
+        const anomalies = detectFinanceAnomalies();
+        if (!anomalies.length) return '';
+        return `<div style="margin-bottom:20px;background:rgba(240,169,136,.08);border:1px solid rgba(240,169,136,.25);border-radius:14px;padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:1.1rem;">📉</span>
+            <span style="font-size:.9rem;font-weight:600;color:var(--peach);">Analyse financière — points d'attention</span>
+          </div>
+          ${anomalies.map(a=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:.84rem;color:var(--ink-2);">
+            <span style="color:var(--peach);flex-shrink:0;">${a.type==='trend'?'↘':'⚠'}</span>
+            <span>${esc(a.message)}</span>
+          </div>`).join('')}
+        </div>`;
+      })()}
+
       <!-- KPIs -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px;">
         <div class="glass-card stat-card">
@@ -4563,6 +4876,13 @@
   // ════════════════════════════════════════════════
   //  INIT
   // ════════════════════════════════════════════════
+  // ─── Service Worker (PWA offline) ──────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('[Flow] Service Worker enregistré'))
+      .catch(err => console.warn('[Flow] SW:', err));
+  }
+
   bootApp();
 
 
