@@ -1,4 +1,4 @@
-﻿// â”€â”€â”€ Firebase config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Firebase config ────────────────────────────
   const firebaseConfig = {
     apiKey: "AIzaSyD8KGZ43JjT5DagFVTEEVdnf7agqBLjQ6E",
     authDomain: "flow-app-99150.firebaseapp.com",
@@ -18,11 +18,11 @@
   }
   if(window.matchMedia) window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{ if(!localStorage.getItem('flow_theme')) applyTheme(); });
   applyTheme();
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  FLOW â€” Project Management App
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════
+  //  FLOW — Project Management App
+  // ═══════════════════════════════════════════════
 
-  // â”€â”€â”€ Default data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Default data ───────────────────────────────
   const SEED = {
     users: [
       { id:'u1', username:'Sacha',  password:'$mila2012', role:'admin',
@@ -37,31 +37,31 @@
         websiteUrl:'https://example.com', status:'in_progress',
         createdAt:'2024-02-01',
         timeline:[
-          {id:'tl1',label:'Prise de contact',   status:'done',    date:'15 Jan 2024', note:'Premier Ã©change Ã©tabli.'},
-          {id:'tl2',label:'Cahier des charges',  status:'done',    date:'20 Jan 2024', note:'Besoins validÃ©s.'},
-          {id:'tl3',label:'Maquette validÃ©e',    status:'done',    date:'01 FÃ©v 2024', note:'Design approuvÃ© par le client.'},
-          {id:'tl4',label:'DÃ©veloppement',       status:'current', date:null,          note:'En cours â€” 60 %'},
+          {id:'tl1',label:'Prise de contact',   status:'done',    date:'15 Jan 2024', note:'Premier échange établi.'},
+          {id:'tl2',label:'Cahier des charges',  status:'done',    date:'20 Jan 2024', note:'Besoins validés.'},
+          {id:'tl3',label:'Maquette validée',    status:'done',    date:'01 Fév 2024', note:'Design approuvé par le client.'},
+          {id:'tl4',label:'Développement',       status:'current', date:null,          note:'En cours — 60 %'},
           {id:'tl5',label:'Tests & Recette',     status:'pending', date:null,          note:''},
           {id:'tl6',label:'Mise en ligne',       status:'pending', date:null,          note:''}
         ]
       }
     ],
     documents:[
-      { id:'doc1', name:'Brief crÃ©atif', projectId:'proj1', clientId:null,
+      { id:'doc1', name:'Brief créatif', projectId:'proj1', clientId:null,
         sentBy:'u1', sentAt:'2024-01-16',
         status:'pending',
         fields:[
-          {id:'f1', label:'DÃ©crivez votre activitÃ© en quelques lignes',   type:'textarea', value:''},
-          {id:'f2', label:'Couleurs ou univers graphique souhaitÃ©s',       type:'text',     value:''},
-          {id:'f3', label:'Sites web de rÃ©fÃ©rence (URLs)',                 type:'text',     value:''},
-          {id:'f4', label:'Budget estimÃ© (â‚¬)',                            type:'text',     value:''}
+          {id:'f1', label:'Décrivez votre activité en quelques lignes',   type:'textarea', value:''},
+          {id:'f2', label:'Couleurs ou univers graphique souhaités',       type:'text',     value:''},
+          {id:'f3', label:'Sites web de référence (URLs)',                 type:'text',     value:''},
+          {id:'f4', label:'Budget estimé (â‚¬)',                            type:'text',     value:''}
         ],
         filledAt:null
       }
     ]
   };
 
-  // â”€â”€â”€ Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Storage ────────────────────────────────────
   function loadLocalDB(){
     try{ const s=localStorage.getItem('flow_v3'); if(s) return JSON.parse(s); }catch(_){}
     return null;
@@ -114,23 +114,23 @@
   let notifBadge = 0;
   let prevFilledDocIds = new Set();
 
-  // F1 â€” Idle auto-logout
+  // F1 — Idle auto-logout
   let lastActivity = Date.now();
   function resetIdleTimer(){ lastActivity = Date.now(); }
 
-  // â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Toast ──────────────────────────────────────
   function toast(msg, type='info', duration=3200){
     const container = document.getElementById('toast-container');
     if(!container) return;
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
-    const icon = {success:'âœ…',error:'âŒ',info:'â„¹ï¸'}[type]||'â„¹ï¸';
+    const icon = {success:'✅',error:'âŒ',info:'ℹï¸'}[type]||'ℹï¸';
     el.innerHTML = '<span>'+icon+'</span><span>'+msg+'</span>';
     container.appendChild(el);
     setTimeout(()=>{ el.classList.add('hide'); setTimeout(()=>el.remove(), 280); }, duration);
   }
 
-  // â”€â”€â”€ Sync dot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Sync dot ───────────────────────────────────
   function setSyncState(state){
     const dot = document.getElementById('sync-dot');
     if(!dot) return;
@@ -157,42 +157,42 @@
     }
   }
 
-  // â”€â”€â”€ "Quoi de neuf ?" version modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── "Quoi de neuf ?" version modal ─────────────
   function showWhatsNew(){
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <div>
-          <h2 style="font-size:1.1rem;font-weight:700;">Quoi de neuf ? âœ¨</h2>
+          <h2 style="font-size:1.1rem;font-weight:700;">Quoi de neuf ? ✨</h2>
           <div style="font-size:.75rem;color:var(--ink-4);margin-top:3px;">Flow v${APP_VERSION}</div>
         </div>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
         ${[
-          ['â±ï¸','DÃ©connexion automatique aprÃ¨s 30 min d\'inactivitÃ©'],
-          ['ðŸ”’','Blocage aprÃ¨s 5 tentatives de connexion Ã©chouÃ©es'],
-          ['ðŸ“¡','BanniÃ¨re hors-ligne en cas de perte de connexion'],
+          ['⏱ï¸','Déconnexion automatique après 30 min d\'inactivité'],
+          ['ðŸ”’','Blocage après 5 tentatives de connexion échouées'],
+          ['ðŸ“¡','Bannière hors-ligne en cas de perte de connexion'],
           ['âŒ¨ï¸','Raccourcis clavier (Esc, N)'],
-          ['ðŸ“Š','Graphique de rÃ©partition des projets'],
-          ['ðŸ“…','Calendrier des Ã©chÃ©ances â€” 30 prochains jours'],
-          ['ðŸŽ¯','Compte Ã  rebours de livraison cÃ´tÃ© client'],
-          ['ðŸ“','Notes par Ã©tape dans l\'Ã©diteur de timeline'],
+          ['ðŸ“Š','Graphique de répartition des projets'],
+          ['📅','Calendrier des échéances — 30 prochains jours'],
+          ['ðŸŽ¯','Compte Ã  rebours de livraison côté client'],
+          ['📝','Notes par étape dans l\'éditeur de timeline'],
           ['ðŸ“‹','Duplication de projet'],
-          ['ðŸ—‚ï¸','ModÃ¨les de timeline prÃ©dÃ©finis'],
-          ['ðŸŽ¨','Couleur personnalisÃ©e par projet'],
+          ['ðŸ—‚ï¸','Modèles de timeline prédéfinis'],
+          ['ðŸŽ¨','Couleur personnalisée par projet'],
           ['ðŸ’¬','Message d\'accueil client par projet'],
           ['ðŸ—„ï¸','Archivage de projet (au lieu de suppression)'],
-          ['ðŸ·ï¸','Tags sur les projets'],
-          ['âœ…','Commentaire admin lors de la validation d\'un document'],
+          ['🏷ï¸','Tags sur les projets'],
+          ['✅','Commentaire admin lors de la validation d\'un document'],
           ['âš ï¸','Indicateur de relance (doc en attente > 7 jours)'],
-          ['ðŸ‘¤','Profil enrichi client (tÃ©lÃ©phone, secteur)']
+          ['ðŸ‘¤','Profil enrichi client (téléphone, secteur)']
         ].map(([icon,text])=>`
           <li style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:12px;border:1px solid rgba(255,255,255,.07);">
             <span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>
             <span style="font-size:.875rem;color:var(--ink-2);">${text}</span>
           </li>`).join('')}
       </ul>
-      <button onclick="closeModal()" class="btn btn-primary" style="width:100%;justify-content:center;">Super, c'est notÃ© !</button>`,
+      <button onclick="closeModal()" class="btn btn-primary" style="width:100%;justify-content:center;">Super, c'est noté !</button>`,
     ()=>{ localStorage.setItem('flow_seen_version', APP_VERSION); });
   }
 
@@ -202,10 +202,10 @@
     }
   }
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Helpers ────────────────────────────────────
   const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
   const esc = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const roleLabel = r=>({admin:'Admin',controller:'ContrÃ´leur',client:'Client'}[r]||r);
+  const roleLabel = r=>({admin:'Admin',controller:'Contrôleur',client:'Client'}[r]||r);
   const roleBadge = r=>`<span class="badge badge-${r==='controller'?'controller':r}">${roleLabel(r)}</span>`;
   const initials = u=>(((u.firstName||u.username||'?')[0])+(u.lastName?u.lastName[0]:'')).toUpperCase();
   const avatar = u => u.photo
@@ -221,7 +221,7 @@
     if(!db.activityLog) db.activityLog = [];
     db.activityLog.unshift({
       id: uid(),
-      actor: me ? me.username : 'systÃ¨me',
+      actor: me ? me.username : 'système',
       type,
       description,
       at: new Date().toISOString()
@@ -245,7 +245,7 @@
     return db.documents.filter(d=>d.projectId===projectId);
   }
 
-  // â”€â”€â”€ Auth & crypto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Auth & crypto ──────────────────────────────
   async function hashPwd(pwd){
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd));
     return 'sha256:'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -272,7 +272,8 @@
     return true;
   }
 
-  // â”€â”€â”€ Firebase boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Firebase boot ──────────────────────────────
+
   // Command palette
   function openCmdPalette(){
     const pal = document.getElementById('cmd-palette');
@@ -306,24 +307,24 @@
     tabs.forEach(t=>{ if(!q||t.label.toLowerCase().includes(q)) items.push({icon:'ðŸ§­',label:t.label,sub:'Navigation',action:()=>{activeTab=t.id;closeCmdPalette();refreshAdminTab();}}); });
     // Clients/users
     db.users.filter(u=>!q||(u.username+' '+(u.firstName||'')+' '+(u.lastName||'')).toLowerCase().includes(q)).slice(0,5).forEach(u=>{
-      items.push({icon:'ðŸ‘¤',label:u.username+(u.firstName?` (${u.firstName} ${u.lastName||''})`.trim():''),sub:'Utilisateur Â· '+u.role,action:()=>{ activeTab='users'; closeCmdPalette(); refreshAdminTab(); }});
+      items.push({icon:'ðŸ‘¤',label:u.username+(u.firstName?` (${u.firstName} ${u.lastName||''})`.trim():''),sub:'Utilisateur · '+u.role,action:()=>{ activeTab='users'; closeCmdPalette(); refreshAdminTab(); }});
     });
     // Projects
     db.projects.filter(p=>!p.archived&&(!q||p.name.toLowerCase().includes(q))).slice(0,5).forEach(p=>{
-      items.push({icon:'ðŸ“',label:p.name,sub:'Projet Â· '+(p.status==='done'?'TerminÃ©':p.status==='in_progress'?'En cours':'En attente'),action:()=>{ activeTab='documents'; closeCmdPalette(); refreshAdminTab(); }});
+      items.push({icon:'📁',label:p.name,sub:'Projet · '+(p.status==='done'?'Terminé':p.status==='in_progress'?'En cours':'En attente'),action:()=>{ activeTab='documents'; closeCmdPalette(); refreshAdminTab(); }});
     });
     // Finance entries
     (db.finance||[]).filter(e=>!q||(e.label||'').toLowerCase().includes(q)||(db.projects.find(p=>p.id===e.projectId)?.name||'').toLowerCase().includes(q)).slice(0,4).forEach(e=>{
-      const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'â€”';
-      items.push({icon:'ðŸ’°',label:pname+' â€” '+(e.amount||0)+'â‚¬',sub:'Finance Â· '+(e.date||''),action:()=>{ activeTab='finance'; closeCmdPalette(); refreshAdminTab(); }});
+      const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—';
+      items.push({icon:'ðŸ’°',label:pname+' — '+(e.amount||0)+'â‚¬',sub:'Finance · '+(e.date||''),action:()=>{ activeTab='finance'; closeCmdPalette(); refreshAdminTab(); }});
     });
     // Actions
-    if(!q||'nouveau projet'.includes(q)) items.push({icon:'âž•',label:'Nouveau projet',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='home'; refreshAdminTab(); setTimeout(openCreateProjectModal,100); }});
-    if(!q||'ajouter entrÃ©e finance'.includes(q)) items.push({icon:'ðŸ’¶',label:'Ajouter entrÃ©e finance',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='finance'; refreshAdminTab(); setTimeout(openAddRevenueModal,100); }});
-    if(!q||'dÃ©connexion'.includes(q)) items.push({icon:'ðŸ”',label:'Se dÃ©connecter',sub:'Action',action:()=>{ closeCmdPalette(); logout(); }});
+    if(!q||'nouveau projet'.includes(q)) items.push({icon:'➕',label:'Nouveau projet',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='home'; refreshAdminTab(); setTimeout(openCreateProjectModal,100); }});
+    if(!q||'ajouter entrée finance'.includes(q)) items.push({icon:'ðŸ’¶',label:'Ajouter entrée finance',sub:'Action',action:()=>{ closeCmdPalette(); activeTab='finance'; refreshAdminTab(); setTimeout(openAddRevenueModal,100); }});
+    if(!q||'déconnexion'.includes(q)) items.push({icon:'🔐',label:'Se déconnecter',sub:'Action',action:()=>{ closeCmdPalette(); logout(); }});
 
     if(items.length===0){
-      res.innerHTML='<div style="padding:14px 16px;color:var(--ink-4);font-size:.85rem;">Aucun rÃ©sultat pour "'+q+'"</div>';
+      res.innerHTML='<div style="padding:14px 16px;color:var(--ink-4);font-size:.85rem;">Aucun résultat pour "'+q+'"</div>';
       return;
     }
     res.innerHTML = items.slice(0,12).map((it,i)=>`
@@ -338,11 +339,11 @@
   }
 
   function bootApp(){
-    // F1 â€” Idle timer setup
+    // F1 — Idle timer setup
     ['mousemove','keydown','click','touchstart'].forEach(ev=>document.addEventListener(ev,resetIdleTimer,{passive:true}));
-    setInterval(()=>{ if(me && Date.now()-lastActivity > 30*60*1000){ toast('DÃ©connexion automatique (inactivitÃ©).','info',4000); logout(); } }, 60000);
+    setInterval(()=>{ if(me && Date.now()-lastActivity > 30*60*1000){ toast('Déconnexion automatique (inactivité).','info',4000); logout(); } }, 60000);
 
-    // F4 â€” Keyboard shortcuts
+    // F4 — Keyboard shortcuts
     document.addEventListener('keydown', e=>{
 
       if(e.key==='Escape'){ closeModal(); closeCmdPalette(); }
@@ -373,7 +374,7 @@
       })
       .catch(()=>{
         setSyncState('error');
-        toast('Firebase hors ligne â€” mode local activÃ©','error');
+        toast('Firebase hors ligne — mode local activé','error');
         migratePasswords().then(()=>{
           checkSession();
           render();
@@ -385,7 +386,7 @@
   function startRealtimeSync(){
     prevFilledDocIds = new Set(db.documents.filter(d=>d.status==='filled').map(d=>d.id));
 
-    // F3 â€” Offline banner
+    // F3 — Offline banner
     fbdb.ref('.info/connected').on('value', snap=>{
       let banner = document.getElementById('offline-banner');
       if(snap.val()===false){
@@ -393,7 +394,7 @@
           banner = document.createElement('div');
           banner.id='offline-banner';
           banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9000;background:rgba(200,70,70,.92);color:#fff;text-align:center;padding:8px 16px;font-size:.85rem;font-weight:500;letter-spacing:.01em;';
-          banner.textContent='âš ï¸ Connexion perdue â€” modifications en attente de synchronisation';
+          banner.textContent='âš ï¸ Connexion perdue — modifications en attente de synchronisation';
           document.body.prepend(banner);
         }
       } else {
@@ -411,7 +412,7 @@
           if(!prevFilledDocIds.has(d.id)){
             const client = db.users.find(u=>u.id===d.clientId);
             toast(`ðŸ“‹ ${client?client.username:'Client'} a rempli "${esc(d.name)}"`, 'info', 5000);
-            sendBrowserNotif('Flow â€” Nouveau document', `${client?client.username:'Client'} a rempli "${d.name}"`);
+            sendBrowserNotif('Flow — Nouveau document', `${client?client.username:'Client'} a rempli "${d.name}"`);
             notifBadge++; updateNotifBadge();
           }
         });
@@ -432,7 +433,7 @@
     if(id){ me = db.users.find(u=>u.id===id)||null; }
   }
 
-  // â”€â”€â”€ Router / Top-level render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Router / Top-level render ──────────────────
   function renderErrorBox(err){
     console.error(err);
     return `<div class="glass-card" style="padding:28px;max-width:620px;margin:40px auto;">
@@ -452,9 +453,9 @@
     }catch(err){ app.innerHTML = renderErrorBox(err); }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  LOGIN
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   function renderLogin(errMsg=''){
     return `
     <div id="login-page">
@@ -470,7 +471,7 @@
         </div>
         <div style="margin-bottom:22px;">
           <label class="label">Mot de passe</label>
-          <input id="li-pass" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" />
+          <input id="li-pass" class="glass-input" type="password" placeholder="••••••••" autocomplete="current-password" />
         </div>
         <button id="li-btn" class="btn btn-primary" style="width:100%;justify-content:center;">Se connecter</button>
         <div style="display:flex;align-items:center;gap:12px;margin-top:18px;">
@@ -478,7 +479,7 @@
           <span style="font-size:.78rem;color:var(--ink-4);">ou</span>
           <div style="flex:1;height:1px;background:var(--glass-edge);"></div>
         </div>
-        <button id="li-register" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px;">CrÃ©er un compte</button>
+        <button id="li-register" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px;">Créer un compte</button>
       </div>
     </div>`;
   }
@@ -486,19 +487,19 @@
   function openRegisterModal(){
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">CrÃ©er un compte</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">Créer un compte</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
-      <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:18px;">Votre demande sera examinÃ©e par un administrateur avant activation.</p>
+      <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:18px;">Votre demande sera examinée par un administrateur avant activation.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <div><label class="label">PrÃ©nom</label><input id="reg-fn" class="glass-input" placeholder="PrÃ©nom" /></div>
+        <div><label class="label">Prénom</label><input id="reg-fn" class="glass-input" placeholder="Prénom" /></div>
         <div><label class="label">Nom</label><input id="reg-ln" class="glass-input" placeholder="Nom" /></div>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Nom d'utilisateur *</label><input id="reg-un" class="glass-input" placeholder="Ex : jean.dupont" /></div>
       <div style="margin-bottom:14px;"><label class="label">Email</label><input id="reg-em" class="glass-input" type="email" placeholder="votre@email.com" /></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-        <div><label class="label">Mot de passe *</label><input id="reg-pw" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" /></div>
-        <div><label class="label">Confirmer *</label><input id="reg-pw2" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" /></div>
+        <div><label class="label">Mot de passe *</label><input id="reg-pw" class="glass-input" type="password" placeholder="••••••••" /></div>
+        <div><label class="label">Confirmer *</label><input id="reg-pw2" class="glass-input" type="password" placeholder="••••••••" /></div>
       </div>
       <div id="reg-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
@@ -517,25 +518,25 @@
 
         if(!un || !pw){ showMsg(msg,'Le pseudo et le mot de passe sont requis.','error'); return; }
         if(pw !== pw2){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
-        if(pw.length < 6){ showMsg(msg,'Le mot de passe doit faire au moins 6 caractÃ¨res.','error'); return; }
+        if(pw.length < 6){ showMsg(msg,'Le mot de passe doit faire au moins 6 caractères.','error'); return; }
 
         // Check blocked
         const blocked = (db.blockedAccounts||[]).some(b=>
           b.username.toLowerCase()===un.toLowerCase() ||
           (em && b.email && b.email.toLowerCase()===em.toLowerCase())
         );
-        if(blocked){ showMsg(msg,'Ce compte a Ã©tÃ© bloquÃ©. Contactez un administrateur.','error'); return; }
+        if(blocked){ showMsg(msg,'Ce compte a été bloqué. Contactez un administrateur.','error'); return; }
 
         // Check duplicate
         if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){
-          showMsg(msg,'Ce nom d\'utilisateur est dÃ©jÃ  utilisÃ©.','error'); return;
+          showMsg(msg,'Ce nom d\'utilisateur est déjÃ  utilisé.','error'); return;
         }
         if((db.pendingUsers||[]).some(u=>u.username.toLowerCase()===un.toLowerCase())){
-          showMsg(msg,'Une demande avec ce pseudo est dÃ©jÃ  en attente.','error'); return;
+          showMsg(msg,'Une demande avec ce pseudo est déjÃ  en attente.','error'); return;
         }
 
         const btn = document.getElementById('reg-submit');
-        btn.disabled = true; btn.textContent = 'â€¦';
+        btn.disabled = true; btn.textContent = '…';
         const hashed = await hashPwd(pw);
         if(!db.pendingUsers) db.pendingUsers = [];
         db.pendingUsers.push({
@@ -548,8 +549,8 @@
           requestedAt: new Date().toISOString()
         });
         saveDB();
-        showMsg(msg,'Demande envoyÃ©e ! Un administrateur examinera votre compte.','success');
-        btn.textContent = 'Demande envoyÃ©e âœ“';
+        showMsg(msg,'Demande envoyée ! Un administrateur examinera votre compte.','success');
+        btn.textContent = 'Demande envoyée ✓';
         setTimeout(closeModal, 2200);
       });
     });
@@ -563,14 +564,14 @@
       const p = document.getElementById('li-pass').value;
       if(!u||!p) return;
       const btn = document.getElementById('li-btn');
-      btn.disabled = true; btn.textContent = 'â€¦';
+      btn.disabled = true; btn.textContent = '…';
 
-      // F2 â€” Login attempt limit
+      // F2 — Login attempt limit
       const attempts = parseInt(sessionStorage.getItem('flow_attempts')||'0');
       const lockUntil = parseInt(sessionStorage.getItem('flow_lock')||'0');
       if(Date.now() < lockUntil){
         const remaining = Math.ceil((lockUntil-Date.now())/60000);
-        document.getElementById('app').innerHTML = renderLogin(`Trop de tentatives. RÃ©essayez dans ${remaining} min.`);
+        document.getElementById('app').innerHTML = renderLogin(`Trop de tentatives. Réessayez dans ${remaining} min.`);
         wireLogin(); return;
       }
 
@@ -579,7 +580,7 @@
         const newAttempts = attempts+1;
         sessionStorage.setItem('flow_attempts', newAttempts);
         if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
-        document.getElementById('app').innerHTML = renderLogin('AccÃ¨s refusÃ© : Ceci est un site privÃ©.');
+        document.getElementById('app').innerHTML = renderLogin('Accès refusé : Ceci est un site privé.');
         wireLogin(); return;
       }
       const ok = await loginAsync(u,p);
@@ -587,7 +588,7 @@
         const newAttempts = attempts+1;
         sessionStorage.setItem('flow_attempts', newAttempts);
         if(newAttempts>=5){ sessionStorage.setItem('flow_lock', Date.now()+5*60*1000); }
-        document.getElementById('app').innerHTML = renderLogin('Mot de passe incorrect. Veuillez rÃ©essayer.');
+        document.getElementById('app').innerHTML = renderLogin('Mot de passe incorrect. Veuillez réessayer.');
         wireLogin(); return;
       }
       sessionStorage.removeItem('flow_attempts'); sessionStorage.removeItem('flow_lock');
@@ -598,9 +599,9 @@
     document.getElementById('li-user').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('li-pass').focus(); });
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  ADMIN / CONTROLLER SHELL
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   const adminTabs = [
     { id:'home',      icon:iconHome(),      label:'Accueil'      },
     { id:'users',     icon:iconUsers(),     label:'Utilisateurs' },
@@ -658,7 +659,7 @@
           </div>
         </div>
         <button id="btn-logout" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:.8rem;">
-          ${iconLogout()} DÃ©connexion
+          ${iconLogout()} Déconnexion
         </button>
       </div>
     </div>
@@ -732,11 +733,11 @@
     });
   }
 
-  // â”€â”€â”€ Tab: Admin Home â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin Home ────────────────────────────
   function renderAdminHome(){
     const today = new Date(); today.setHours(0,0,0,0);
 
-    // F6 â€” Upcoming deadlines (30 days)
+    // F6 — Upcoming deadlines (30 days)
     const nowMs = Date.now();
     const in30 = new Date(); in30.setDate(in30.getDate()+30);
     const upcomingProjects = db.projects
@@ -745,7 +746,7 @@
       .filter(p=>p.dueMs >= nowMs && p.dueMs <= in30.getTime())
       .sort((a,b)=>a.dueMs-b.dueMs);
 
-    // F13 â€” Archived projects section
+    // F13 — Archived projects section
     const archivedProjects = db.projects.filter(p=>p.archived);
 
     const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
@@ -764,9 +765,9 @@
 
     const kpiCards = [
       { label:'Clients actifs',   value:clientsWithProject.length, color:'var(--coral)',  icon:'ðŸ‘¥', sub:`sur ${clients.length} total` },
-      { label:'Projets en cours', value:projetsEnCours,            color:'var(--sky)',    icon:'âš™ï¸', sub:`${db.projects.filter(p=>p.status==='done').length} terminÃ©(s)` },
-      { label:'Docs en attente',  value:docsEnAttente,             color:'var(--peach)',  icon:'ðŸ“‹', sub:`${db.documents.filter(d=>d.status==='reviewed').length} validÃ©(s)` },
-      { label:'ComplÃ©tion moy.',  value:avgCompletion+'%',         color:'var(--sage)',   icon:'ðŸ“Š', sub:`sur ${projectsWithTl.length} projet(s)` }
+      { label:'Projets en cours', value:projetsEnCours,            color:'var(--sky)',    icon:'⚙ï¸', sub:`${db.projects.filter(p=>p.status==='done').length} terminé(s)` },
+      { label:'Docs en attente',  value:docsEnAttente,             color:'var(--peach)',  icon:'ðŸ“‹', sub:`${db.documents.filter(d=>d.status==='reviewed').length} validé(s)` },
+      { label:'Complétion moy.',  value:avgCompletion+'%',         color:'var(--sage)',   icon:'ðŸ“Š', sub:`sur ${projectsWithTl.length} projet(s)` }
     ];
 
     const recentDocs = [...db.documents].sort((a,b)=>((b.filledAt||b.sentAt||'').localeCompare(a.filledAt||a.sentAt||''))).slice(0,5);
@@ -775,7 +776,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:12px;">
         <h1 style="font-size:1.4rem;font-weight:700;">Tableau de bord</h1>
         <div style="display:flex;gap:8px;">
-          <button id="btn-view-toggle" class="btn btn-ghost btn-sm" title="Vue Kanban">${window._adminView==='kanban'?'â˜° Liste':'â¬› Kanban'}</button>
+          <button id="btn-view-toggle" class="btn btn-ghost btn-sm" title="Vue Kanban">${window._adminView==='kanban'?'â˜° Liste':'⬛ Kanban'}</button>
           ${canManageProjects(me)?`<button id="btn-new-project" class="btn btn-primary">${iconPlus()} Nouveau projet</button>`:''}
         </div>
       </div>
@@ -795,19 +796,19 @@
       ${overdueCount>0?`
       <div style="background:rgba(220,80,80,.1);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:1.4rem;">âš ï¸</span>
-        <div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">${overdueCount} projet(s) en retard</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">Date de livraison dÃ©passÃ©e</div></div>
+        <div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">${overdueCount} projet(s) en retard</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">Date de livraison dépassée</div></div>
       </div>`:''}
 
       ${(()=>{
-        // F5 â€” Project status chart
+        // F5 — Project status chart
         const statuses = [
           {label:'En cours',  count:db.projects.filter(p=>!p.archived&&p.status==='in_progress').length, color:'#d97757'},
-          {label:'TerminÃ©s',  count:db.projects.filter(p=>!p.archived&&p.status==='done').length,        color:'#93b594'},
+          {label:'Terminés',  count:db.projects.filter(p=>!p.archived&&p.status==='done').length,        color:'#93b594'},
           {label:'En attente',count:db.projects.filter(p=>!p.archived&&p.status==='pending').length,     color:'#9bb8d8'},
         ];
         const maxCount = Math.max(...statuses.map(s=>s.count), 1);
         return `<div class="glass-card" style="padding:20px;margin-bottom:24px;">
-          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">RÃ©partition des projets</h2>
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">Répartition des projets</h2>
           ${statuses.map(s=>`
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
               <span style="font-size:.82rem;width:80px;color:var(--ink-2);">${s.label}</span>
@@ -824,7 +825,7 @@
         const cols = [
           {id:'pending',    label:'En attente',  color:'var(--sky)',   ps: allProjects.filter(p=>p.status==='pending')},
           {id:'in_progress',label:'En cours',    color:'var(--coral)', ps: allProjects.filter(p=>p.status==='in_progress')},
-          {id:'done',       label:'TerminÃ©',     color:'var(--sage)',  ps: allProjects.filter(p=>p.status==='done')},
+          {id:'done',       label:'Terminé',     color:'var(--sage)',  ps: allProjects.filter(p=>p.status==='done')},
         ];
         return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;" id="kanban-board">
           ${cols.map(col=>`
@@ -842,7 +843,7 @@
                     <div style="font-size:.85rem;font-weight:600;margin-bottom:4px;">${esc(p.name)}</div>
                     ${client?`<div style="font-size:.72rem;color:var(--ink-4);margin-bottom:6px;">ðŸ‘¤ ${esc(client.username)}</div>`:''}
                     <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--coral);border-radius:2px;"></div></div>
-                    <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">${pct}% complÃ©tÃ©</div>
+                    <div style="font-size:.68rem;color:var(--ink-4);margin-top:4px;">${pct}% complété</div>
                   </div>`;
                 }).join('')}
               </div>
@@ -857,23 +858,23 @@
             : pending.map(u=>{ const p=getUserProject(u.id); return renderClientRow(u,p); }).join('')}
         </div>
         <div class="glass-card" style="padding:20px;">
-          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:#93b594;">Projets terminÃ©s</h2>
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:#93b594;">Projets terminés</h2>
           ${done.length===0
-            ? `<div class="empty-state" style="padding:20px;">Aucun projet terminÃ©</div>`
+            ? `<div class="empty-state" style="padding:20px;">Aucun projet terminé</div>`
             : done.map(u=>{ const p=getUserProject(u.id); return renderClientRow(u,p); }).join('')}
         </div>
       </div>`}
 
       <div class="glass-card" style="padding:20px;margin-bottom:24px;">
-        <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:#9bb8d8;">Ã‰chÃ©ances â€” 30 prochains jours</h2>
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:#9bb8d8;">Ã‰chéances — 30 prochains jours</h2>
         ${upcomingProjects.length===0
-          ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune Ã©chÃ©ance Ã  venir.</div>'
+          ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune échéance Ã  venir.</div>'
           : upcomingProjects.map(p=>{
               const diffDays = Math.ceil((p.dueMs-nowMs)/(1000*60*60*24));
               const client = db.users.find(u=>u.id===p.clientId);
               const urgColor = diffDays<=3?'#f08a8a':diffDays<=7?'var(--peach)':'var(--sage)';
               return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);">
-                <span style="font-size:1rem;">ðŸ“…</span>
+                <span style="font-size:1rem;">📅</span>
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:.875rem;font-weight:500;">${esc(p.name)}</div>
                   <div style="font-size:.72rem;color:rgba(244,238,229,.4);">${client?esc(client.username):'Sans client'}</div>
@@ -884,18 +885,18 @@
       </div>
 
       <div class="glass-card" style="padding:20px;">
-        <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">ActivitÃ© rÃ©cente</h2>
+        <h2 style="font-size:1rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">Activité récente</h2>
         ${recentDocs.length===0
-          ? `<div class="empty-state" style="padding:12px;">Aucune activitÃ©.</div>`
+          ? `<div class="empty-state" style="padding:12px;">Aucune activité.</div>`
           : recentDocs.map(d=>{
               const client = db.users.find(u=>u.id===d.clientId)||null;
               const statusColor = {pending:'rgba(217,119,87,.8)',filled:'rgba(147,181,148,.8)',reviewed:'rgba(155,184,216,.8)'}[d.status]||'#888';
-              const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'ValidÃ©'}[d.status]||d.status;
+              const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'Validé'}[d.status]||d.status;
               return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);">
-                <span style="font-size:1.2rem;">ðŸ“„</span>
+                <span style="font-size:1.2rem;">📄</span>
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:.875rem;font-weight:500;">${esc(d.name)}</div>
-                  <div style="font-size:.75rem;color:rgba(244,238,229,.4);">${client?esc(client.username):'â€”'} Â· ${esc(d.filledAt||d.sentAt||'â€”')}</div>
+                  <div style="font-size:.75rem;color:rgba(244,238,229,.4);">${client?esc(client.username):'—'} · ${esc(d.filledAt||d.sentAt||'—')}</div>
                 </div>
                 <span style="font-size:.75rem;font-weight:600;color:${statusColor};">${statusLabel}</span>
               </div>`;
@@ -932,7 +933,7 @@
           </div>`;
         }
         return `<div class="glass-card" style="padding:20px;margin-bottom:24px;">
-          <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:var(--plum);">ðŸ“… Calendrier â€” ${monthName}</h2>
+          <h2 style="font-size:1rem;font-weight:600;margin-bottom:14px;color:var(--plum);">📅 Calendrier — ${monthName}</h2>
           <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
             ${['L','M','M','J','V','S','D'].map(d=>`<div style="font-size:.7rem;color:var(--ink-4);text-align:center;font-weight:600;">${d}</div>`).join('')}
           </div>
@@ -970,7 +971,7 @@
       if(diffDays<0) dueBadge=`<span style="font-size:.7rem;background:rgba(220,80,80,.18);border:1px solid rgba(220,80,80,.3);color:#f08a8a;padding:2px 8px;border-radius:8px;">En retard</span>`;
       else if(diffDays<=7) dueBadge=`<span style="font-size:.7rem;background:rgba(240,169,136,.18);border:1px solid rgba(240,169,136,.3);color:var(--peach);padding:2px 8px;border-radius:8px;">J-${diffDays}</span>`;
     }
-    const prioBadge = {urgent:`<span class="role-chip prio-urgent" style="font-size:.68rem;padding:2px 8px;">ðŸ”´ Urgent</span>`,normal:'',low:`<span class="role-chip prio-low" style="font-size:.68rem;padding:2px 8px;">âšª Basse</span>`}[project?.priority||'normal']||'';
+    const prioBadge = {urgent:`<span class="role-chip prio-urgent" style="font-size:.68rem;padding:2px 8px;">🔴 Urgent</span>`,normal:'',low:`<span class="role-chip prio-low" style="font-size:.68rem;padding:2px 8px;">⚪ Basse</span>`}[project?.priority||'normal']||'';
     const colorStyle = project&&project.color ? `border-left:3px solid ${project.color};padding-left:14px;` : '';
     return `<div class="glass-card" style="padding:14px;margin-bottom:10px;${colorStyle}">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:${tl.length>0?'10':'0'}px;">
@@ -1021,52 +1022,52 @@
     const btnNew = document.getElementById('btn-new-project');
     if(btnNew) btnNew.addEventListener('click',openCreateProjectModal);
 
-    // F13 â€” Unarchive / delete archived
+    // F13 — Unarchive / delete archived
     document.querySelectorAll('.btn-unarchive').forEach(b=>{
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
         if(!p) return;
         p.archived=false;
-        logActivity('project_unarchived','Projet restaurÃ© : '+p.name);
-        saveDB(); toast('Projet restaurÃ© !','success'); refreshAdminTab();
+        logActivity('project_unarchived','Projet restauré : '+p.name);
+        saveDB(); toast('Projet restauré !','success'); refreshAdminTab();
       });
     });
     document.querySelectorAll('.btn-del-archived').forEach(b=>{
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
         if(!p) return;
-        if(!confirm('Supprimer dÃ©finitivement "'+p.name+'" ?')) return;
-        logActivity('project_deleted','Projet archivÃ© supprimÃ© : '+p.name);
+        if(!confirm('Supprimer définitivement "'+p.name+'" ?')) return;
+        logActivity('project_deleted','Projet archivé supprimé : '+p.name);
         db.projects=db.projects.filter(x=>x.id!==b.dataset.pid);
         db.documents=db.documents.filter(d=>d.projectId!==b.dataset.pid);
-        saveDB(); toast('Projet supprimÃ©.','info'); refreshAdminTab();
+        saveDB(); toast('Projet supprimé.','info'); refreshAdminTab();
       });
     });
   }
 
   function openCreateProjectModal(){
     const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
-    const defaultSteps = ['Prise de contact','Cahier des charges','Maquette validÃ©e','DÃ©veloppement','Tests & Recette','Mise en ligne'];
+    const defaultSteps = ['Prise de contact','Cahier des charges','Maquette validée','Développement','Tests & Recette','Mise en ligne'];
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <h2 style="font-size:1.1rem;font-weight:700;">Nouveau projet</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Nom du projet *</label><input id="np-name" class="glass-input" placeholder="Ex : Site Vitrine Dupont" /></div>
       <div style="margin-bottom:14px;">
-        <label class="label">Utilisateur associÃ©</label>
+        <label class="label">Utilisateur associé</label>
         <select id="np-client" class="glass-input">
-          <option value="">â€” Aucun pour l'instant â€”</option>
-          ${clients.map(c=>`<option value="${c.id}">${esc(c.username)} (${c.role==='controller'?'ContrÃ´leur':'Client'})</option>`).join('')}
+          <option value="">— Aucun pour l'instant —</option>
+          ${clients.map(c=>`<option value="${c.id}">${esc(c.username)} (${c.role==='controller'?'Contrôleur':'Client'})</option>`).join('')}
         </select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
         <div>
-          <label class="label">PrioritÃ©</label>
+          <label class="label">Priorité</label>
           <select id="np-priority" class="glass-input">
-            <option value="urgent">ðŸ”´ Urgent</option>
-            <option value="normal" selected>ðŸ”µ Normal</option>
-            <option value="low">âšª Basse</option>
+            <option value="urgent">🔴 Urgent</option>
+            <option value="normal" selected>🔵 Normal</option>
+            <option value="low">⚪ Basse</option>
           </select>
         </div>
         <div>
@@ -1074,12 +1075,12 @@
           <input id="np-due" class="glass-input" type="date" />
         </div>
       </div>
-      <button id="np-toggle-adv" class="btn btn-ghost btn-sm" style="margin-bottom:14px;width:100%;justify-content:center;">âš™ï¸ Options avancÃ©es</button>
+      <button id="np-toggle-adv" class="btn btn-ghost btn-sm" style="margin-bottom:14px;width:100%;justify-content:center;">⚙ï¸ Options avancées</button>
       <div id="np-advanced" style="display:none;">
-        <div style="margin-bottom:14px;"><label class="label">Description</label><textarea id="np-desc" class="glass-input" placeholder="DÃ©crivez briÃ¨vement le projetâ€¦"></textarea></div>
+        <div style="margin-bottom:14px;"><label class="label">Description</label><textarea id="np-desc" class="glass-input" placeholder="Décrivez brièvement le projet…"></textarea></div>
         <div style="margin-bottom:14px;"><label class="label">URL du site</label><input id="np-url" class="glass-input" placeholder="https://..." /></div>
         <div style="margin-bottom:14px;">
-          <label class="label">Tags (sÃ©parÃ©s par des virgules)</label>
+          <label class="label">Tags (séparés par des virgules)</label>
           <input id="np-tags" class="glass-input" placeholder="Ex : urgent, VIP, e-commerce" />
         </div>
         <div style="margin-bottom:14px;">
@@ -1091,13 +1092,13 @@
           <input type="hidden" id="np-color" value="" />
         </div>
         <div style="margin-bottom:14px;">
-          <label class="label">ModÃ¨le de timeline</label>
+          <label class="label">Modèle de timeline</label>
           <select id="np-template" class="glass-input">
-            <option value="">â€” PersonnalisÃ© (par dÃ©faut) â€”</option>
+            <option value="">— Personnalisé (par défaut) —</option>
             <option value="vitrine">ðŸŒ Site vitrine</option>
-            <option value="app">ðŸ“± Application mobile</option>
-            <option value="branding">ðŸŽ¨ IdentitÃ© visuelle</option>
-            <option value="empty">ðŸ“„ Vide (aucune Ã©tape)</option>
+            <option value="app">📱 Application mobile</option>
+            <option value="branding">ðŸŽ¨ Identité visuelle</option>
+            <option value="empty">📄 Vide (aucune étape)</option>
           </select>
         </div>
         <div style="margin-bottom:8px;"><label class="label">Ã‰tapes de la timeline</label></div>
@@ -1109,7 +1110,7 @@
       <div id="np-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="np-save" class="btn btn-primary" style="flex:1;justify-content:center;">CrÃ©er</button>
+        <button id="np-save" class="btn btn-primary" style="flex:1;justify-content:center;">Créer</button>
       </div>`,
     ()=>{
       // Toggle advanced section
@@ -1118,15 +1119,15 @@
       if(advBtn && advSection) advBtn.addEventListener('click',()=>{
         const open = advSection.style.display==='block';
         advSection.style.display = open ? 'none' : 'block';
-        advBtn.textContent = open ? 'âš™ï¸ Options avancÃ©es' : 'ðŸ”¼ Masquer les options';
+        advBtn.textContent = open ? '⚙ï¸ Options avancées' : '🔼 Masquer les options';
       });
 
-      // F10 â€” Template selector
+      // F10 — Template selector
       const tplSelect = document.getElementById('np-template');
       const NP_TEMPLATES = {
-        vitrine: ['Prise de contact','Cahier des charges','Maquette validÃ©e','DÃ©veloppement','Tests & Recette','Mise en ligne'],
-        app: ['Discovery','Wireframes','Design UI','Dev Frontend','Dev Backend','QA','DÃ©ploiement'],
-        branding: ['Brief crÃ©atif','Exploration','Maquettes','Validation','Livrables finaux'],
+        vitrine: ['Prise de contact','Cahier des charges','Maquette validée','Développement','Tests & Recette','Mise en ligne'],
+        app: ['Discovery','Wireframes','Design UI','Dev Frontend','Dev Backend','QA','Déploiement'],
+        branding: ['Brief créatif','Exploration','Maquettes','Validation','Livrables finaux'],
         empty: []
       };
       if(tplSelect) tplSelect.addEventListener('change',()=>{
@@ -1139,7 +1140,7 @@
           </div>`).join('');
       });
 
-      // F11 â€” Color picker dots
+      // F11 — Color picker dots
       document.querySelectorAll('#np-colors .color-dot').forEach(dot=>{
         dot.addEventListener('click',()=>{
           document.querySelectorAll('#np-colors .color-dot').forEach(d=>d.classList.remove('selected'));
@@ -1152,7 +1153,7 @@
         const container = document.getElementById('np-steps');
         const row = document.createElement('div');
         row.style.cssText='display:flex;gap:8px;margin-bottom:8px;align-items:center;';
-        row.innerHTML=`<input class="glass-input np-step-label" placeholder="Nouvelle Ã©tape" style="flex:1;" /><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">ðŸ—‘</button>`;
+        row.innerHTML=`<input class="glass-input np-step-label" placeholder="Nouvelle étape" style="flex:1;" /><button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">ðŸ—‘</button>`;
         container.appendChild(row);
       });
       document.getElementById('np-save').addEventListener('click',()=>{
@@ -1167,17 +1168,17 @@
         if(!name){ showMsg(msg,'Le nom du projet est requis.','error'); return; }
         const steps=[];
         document.querySelectorAll('#np-steps .np-step-label').forEach(inp=>{ const label=inp.value.trim(); if(label) steps.push({id:uid(),label,status:'pending',date:null,note:''}); });
-        if(steps.length===0){ showMsg(msg,'Ajoutez au moins une Ã©tape.','error'); return; }
+        if(steps.length===0){ showMsg(msg,'Ajoutez au moins une étape.','error'); return; }
         if(clientId) db.projects.forEach(p=>{ if(p.clientId===clientId) p.clientId=null; });
         const priority = document.getElementById('np-priority')?.value||'normal';
         db.projects.push({id:uid(),name,clientId,description:desc||'',websiteUrl:url||'',dueDate:due||'',status:'in_progress',color,tags,createdAt:new Date().toISOString().slice(0,10),timeline:steps,priority,pinned:false,internalTasks:[]});
-        logActivity('project_created', 'Projet crÃ©Ã© : ' + name);
-        saveDB(); toast('Projet crÃ©Ã© !','success'); closeModal(); refreshAdminTab();
+        logActivity('project_created', 'Projet créé : ' + name);
+        saveDB(); toast('Projet créé !','success'); closeModal(); refreshAdminTab();
       });
     });
   }
 
-  // â”€â”€â”€ Tab: Admin Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin Users ───────────────────────────
   function renderAdminUsers(){
     const isAdmin = me.role==='admin';
     const users = db.users;
@@ -1185,7 +1186,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px;">
         <div>
           <h1 style="font-size:1.4rem;font-weight:700;">Utilisateurs</h1>
-          <p style="color:rgba(244,238,229,.45);font-size:.875rem;">${users.length} compte${users.length>1?'s':''} enregistrÃ©${users.length>1?'s':''}</p>
+          <p style="color:rgba(244,238,229,.45);font-size:.875rem;">${users.length} compte${users.length>1?'s':''} enregistré${users.length>1?'s':''}</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${isAdmin||me.role==='controller'
@@ -1196,12 +1197,12 @@
       </div>
 
       <div style="margin-bottom:10px;">
-        <input id="user-search" class="glass-input" placeholder="ðŸ” Rechercher un utilisateurâ€¦" style="max-width:360px;" />
+        <input id="user-search" class="glass-input" placeholder="🔍 Rechercher un utilisateur…" style="max-width:360px;" />
       </div>
       <div id="role-filters" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="role-chip active" data-role="">Tous</button>
         <button class="role-chip" data-role="admin">Admin</button>
-        <button class="role-chip" data-role="controller">ContrÃ´leur</button>
+        <button class="role-chip" data-role="controller">Contrôleur</button>
         <button class="role-chip" data-role="client">Client</button>
       </div>
 
@@ -1217,22 +1218,22 @@
       ${avatar(u)}
       <div style="flex:1;min-width:160px;">
         <div style="font-size:.95rem;font-weight:600;">${esc(u.firstName||'')} ${esc(u.lastName||'')} <span style="color:rgba(244,238,229,.5);font-weight:400;">@${esc(u.username)}</span></div>
-        <div style="font-size:.78rem;color:rgba(244,238,229,.4);margin-top:2px;">${esc(u.email||'â€”')}</div>
-        ${u.phone?`<div style="font-size:.75rem;color:rgba(244,238,229,.35);margin-top:1px;">ðŸ“ž ${esc(u.phone)}</div>`:''}
-        ${u.sector?`<div style="font-size:.75rem;color:rgba(244,238,229,.35);margin-top:1px;">ðŸ¢ ${esc(u.sector)}</div>`:''}
+        <div style="font-size:.78rem;color:rgba(244,238,229,.4);margin-top:2px;">${esc(u.email||'—')}</div>
+        ${u.phone?`<div style="font-size:.75rem;color:rgba(244,238,229,.35);margin-top:1px;">📞 ${esc(u.phone)}</div>`:''}
+        ${u.sector?`<div style="font-size:.75rem;color:rgba(244,238,229,.35);margin-top:1px;">🏢 ${esc(u.sector)}</div>`:''}
         ${u.internalNotes&&canEdit?`<div style="font-size:.72rem;color:rgba(240,169,136,.6);margin-top:3px;font-style:italic;">ðŸ”’ ${esc(u.internalNotes)}</div>`:''}
       </div>
       ${roleBadge(u.role)}
-      ${project?`<span style="font-size:.78rem;color:rgba(244,238,229,.45);">ðŸ“ ${esc(project.name)}</span>`:'<span style="font-size:.78rem;color:rgba(244,238,229,.3);">Aucun projet</span>'}
+      ${project?`<span style="font-size:.78rem;color:rgba(244,238,229,.45);">📁 ${esc(project.name)}</span>`:'<span style="font-size:.78rem;color:rgba(244,238,229,.3);">Aucun projet</span>'}
       ${canEdit&&u.id!==me.id
-        ? `<button class="btn btn-ghost btn-sm btn-edit-user" data-uid="${u.id}">âœï¸ Modifier</button>
+        ? `<button class="btn btn-ghost btn-sm btn-edit-user" data-uid="${u.id}">✏ï¸ Modifier</button>
            <button class="btn btn-danger btn-sm btn-del-user" data-uid="${u.id}">ðŸ—‘</button>`
         : u.id===me.id ? `<span style="font-size:.75rem;color:rgba(244,238,229,.35);">Vous</span>` : ''}
     </div>`;
   }
 
   function exportUsersCSV(){
-    const rows = [['ID','Username','PrÃ©nom','Nom','Email','RÃ´le','Projet','CrÃ©Ã© le']];
+    const rows = [['ID','Username','Prénom','Nom','Email','Rôle','Projet','Créé le']];
     db.users.forEach(u=>{
       const p = getUserProject(u.id);
       rows.push([u.id, u.username, u.firstName||'', u.lastName||'', u.email||'', u.role, p?p.name:'', u.createdAt||'']);
@@ -1242,7 +1243,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download='flow_users.csv'; a.click();
     URL.revokeObjectURL(url);
-    toast('CSV exportÃ© !','success');
+    toast('CSV exporté !','success');
   }
 
   function wireAdminUsers(){
@@ -1284,33 +1285,33 @@
     });
   }
 
-  // â”€â”€â”€ Tab: Admin Documents & Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin Documents & Timeline ────────────
   function renderAdminDocuments(){
     const clients = db.users.filter(u=>u.role==='client'||u.role==='controller');
     const isAdmin = me.role==='admin';
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Suivi & Documents</h1>
       <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:16px;">
-        ${isAdmin?'GÃ©rez les frises et envoyez des documents aux clients.':'Consultez les frises et documents (lecture seule).'}
+        ${isAdmin?'Gérez les frises et envoyez des documents aux clients.':'Consultez les frises et documents (lecture seule).'}
       </p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">
-        <input id="doc-search" class="glass-input" placeholder="ðŸ” Chercher un client ou projetâ€¦" style="max-width:300px;" />
+        <input id="doc-search" class="glass-input" placeholder="🔍 Chercher un client ou projet…" style="max-width:300px;" />
         <select id="doc-filter-status" class="glass-input" style="width:150px;">
           <option value="">Tous les statuts</option>
           <option value="pending">En attente</option>
           <option value="filled">Remplis</option>
-          <option value="reviewed">ValidÃ©s</option>
+          <option value="reviewed">Validés</option>
           <option value="nodoc">Sans document</option>
         </select>
         <select id="doc-filter-prio" class="glass-input" style="width:140px;">
-          <option value="">Toutes prioritÃ©s</option>
-          <option value="urgent">ðŸ”´ Urgent</option>
-          <option value="normal">ðŸ”µ Normal</option>
-          <option value="low">âšª Basse</option>
+          <option value="">Toutes priorités</option>
+          <option value="urgent">🔴 Urgent</option>
+          <option value="normal">🔵 Normal</option>
+          <option value="low">⚪ Basse</option>
         </select>
       </div>
       ${clients.length===0
-        ? `<div class="glass-card" style="padding:40px;text-align:center;color:rgba(244,238,229,.4);">Aucun client enregistrÃ©.</div>`
+        ? `<div class="glass-card" style="padding:40px;text-align:center;color:rgba(244,238,229,.4);">Aucun client enregistré.</div>`
         : clients.map(u=>{
             const projs = getUserProjects(u.id);
             if(projs.length===0) return `<div class="client-doc-panel-wrap" data-uid="${u.id}">${renderClientDocPanel(u,isAdmin,null)}</div>`;
@@ -1333,15 +1334,15 @@
           ${project&&project.tags&&project.tags.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${project.tags.map(tag=>`<span style="font-size:.68rem;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);">${esc(tag)}</span>`).join('')}</div>`:''}
         </div>
         ${canEdit&&project?`
-          <button class="btn btn-ghost btn-sm btn-edit-timeline" data-pid="${project.id}" data-uid="${u.id}">â± Timeline</button>
+          <button class="btn btn-ghost btn-sm btn-edit-timeline" data-pid="${project.id}" data-uid="${u.id}">⏱ Timeline</button>
           <button class="btn btn-primary btn-sm btn-send-doc" data-uid="${u.id}" data-pid="${project.id}">+ Document</button>
           <div class="kebab-wrap">
             <button class="btn btn-ghost btn-sm kebab-btn" data-pid="${project.id}" title="Plus d'actions">â‹®</button>
             <div class="kebab-menu" id="kebab-${project.id}">
-              <button class="kebab-item btn-pin-project" data-pid="${project.id}">${project.pinned?'ðŸ“Œ DÃ©sÃ©pingler':'ðŸ“ Ã‰pingler'}</button>
-              <button class="kebab-item btn-report" data-uid="${u.id}">ðŸ“„ Rapport PDF</button>
+              <button class="kebab-item btn-pin-project" data-pid="${project.id}">${project.pinned?'ðŸ“Œ Désépingler':'📍 Ã‰pingler'}</button>
+              <button class="kebab-item btn-report" data-uid="${u.id}">📄 Rapport PDF</button>
               <button class="kebab-item btn-dup-project" data-pid="${project.id}">ðŸ“‹ Dupliquer</button>
-              <button class="kebab-item btn-deliver-files" data-pid="${project.id}">${project.deliverable?'ðŸ“¦ Remplacer la livraison':'ðŸ“¦ Livrer les fichiers'}</button>
+              <button class="kebab-item btn-deliver-files" data-pid="${project.id}">${project.deliverable?'📦 Remplacer la livraison':'📦 Livrer les fichiers'}</button>
               <div class="kebab-divider"></div>
               <button class="kebab-item btn-archive-project" data-pid="${project.id}">ðŸ—„ï¸ Archiver</button>
               <button class="kebab-item kebab-danger btn-del-project" data-pid="${project.id}">ðŸ—‘ Supprimer</button>
@@ -1359,21 +1360,21 @@
           return canEdit&&tasks.length>0?`
             <div style="margin:10px 0 0;padding:10px 14px;background:rgba(255,255,255,.02);border-radius:10px;border:1px solid rgba(255,255,255,.06);">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <span style="font-size:.78rem;font-weight:600;color:var(--ink-3);">âœ… TÃ‚CHES INTERNES (${tasksDoneCount}/${tasks.length})</span>
-                <button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}">GÃ©rer</button>
+                <span style="font-size:.78rem;font-weight:600;color:var(--ink-3);">✅ TÃ‚CHES INTERNES (${tasksDoneCount}/${tasks.length})</span>
+                <button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}">Gérer</button>
               </div>
               ${tasks.map(t=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-                <div style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${t.done?'var(--sage)':'rgba(255,255,255,.2)'};background:${t.done?'rgba(147,181,148,.2)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--sage);flex-shrink:0;">${t.done?'âœ“':''}</div>
+                <div style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${t.done?'var(--sage)':'rgba(255,255,255,.2)'};background:${t.done?'rgba(147,181,148,.2)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--sage);flex-shrink:0;">${t.done?'✓':''}</div>
                 <span style="font-size:.78rem;color:${t.done?'var(--ink-4)':'var(--ink-2)'};text-decoration:${t.done?'line-through':'none'};">${esc(t.label)}</span>
               </div>`).join('')}
-            </div>`:canEdit&&tasks.length===0?`<button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}" style="margin-top:8px;font-size:.75rem;">+ TÃ¢ches internes</button>`:'';
+            </div>`:canEdit&&tasks.length===0?`<button class="btn btn-ghost btn-sm btn-manage-tasks" data-pid="${project.id}" style="margin-top:8px;font-size:.75rem;">+ Tâches internes</button>`:'';
         })()}
         <div class="divider"></div>
         <div style="font-size:.8rem;font-weight:600;color:rgba(244,238,229,.5);margin-bottom:8px;">DOCUMENTS (${docs.length})</div>
         ${docs.length===0
-          ? `<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun document envoyÃ©.</div>`
+          ? `<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun document envoyé.</div>`
           : docs.map(d=>renderDocRow(d,canEdit)).join('')}
-      `:`<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun projet associÃ©.</div>`}
+      `:`<div style="font-size:.82rem;color:rgba(244,238,229,.35);padding:8px 0;">Aucun projet associé.</div>`}
     </div>`;
   }
 
@@ -1386,7 +1387,7 @@
           ${i>0?`<div style="flex:1;min-width:16px;height:1px;background:rgba(255,255,255,.1);"></div>`:''}
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;max-width:80px;">
             <div style="width:22px;height:22px;border-radius:50%;background:${dotColor}33;border:2px solid ${dotColor};display:flex;align-items:center;justify-content:center;font-size:.65rem;"${s.note?` title="${esc(s.note)}"`:''}>
-              ${s.status==='done'?'âœ“':s.status==='current'?'â–¶':'â—‹'}
+              ${s.status==='done'?'✓':s.status==='current'?'â–¶':'â—‹'}
             </div>
             <div style="font-size:.65rem;text-align:center;color:${textColor};line-height:1.2;">${esc(s.label)}</div>
             ${s.dueDate?`<div style="font-size:.63rem;text-align:center;color:var(--ink-4);line-height:1.2;">${esc(new Date(s.dueDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}))}</div>`:''}
@@ -1397,21 +1398,21 @@
 
   function renderDocRow(doc, canEdit){
     const statusColor = {pending:'rgba(217,119,87,.8)',filled:'rgba(147,181,148,.8)',reviewed:'rgba(155,184,216,.8)'}[doc.status]||'#888';
-    const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'ValidÃ©'}[doc.status]||doc.status;
-    // F16 â€” relance indicator
+    const statusLabel = {pending:'En attente',filled:'Rempli',reviewed:'Validé'}[doc.status]||doc.status;
+    // F16 — relance indicator
     const daysPending = doc.sentAt ? Math.floor((Date.now()-new Date(doc.sentAt))/(1000*60*60*24)) : 0;
     const relance = doc.status==='pending' && daysPending>=7;
     return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:1.1rem;">ðŸ“„</span>
+        <span style="font-size:1.1rem;">📄</span>
         <div style="flex:1;min-width:0;">
           <div style="font-size:.85rem;font-weight:500;">${esc(doc.name)}</div>
-          <div style="font-size:.75rem;color:rgba(244,238,229,.4);">EnvoyÃ© le ${esc(doc.sentAt||'â€”')}</div>
+          <div style="font-size:.75rem;color:rgba(244,238,229,.4);">Envoyé le ${esc(doc.sentAt||'—')}</div>
           ${doc.adminComment&&doc.status==='reviewed'?`<div style="font-size:.75rem;color:var(--sky);font-style:italic;margin-top:4px;">ðŸ’¬ "${esc(doc.adminComment)}"</div>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.4);padding:2px 8px;border-radius:8px;background:rgba(240,169,136,.12);font-weight:600;">âš ï¸ Relance â€” ${daysPending}j</span>`:''}
-          ${doc.status==='pending'&&daysPending>=14?`<span style="font-size:.68rem;color:#f08a8a;border:1px solid rgba(220,80,80,.3);padding:2px 8px;border-radius:8px;background:rgba(220,80,80,.1);font-weight:600;">ðŸš¨ ${daysPending}j sans rÃ©ponse</span>`:''}
+          ${relance?`<span style="font-size:.68rem;color:var(--peach);border:1px solid rgba(240,169,136,.4);padding:2px 8px;border-radius:8px;background:rgba(240,169,136,.12);font-weight:600;">âš ï¸ Relance — ${daysPending}j</span>`:''}
+          ${doc.status==='pending'&&daysPending>=14?`<span style="font-size:.68rem;color:#f08a8a;border:1px solid rgba(220,80,80,.3);padding:2px 8px;border-radius:8px;background:rgba(220,80,80,.1);font-weight:600;">🚨 ${daysPending}j sans réponse</span>`:''}
           <span style="font-size:.75rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
           ${canEdit?`<button class="btn btn-ghost btn-sm btn-view-doc" data-did="${doc.id}">ðŸ‘ Voir</button>`:''}
           ${canEdit?`<button class="btn btn-danger btn-sm btn-del-doc" data-did="${doc.id}" title="Supprimer">ðŸ—‘</button>`:''}
@@ -1443,7 +1444,7 @@
         const p=db.projects.find(x=>x.id===b.dataset.pid);
         if(!p) return;
         p.pinned=!p.pinned;
-        saveDB(); toast(p.pinned?'Projet Ã©pinglÃ© ðŸ“Œ':'Projet dÃ©sÃ©pinglÃ©.','info'); refreshAdminTab();
+        saveDB(); toast(p.pinned?'Projet épinglé ðŸ“Œ':'Projet désépinglé.','info'); refreshAdminTab();
       });
     });
     document.querySelectorAll('.btn-manage-tasks').forEach(b=>{
@@ -1472,9 +1473,9 @@
         showModal(`
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
             <h2 style="font-size:1.05rem;font-weight:700;">ðŸ—‘ Supprimer le document</h2>
-            <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
           </div>
-          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(doc.name)}</strong> ? Cette action est irrÃ©versible.</p>
+          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(doc.name)}</strong> ? Cette action est irréversible.</p>
           <div style="display:flex;gap:10px;">
             <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
             <button id="confirm-del-doc" class="btn btn-danger" style="flex:1;justify-content:center;">Supprimer</button>
@@ -1482,14 +1483,14 @@
         ()=>{
           document.getElementById('confirm-del-doc').addEventListener('click',()=>{
             db.documents=db.documents.filter(d=>d.id!==doc.id);
-            logActivity('doc_deleted','Document supprimÃ© : '+doc.name);
-            saveDB(); toast('Document supprimÃ©.','info'); closeModal(); refreshAdminTab();
+            logActivity('doc_deleted','Document supprimé : '+doc.name);
+            saveDB(); toast('Document supprimé.','info'); closeModal(); refreshAdminTab();
           });
         });
       });
     });
 
-    // F9 â€” Duplicate project
+    // F9 — Duplicate project
     document.querySelectorAll('.btn-dup-project').forEach(b=>{
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
@@ -1502,19 +1503,19 @@
         newP.createdAt=new Date().toISOString().slice(0,10);
         newP.timeline=newP.timeline.map(s=>({...s,id:uid(),status:'pending',dueDate:'',note:''}));
         db.projects.push(newP);
-        logActivity('project_duplicated','Projet dupliquÃ© : '+newP.name);
-        saveDB(); toast('Projet dupliquÃ© !','success'); refreshAdminTab();
+        logActivity('project_duplicated','Projet dupliqué : '+newP.name);
+        saveDB(); toast('Projet dupliqué !','success'); refreshAdminTab();
       });
     });
 
-    // F13 â€” Archive project
+    // F13 — Archive project
     document.querySelectorAll('.btn-archive-project').forEach(b=>{
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
         if(!p) return;
         p.archived=true;
-        logActivity('project_archived','Projet archivÃ© : '+p.name);
-        saveDB(); toast('Projet archivÃ©.','info'); refreshAdminTab();
+        logActivity('project_archived','Projet archivé : '+p.name);
+        saveDB(); toast('Projet archivé.','info'); refreshAdminTab();
       });
     });
     document.querySelectorAll('.btn-deliver-files').forEach(b=>{
@@ -1546,12 +1547,12 @@
     document.getElementById('doc-filter-prio')?.addEventListener('change', applyDocFilters);
   }
 
-  // â”€â”€â”€ Tab: Admin Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin Profile ─────────────────────────
   function renderAdminProfile(){
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:24px;">Mon Profil</h1>
       <div class="profile-grid">
-        <!-- Colonne gauche : avatar + thÃ¨me -->
+        <!-- Colonne gauche : avatar + thème -->
         <div>
           <div class="glass-card" style="padding:28px;text-align:center;margin-bottom:16px;">
             <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatarLg(me)}</div>
@@ -1563,7 +1564,7 @@
           <div class="glass-card" style="padding:18px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div>
-                <div style="font-size:.9rem;font-weight:600;">ThÃ¨me</div>
+                <div style="font-size:.9rem;font-weight:600;">Thème</div>
                 <div style="font-size:.72rem;color:var(--ink-4);">Clair ou sombre</div>
               </div>
               <button id="btn-toggle-theme" class="btn btn-ghost btn-sm">
@@ -1576,7 +1577,7 @@
         <div class="glass-card" style="padding:28px;">
           <h2 style="font-size:1rem;font-weight:600;margin-bottom:20px;">Modifier mes informations</h2>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-            <div><label class="label">PrÃ©nom</label><input id="p-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
+            <div><label class="label">Prénom</label><input id="p-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
             <div><label class="label">Nom</label><input id="p-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
           </div>
           <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="p-un" class="glass-input" value="${esc(me.username)}" /></div>
@@ -1584,15 +1585,15 @@
           <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
           <div class="divider"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-            <div><label class="label">Nouveau mot de passe</label><input id="p-np" class="glass-input" type="password" placeholder="Laisser videâ€¦" /></div>
-            <div><label class="label">Confirmer</label><input id="p-cp" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" /></div>
+            <div><label class="label">Nouveau mot de passe</label><input id="p-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
+            <div><label class="label">Confirmer</label><input id="p-cp" class="glass-input" type="password" placeholder="••••••••" /></div>
           </div>
           <div id="p-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
           <button id="p-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
           <div class="divider"></div>
           <div style="margin-top:4px;">
             <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">Sauvegarde & Restauration</div>
-            <div style="font-size:.75rem;color:var(--ink-4);margin-bottom:12px;">Exporte toute la base de donnÃ©es Flow en JSON.</div>
+            <div style="font-size:.75rem;color:var(--ink-4);margin-bottom:12px;">Exporte toute la base de données Flow en JSON.</div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button id="btn-export-json" class="btn btn-ghost" style="flex:1;justify-content:center;min-width:140px;">â¬‡ï¸ Exporter JSON</button>
               <label id="btn-import-json-label" class="btn btn-ghost" style="flex:1;justify-content:center;min-width:140px;cursor:pointer;">â¬†ï¸ Importer JSON<input type="file" id="btn-import-json" accept=".json" style="display:none;" /></label>
@@ -1625,13 +1626,13 @@
 
       if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
       if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase()&&u.id!==me.id)){
-        showMsg(msg,'Ce pseudo est dÃ©jÃ  utilisÃ©.','error'); return;
+        showMsg(msg,'Ce pseudo est déjÃ  utilisé.','error'); return;
       }
       if(np && np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
 
       const u = db.users.find(u=>u.id===me.id);
       u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null;
-      const applyProfileSave=()=>{ me=u; saveDB(); toast('Profil mis Ã  jour !','success'); showMsg(msg,'Profil mis Ã  jour avec succÃ¨s !','success'); document.getElementById('app').innerHTML=renderAdminShell(); wireAdmin(); };
+      const applyProfileSave=()=>{ me=u; saveDB(); toast('Profil mis Ã  jour !','success'); showMsg(msg,'Profil mis Ã  jour avec succès !','success'); document.getElementById('app').innerHTML=renderAdminShell(); wireAdmin(); };
       if(np){ hashPwd(np).then(h=>{ u.password=h; applyProfileSave(); }); } else { applyProfileSave(); }
     });
   }
@@ -1644,9 +1645,9 @@
     el.style.color=type==='success'?'#93b594':'#e08680';
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  CLIENT SHELL
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   const clientTabs = [
     { id:'home',      icon:iconHome(),    label:'Accueil'   },
     { id:'documents', icon:iconDocs(),    label:'Documents' },
@@ -1678,7 +1679,7 @@
           </div>
         </div>
         <button id="btn-logout" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:.8rem;">
-          ${iconLogout()} DÃ©connexion
+          ${iconLogout()} Déconnexion
         </button>
       </div>
     </div>
@@ -1718,20 +1719,20 @@
     renderMobileTabbar('client');
   }
 
-  // â”€â”€â”€ Client: Home â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Client: Home ───────────────────────────────
   function renderClientHome(){
     const projects = getUserProjects(me.id);
     const project = projects[0]||null;
 
-    // F7 â€” Countdown
+    // F7 — Countdown
     const ctrDue = project && project.dueDate && project.status!=='done' ? (()=>{
       const diff = Math.ceil((new Date(project.dueDate)-new Date())/(1000*60*60*24));
-      if(diff < 0) return `<div style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">â°</span><div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">Livraison dÃ©passÃ©e de ${Math.abs(diff)} jour(s)</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">Contactez votre chargÃ© de projet</div></div></div>`;
+      if(diff < 0) return `<div style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">⏰</span><div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">Livraison dépassée de ${Math.abs(diff)} jour(s)</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">Contactez votre chargé de projet</div></div></div>`;
       if(diff<=30) return `<div style="background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.2);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">ðŸŽ¯</span><div><div style="font-size:.9rem;font-weight:600;color:var(--sky);">Livraison dans ${diff} jour(s)</div><div style="font-size:.75rem;color:rgba(244,238,229,.5);">${new Date(project.dueDate).toLocaleDateString('fr-FR')}</div></div></div>`;
       return '';
     })() : '';
 
-    // F12 â€” Welcome message
+    // F12 — Welcome message
     const welcomeBanner = project && project.welcomeMessage ? `<div style="background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.18);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
       <div style="font-size:.78rem;font-weight:600;color:var(--sky);letter-spacing:.05em;margin-bottom:6px;">MESSAGE DE VOTRE Ã‰QUIPE</div>
       <div style="font-size:.9rem;color:var(--ink-2);line-height:1.5;">${esc(project.welcomeMessage)}</div>
@@ -1745,11 +1746,11 @@
       ${projects.length===0 ? renderNoProject() : projects.length===1 ? renderProjectCard(projects[0]) : `<div>${projects.map(p=>`<div style="margin-bottom:16px;"><div style="font-size:.78rem;color:var(--ink-4);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Projet ${projects.indexOf(p)+1} / ${projects.length}</div>${renderProjectCard(p)}</div>`).join('')}</div>`}
       ${project&&project.faq&&project.faq.length>0?`
       <div class="glass-card" style="padding:20px;margin-top:16px;">
-        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">â“ Questions frÃ©quentes</h2>
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">❓ Questions fréquentes</h2>
         ${project.faq.map((f,i)=>`
           <div style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.07);">
             <div style="font-size:.875rem;font-weight:600;color:var(--ink-2);margin-bottom:6px;">Q : ${esc(f.q)}</div>
-            <div style="font-size:.85rem;color:var(--ink-3);line-height:1.5;">â†³ ${esc(f.a||'â€”')}</div>
+            <div style="font-size:.85rem;color:var(--ink-3);line-height:1.5;">â†³ ${esc(f.a||'—')}</div>
           </div>`).join('')}
       </div>`:''}
     </div>`;
@@ -1763,14 +1764,14 @@
     if(p.dueDate){
       const d=new Date(p.dueDate);
       const fmt=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
-      dueLine=`<div style="font-size:.8rem;color:var(--ink-3);margin-top:6px;">ðŸ“… Livraison prÃ©vue : ${fmt}</div>`;
+      dueLine=`<div style="font-size:.8rem;color:var(--ink-3);margin-top:6px;">📅 Livraison prévue : ${fmt}</div>`;
     }
     return `
       <div class="glass-card" style="padding:24px;margin-bottom:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
           <div>
             <h2 style="font-size:1.1rem;font-weight:600;">${esc(p.name)}</h2>
-            <div style="font-size:.8rem;color:rgba(244,238,229,.45);margin-top:2px;">${pct}% complÃ©tÃ©</div>
+            <div style="font-size:.8rem;color:rgba(244,238,229,.45);margin-top:2px;">${pct}% complété</div>
             ${p.description?`<div style="font-size:.8rem;color:var(--ink-3);margin-top:4px;">${esc(p.description)}</div>`:''}
           </div>
           ${p.websiteUrl?`<a href="${esc(p.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm">ðŸ”— Voir mon site</a>`:''}
@@ -1782,12 +1783,12 @@
         ${dueLine?'<div style="margin-bottom:20px;"></div>':''}
         ${p.deliverable?`
         <div style="background:rgba(147,181,148,.10);border:1px solid rgba(147,181,148,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <span style="font-size:1.6rem;">ðŸ“¦</span>
+          <span style="font-size:1.6rem;">📦</span>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrÃ©s â€” ${esc(p.deliverable.name)}</div>
-            <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">LivrÃ© le ${new Date(p.deliverable.deliveredAt).toLocaleDateString('fr-FR')} Â· ${(p.deliverable.size/1024/1024).toFixed(2)} Mo</div>
+            <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrés — ${esc(p.deliverable.name)}</div>
+            <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">Livré le ${new Date(p.deliverable.deliveredAt).toLocaleDateString('fr-FR')} · ${(p.deliverable.size/1024/1024).toFixed(2)} Mo</div>
           </div>
-          <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${p.id}">â¬‡ï¸ TÃ©lÃ©charger</button>
+          <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${p.id}">â¬‡ï¸ Télécharger</button>
         </div>`:''}
         ${renderFullTimeline(p.timeline)}
       </div>`;
@@ -1798,7 +1799,7 @@
       ${tl.map((s,i)=>`
         <div class="tl-step ${s.status}">
           <div class="tl-line-wrap">
-            <div class="tl-dot">${s.status==='done'?'âœ“':s.status==='current'?'â–¶':'â—‹'}</div>
+            <div class="tl-dot">${s.status==='done'?'✓':s.status==='current'?'â–¶':'â—‹'}</div>
             ${i<tl.length-1?`<div class="tl-connector"></div>`:''}
           </div>
           <div style="padding-top:4px;flex:1;">
@@ -1806,9 +1807,9 @@
               <div style="font-size:.9rem;font-weight:${s.status==='pending'?'400':'600'};color:${s.status==='done'?'#f4eee5':s.status==='current'?'#d97757':'rgba(244,238,229,.4)'};">
                 ${esc(s.label)}
               </div>
-              ${s.dueDate?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);white-space:nowrap;">ðŸ“… ${esc(new Date(s.dueDate).toLocaleDateString('fr-FR'))}</div>`:''}
+              ${s.dueDate?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);white-space:nowrap;">📅 ${esc(new Date(s.dueDate).toLocaleDateString('fr-FR'))}</div>`:''}
             </div>
-            ${s.date?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);margin-top:2px;">ðŸ“… ${esc(s.date)}</div>`:''}
+            ${s.date?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);margin-top:2px;">📅 ${esc(s.date)}</div>`:''}
             ${s.note?`<div style="font-size:.75rem;color:var(--ink-4);font-style:italic;margin-top:3px;">${esc(s.note)}</div>`:''}
           </div>
         </div>`).join('')}
@@ -1818,8 +1819,8 @@
   function renderNoProject(){
     return `<div class="glass-card" style="padding:48px;text-align:center;">
       <div style="font-size:3rem;margin-bottom:12px;">ðŸ“‹</div>
-      <div style="font-size:1rem;font-weight:600;color:rgba(244,238,229,.7);margin-bottom:6px;">Aucun projet associÃ©</div>
-      <div style="font-size:.85rem;color:rgba(244,238,229,.4);">Votre gestionnaire de projet vous assignera bientÃ´t un projet.</div>
+      <div style="font-size:1rem;font-weight:600;color:rgba(244,238,229,.7);margin-bottom:6px;">Aucun projet associé</div>
+      <div style="font-size:.85rem;color:rgba(244,238,229,.4);">Votre gestionnaire de projet vous assignera bientôt un projet.</div>
     </div>`;
   }
 
@@ -1829,13 +1830,13 @@
     });
   }
 
-  // â”€â”€â”€ Client: Documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Client: Documents ──────────────────────────
   function renderClientDocuments(){
     const project = getUserProject(me.id);
     const docs = project ? getProjectDocs(project.id) : [];
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Mes Documents</h1>
-      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Remplissez les formulaires envoyÃ©s par votre gestionnaire.</p>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Remplissez les formulaires envoyés par votre gestionnaire.</p>
       ${docs.length===0
         ? `<div class="glass-card" style="padding:48px;text-align:center;">
              <div style="font-size:3rem;margin-bottom:12px;">ðŸ“­</div>
@@ -1847,16 +1848,16 @@
 
   function renderClientDocCard(doc){
     const statusColor = {pending:'#d97757',filled:'#93b594',reviewed:'#c5d6ea'}[doc.status];
-    const statusLabel = {pending:'Ã€ remplir',filled:'Rempli âœ“',reviewed:'ValidÃ© âœ“'}[doc.status];
+    const statusLabel = {pending:'À remplir',filled:'Rempli ✓',reviewed:'Validé ✓'}[doc.status];
     return `<div class="glass-card" style="padding:20px;margin-bottom:14px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:${doc.adminComment&&doc.status==='reviewed'?'8':'0'}px;flex-wrap:wrap;">
-        <span style="font-size:1.5rem;">ðŸ“„</span>
+        <span style="font-size:1.5rem;">📄</span>
         <div style="flex:1;">
           <div style="font-weight:600;">${esc(doc.name)}</div>
-          <div style="font-size:.75rem;color:rgba(244,238,229,.4);">EnvoyÃ© le ${esc(doc.sentAt||'â€”')}</div>
+          <div style="font-size:.75rem;color:rgba(244,238,229,.4);">Envoyé le ${esc(doc.sentAt||'—')}</div>
         </div>
         <span style="font-size:.8rem;color:${statusColor};font-weight:600;">${statusLabel}</span>
-        ${doc.status!=='reviewed'?`<button class="btn btn-primary btn-sm btn-fill-doc" data-did="${doc.id}">âœï¸ ${doc.status==='pending'?'Remplir':'Modifier'}</button>`:''}
+        ${doc.status!=='reviewed'?`<button class="btn btn-primary btn-sm btn-fill-doc" data-did="${doc.id}">✏ï¸ ${doc.status==='pending'?'Remplir':'Modifier'}</button>`:''}
       </div>
       ${doc.adminComment&&doc.status==='reviewed'?`<div style="font-size:.75rem;color:var(--sky);font-style:italic;margin-top:4px;">ðŸ’¬ "${esc(doc.adminComment)}"</div>`:''}
     </div>`;
@@ -1868,7 +1869,7 @@
     });
   }
 
-  // â”€â”€â”€ Client: Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Client: Profile ────────────────────────────
   function renderClientProfile(){
     const project = getUserProject(me.id);
     return `<div class="fade-up">
@@ -1881,7 +1882,7 @@
             <div style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">${esc(me.firstName||'')} ${esc(me.lastName||'')}</div>
             <div style="color:rgba(244,238,229,.5);font-size:.9rem;margin-bottom:10px;">@${esc(me.username)}</div>
             ${roleBadge('client')}
-            ${project?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:12px;">ðŸ“ ${esc(project.name)}</div>`:''}
+            ${project?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:12px;">📁 ${esc(project.name)}</div>`:''}
             ${me.email?`<div style="font-size:.78rem;color:var(--ink-4);margin-top:6px;">âœ‰ï¸ ${esc(me.email)}</div>`:''}
           </div>
         </div>
@@ -1889,15 +1890,15 @@
         <div class="glass-card" style="padding:28px;">
           <h2 style="font-size:1rem;font-weight:600;margin-bottom:20px;">Modifier mes informations</h2>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-            <div><label class="label">PrÃ©nom</label><input id="cp-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
+            <div><label class="label">Prénom</label><input id="cp-fn" class="glass-input" value="${esc(me.firstName||'')}" /></div>
             <div><label class="label">Nom</label><input id="cp-ln" class="glass-input" value="${esc(me.lastName||'')}" /></div>
           </div>
           <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="cp-un" class="glass-input" value="${esc(me.username)}" /></div>
           <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="cp-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
           <div class="divider"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-            <div><label class="label">Nouveau mot de passe</label><input id="cp-np" class="glass-input" type="password" placeholder="Laisser videâ€¦" /></div>
-            <div><label class="label">Confirmer</label><input id="cp-cp" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" /></div>
+            <div><label class="label">Nouveau mot de passe</label><input id="cp-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
+            <div><label class="label">Confirmer</label><input id="cp-cp" class="glass-input" type="password" placeholder="••••••••" /></div>
           </div>
           <div id="cp-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
           <button id="cp-save" class="btn btn-primary" style="width:100%;justify-content:center;">Enregistrer</button>
@@ -1918,7 +1919,7 @@
 
       if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
       if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase()&&u.id!==me.id)){
-        showMsg(msg,'Ce pseudo est dÃ©jÃ  utilisÃ©.','error'); return;
+        showMsg(msg,'Ce pseudo est déjÃ  utilisé.','error'); return;
       }
       if(np&&np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
 
@@ -1929,9 +1930,9 @@
     });
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  MODALS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   function showModal(html, onWire){
     let ov = document.getElementById('modal-overlay');
     if(!ov){ ov=document.createElement('div'); ov.id='modal-overlay'; document.body.appendChild(ov); }
@@ -1946,26 +1947,26 @@
     if(ov){ ov.style.display='none'; ov.innerHTML=''; }
   }
 
-  // â”€â”€ Create User Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Create User Modal ──────────────────────────
   function openCreateUserModal(){
     const canRoles = me.role==='admin'
-      ? [{v:'client',l:'Client'},{v:'controller',l:'ContrÃ´leur'},{v:'admin',l:'Admin'}]
+      ? [{v:'client',l:'Client'},{v:'controller',l:'Contrôleur'},{v:'admin',l:'Admin'}]
       : [{v:'client',l:'Client'}];
 
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <h2 style="font-size:1.1rem;font-weight:700;">Nouveau compte</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
-      <div style="margin-bottom:14px;"><label class="label">PrÃ©nom</label><input id="nu-fn" class="glass-input" placeholder="PrÃ©nom" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="nu-fn" class="glass-input" placeholder="Prénom" /></div>
       <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="nu-ln" class="glass-input" placeholder="Nom" /></div>
       <div style="margin-bottom:14px;"><label class="label">Pseudo *</label><input id="nu-un" class="glass-input" placeholder="Pseudo unique" /></div>
       <div style="margin-bottom:14px;"><label class="label">Email</label><input id="nu-em" class="glass-input" type="email" placeholder="email@exemple.com" /></div>
-      <div style="margin-bottom:14px;"><label class="label">TÃ©lÃ©phone</label><input id="nu-phone" class="glass-input" placeholder="+33 6 00 00 00 00" /></div>
-      <div style="margin-bottom:14px;"><label class="label">Secteur d'activitÃ©</label><input id="nu-sector" class="glass-input" placeholder="Ex : Restauration, E-commerceâ€¦" /></div>
-      <div style="margin-bottom:14px;"><label class="label">Mot de passe *</label><input id="nu-pw" class="glass-input" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Téléphone</label><input id="nu-phone" class="glass-input" placeholder="+33 6 00 00 00 00" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Secteur d'activité</label><input id="nu-sector" class="glass-input" placeholder="Ex : Restauration, E-commerce…" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Mot de passe *</label><input id="nu-pw" class="glass-input" type="password" placeholder="••••••••" /></div>
       <div style="margin-bottom:20px;">
-        <label class="label">RÃ´le</label>
+        <label class="label">Rôle</label>
         <select id="nu-role" class="glass-input">
           ${canRoles.map(r=>`<option value="${r.v}">${r.l}</option>`).join('')}
         </select>
@@ -1973,7 +1974,7 @@
       <div id="nu-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="nu-save" class="btn btn-primary" style="flex:1;justify-content:center;">CrÃ©er</button>
+        <button id="nu-save" class="btn btn-primary" style="flex:1;justify-content:center;">Créer</button>
       </div>`,
     ()=>{
       document.getElementById('nu-save').addEventListener('click',()=>{
@@ -1988,20 +1989,20 @@
         const phone=document.getElementById('nu-phone')?.value.trim()||'';
         const sector=document.getElementById('nu-sector')?.value.trim()||'';
         if(!un||!pw){ showMsg(msg,'Pseudo et mot de passe requis.','error'); return; }
-        if(!canCreateRole(me.role,role)){ showMsg(msg,'Vous n\'avez pas la permission de crÃ©er ce type de compte.','error'); return; }
-        if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){ showMsg(msg,'Ce pseudo est dÃ©jÃ  utilisÃ©.','error'); return; }
+        if(!canCreateRole(me.role,role)){ showMsg(msg,'Vous n\'avez pas la permission de créer ce type de compte.','error'); return; }
+        if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){ showMsg(msg,'Ce pseudo est déjÃ  utilisé.','error'); return; }
 
         hashPwd(pw).then(hashedPw=>{
           const newUser = { id:uid(), username:un, password:hashedPw, role, firstName:fn, lastName:ln, email:em, phone, sector, photo:null, projectId:null, createdAt:new Date().toISOString() };
           db.users.push(newUser);
-          logActivity('user_created', 'Compte crÃ©Ã© : ' + newUser.username);
-          saveDB(); toast('Compte crÃ©Ã© !','success'); closeModal(); refreshAdminTab();
+          logActivity('user_created', 'Compte créé : ' + newUser.username);
+          saveDB(); toast('Compte créé !','success'); closeModal(); refreshAdminTab();
         });
       });
     });
   }
 
-  // â”€â”€ Edit User Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Edit User Modal ────────────────────────────
   function openEditUserModal(userId){
     const u = db.users.find(x=>x.id===userId);
     if(!u) return;
@@ -2011,32 +2012,32 @@
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <h2 style="font-size:1.1rem;font-weight:700;">Modifier @${esc(u.username)}</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
-      <div style="margin-bottom:14px;"><label class="label">PrÃ©nom</label><input id="eu-fn" class="glass-input" value="${esc(u.firstName||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Prénom</label><input id="eu-fn" class="glass-input" value="${esc(u.firstName||'')}" /></div>
       <div style="margin-bottom:14px;"><label class="label">Nom</label><input id="eu-ln" class="glass-input" value="${esc(u.lastName||'')}" /></div>
       <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="eu-un" class="glass-input" value="${esc(u.username)}" /></div>
       <div style="margin-bottom:14px;"><label class="label">Email</label><input id="eu-em" class="glass-input" value="${esc(u.email||'')}" /></div>
-      <div style="margin-bottom:14px;"><label class="label">TÃ©lÃ©phone</label><input id="eu-phone" class="glass-input" placeholder="+33 6 00 00 00 00" value="${esc(u.phone||'')}" /></div>
-      <div style="margin-bottom:14px;"><label class="label">Secteur d'activitÃ©</label><input id="eu-sector" class="glass-input" placeholder="Ex : Restauration, E-commerceâ€¦" value="${esc(u.sector||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Téléphone</label><input id="eu-phone" class="glass-input" placeholder="+33 6 00 00 00 00" value="${esc(u.phone||'')}" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Secteur d'activité</label><input id="eu-sector" class="glass-input" placeholder="Ex : Restauration, E-commerce…" value="${esc(u.sector||'')}" /></div>
       <div style="margin-bottom:14px;">
         <label class="label">ðŸ”’ Notes internes (invisibles du client)</label>
-        <textarea id="eu-notes" class="glass-input" placeholder="Notes privÃ©es sur ce clientâ€¦" style="min-height:60px;">${esc(u.internalNotes||'')}</textarea>
+        <textarea id="eu-notes" class="glass-input" placeholder="Notes privées sur ce client…" style="min-height:60px;">${esc(u.internalNotes||'')}</textarea>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Lien site web</label><input id="eu-url" class="glass-input" placeholder="https://..." value="${esc(projects.find(p=>p.clientId===u.id)?.websiteUrl||'')}" /></div>
       ${isAdmin?`
       <div style="margin-bottom:14px;">
-        <label class="label">RÃ´le</label>
+        <label class="label">Rôle</label>
         <select id="eu-role" class="glass-input">
           <option value="client" ${u.role==='client'?'selected':''}>Client</option>
-          <option value="controller" ${u.role==='controller'?'selected':''}>ContrÃ´leur</option>
+          <option value="controller" ${u.role==='controller'?'selected':''}>Contrôleur</option>
           <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
         </select>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">Projet associÃ©</label>
+        <label class="label">Projet associé</label>
         <select id="eu-proj" class="glass-input">
-          <option value="">â€” Aucun â€”</option>
+          <option value="">— Aucun —</option>
           ${projects.map(p=>`<option value="${p.id}" ${p.clientId===u.id?'selected':''}>${esc(p.name)}</option>`).join('')}
         </select>
       </div>`:''}
@@ -2062,7 +2063,7 @@
 
         if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
         if(db.users.some(x=>x.username.toLowerCase()===un.toLowerCase()&&x.id!==u.id)){
-          showMsg(msg,'Ce pseudo est dÃ©jÃ  utilisÃ©.','error'); return;
+          showMsg(msg,'Ce pseudo est déjÃ  utilisé.','error'); return;
         }
 
         u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.role=role; u.phone=phone; u.sector=sector;
@@ -2083,7 +2084,7 @@
     });
   }
 
-  // â”€â”€ Confirm Delete User â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Confirm Delete User ────────────────────────
   function confirmDeleteUser(userId){
     const u=db.users.find(x=>x.id===userId);
     if(!u) return;
@@ -2091,7 +2092,7 @@
       <div style="text-align:center;padding:8px 0;">
         <div style="font-size:2.5rem;margin-bottom:12px;">âš ï¸</div>
         <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;">Supprimer @${esc(u.username)} ?</h2>
-        <p style="color:rgba(244,238,229,.5);font-size:.875rem;margin-bottom:24px;">Cette action est irrÃ©versible. Toutes les donnÃ©es associÃ©es seront supprimÃ©es.</p>
+        <p style="color:rgba(244,238,229,.5);font-size:.875rem;margin-bottom:24px;">Cette action est irréversible. Toutes les données associées seront supprimées.</p>
         <div style="display:flex;gap:10px;justify-content:center;">
           <button onclick="closeModal()" class="btn btn-ghost">Annuler</button>
           <button id="del-confirm" class="btn btn-danger">Supprimer</button>
@@ -2099,7 +2100,7 @@
       </div>`,
     ()=>{
       document.getElementById('del-confirm').addEventListener('click',()=>{
-        logActivity('user_deleted', 'Compte supprimÃ© : ' + u.username);
+        logActivity('user_deleted', 'Compte supprimé : ' + u.username);
         db.users=db.users.filter(x=>x.id!==userId);
         db.projects.forEach(p=>{ if(p.clientId===userId) p.clientId=null; });
         saveDB(); closeModal(); refreshAdminTab();
@@ -2107,22 +2108,22 @@
     });
   }
 
-  // â”€â”€ Confirm Delete Project â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // â”€â”€ Deliver Files Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Confirm Delete Project ─────────────────────
+  // ── Deliver Files Modal ───────────────────────
   function openDeliverFilesModal(projectId){
     const p = db.projects.find(x=>x.id===projectId);
     if(!p) return;
     const existing = p.deliverable;
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">ðŸ“¦ Livrer les fichiers</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">📦 Livrer les fichiers</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:18px;">Projet : <strong>${esc(p.name)}</strong></p>
       ${existing?`<div style="background:rgba(147,181,148,.1);border:1px solid rgba(147,181,148,.25);border-radius:12px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
-        <span>ðŸ“¦</span>
-        <div style="flex:1;font-size:.85rem;color:#b6d1b7;">${esc(existing.name)} <span style="color:var(--ink-4);font-size:.75rem;">(${(existing.size/1024/1024).toFixed(2)} Mo â€” livrÃ© le ${new Date(existing.deliveredAt).toLocaleDateString('fr-FR')})</span></div>
-        <button id="btn-remove-delivery" class="btn btn-danger btn-sm">âœ• Retirer</button>
+        <span>📦</span>
+        <div style="flex:1;font-size:.85rem;color:#b6d1b7;">${esc(existing.name)} <span style="color:var(--ink-4);font-size:.75rem;">(${(existing.size/1024/1024).toFixed(2)} Mo — livré le ${new Date(existing.deliveredAt).toLocaleDateString('fr-FR')})</span></div>
+        <button id="btn-remove-delivery" class="btn btn-danger btn-sm">✕ Retirer</button>
       </div>`:''}
       <div style="border:2px dashed var(--glass-edge-hi);border-radius:14px;padding:28px;text-align:center;margin-bottom:16px;transition:border-color .2s;" id="drop-zone">
         <div style="font-size:2rem;margin-bottom:8px;">ðŸ“‚</div>
@@ -2134,12 +2135,12 @@
         <div style="height:6px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;">
           <div id="deliver-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--coral),var(--sage));border-radius:4px;transition:width .3s;"></div>
         </div>
-        <div id="deliver-progress-txt" style="font-size:.75rem;color:var(--ink-4);margin-top:6px;text-align:center;">Lecture en coursâ€¦</div>
+        <div id="deliver-progress-txt" style="font-size:.75rem;color:var(--ink-4);margin-top:6px;text-align:center;">Lecture en cours…</div>
       </div>
       <div id="deliver-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="deliver-save" class="btn btn-primary" style="flex:1;justify-content:center;" disabled>ðŸ“¤ Enregistrer la livraison</button>
+        <button id="deliver-save" class="btn btn-primary" style="flex:1;justify-content:center;" disabled>📤 Enregistrer la livraison</button>
       </div>`,
     ()=>{
       let fileData = null;
@@ -2155,14 +2156,14 @@
           showMsg(msg, `Fichier trop volumineux (${(file.size/1024/1024).toFixed(1)} Mo). Limite : 6,5 Mo.`, 'error');
           return;
         }
-        info.innerHTML = `<span style="color:var(--sage);">âœ“</span> ${esc(file.name)} â€” ${(file.size/1024/1024).toFixed(2)} Mo`;
+        info.innerHTML = `<span style="color:var(--sage);">✓</span> ${esc(file.name)} — ${(file.size/1024/1024).toFixed(2)} Mo`;
         document.getElementById('deliver-progress').style.display = 'block';
         const reader = new FileReader();
-        reader.onprogress = e=>{ if(e.lengthComputable){ const pct=Math.round(e.loaded/e.total*100); document.getElementById('deliver-progress-bar').style.width=pct+'%'; document.getElementById('deliver-progress-txt').textContent=pct+'% luâ€¦'; } };
+        reader.onprogress = e=>{ if(e.lengthComputable){ const pct=Math.round(e.loaded/e.total*100); document.getElementById('deliver-progress-bar').style.width=pct+'%'; document.getElementById('deliver-progress-txt').textContent=pct+'% lu…'; } };
         reader.onload = e=>{
           fileData = {name:file.name, size:file.size, type:file.type, data:e.target.result, deliveredAt:new Date().toISOString(), deliveredBy:me.username};
           document.getElementById('deliver-progress-bar').style.width='100%';
-          document.getElementById('deliver-progress-txt').textContent='PrÃªt Ã  enregistrer';
+          document.getElementById('deliver-progress-txt').textContent='Prêt Ã  enregistrer';
           saveBtn.disabled = false;
         };
         reader.onerror = ()=>showMsg(msg,'Erreur de lecture du fichier.','error');
@@ -2179,17 +2180,17 @@
       document.getElementById('btn-remove-delivery')?.addEventListener('click',()=>{
         if(!confirm('Retirer la livraison existante ?')) return;
         p.deliverable = null;
-        logActivity('delivery_removed','Livraison retirÃ©e : '+p.name);
-        saveDB(); toast('Livraison retirÃ©e.','info'); closeModal(); refreshAdminTab();
+        logActivity('delivery_removed','Livraison retirée : '+p.name);
+        saveDB(); toast('Livraison retirée.','info'); closeModal(); refreshAdminTab();
       });
 
       saveBtn.addEventListener('click',()=>{
-        if(!fileData){ showMsg(msg,'SÃ©lectionnez un fichier.','error'); return; }
-        saveBtn.disabled=true; saveBtn.textContent='Enregistrementâ€¦';
+        if(!fileData){ showMsg(msg,'Sélectionnez un fichier.','error'); return; }
+        saveBtn.disabled=true; saveBtn.textContent='Enregistrement…';
         p.deliverable = fileData;
-        logActivity('delivery_uploaded','Fichiers livrÃ©s pour : '+p.name+' ('+fileData.name+')');
+        logActivity('delivery_uploaded','Fichiers livrés pour : '+p.name+' ('+fileData.name+')');
         saveDB();
-        toast('Fichiers livrÃ©s Ã  '+p.name+' !','success');
+        toast('Fichiers livrés Ã  '+p.name+' !','success');
         closeModal(); refreshAdminTab();
       });
     });
@@ -2202,7 +2203,7 @@
     a.href = p.deliverable.data;
     a.download = p.deliverable.name;
     a.click();
-    toast('TÃ©lÃ©chargement dÃ©marrÃ©â€¦','success');
+    toast('Téléchargement démarré…','success');
   }
 
   function confirmDeleteProject(projectId){
@@ -2213,7 +2214,7 @@
         <div style="font-size:2.5rem;margin-bottom:12px;">âš ï¸</div>
         <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:8px;">Supprimer le projet ?</h2>
         <p style="font-size:.9rem;color:var(--coral-soft);font-weight:600;margin-bottom:8px;">${esc(p.name)}</p>
-        <p style="color:rgba(244,238,229,.5);font-size:.875rem;margin-bottom:24px;">Cette action est irrÃ©versible. La timeline et les documents associÃ©s seront supprimÃ©s.</p>
+        <p style="color:rgba(244,238,229,.5);font-size:.875rem;margin-bottom:24px;">Cette action est irréversible. La timeline et les documents associés seront supprimés.</p>
         <div style="display:flex;gap:10px;justify-content:center;">
           <button onclick="closeModal()" class="btn btn-ghost">Annuler</button>
           <button id="del-proj-confirm" class="btn btn-danger">Supprimer le projet</button>
@@ -2221,52 +2222,52 @@
       </div>`,
     ()=>{
       document.getElementById('del-proj-confirm').addEventListener('click',()=>{
-        logActivity('project_deleted', 'Projet supprimÃ© : ' + p.name);
+        logActivity('project_deleted', 'Projet supprimé : ' + p.name);
         db.projects=db.projects.filter(x=>x.id!==projectId);
         db.documents=db.documents.filter(d=>d.projectId!==projectId);
-        saveDB(); toast('Projet supprimÃ©.','info'); closeModal(); refreshAdminTab();
+        saveDB(); toast('Projet supprimé.','info'); closeModal(); refreshAdminTab();
       });
     });
   }
 
-  // â”€â”€ Edit Timeline Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Edit Timeline Modal ────────────────────────
   function openEditTimelineModal(projectId, userId){
     const p=db.projects.find(x=>x.id===projectId);
     if(!p) return;
     const u=db.users.find(x=>x.id===userId);
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">Timeline â€” ${esc(p.name)}</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">Timeline — ${esc(p.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div id="tl-steps">
         ${p.timeline.map((s,i)=>`
           <div style="margin-bottom:8px;padding:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;cursor:grab;" draggable="true" data-sid="${s.id}">
             <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;margin-bottom:6px;">
-              <span style="color:var(--ink-4);font-size:.85rem;cursor:grab;" title="Glisser pour rÃ©ordonner">â ¿</span>
+              <span style="color:var(--ink-4);font-size:.85rem;cursor:grab;" title="Glisser pour réordonner">â ¿</span>
               <input class="glass-input tl-label-input" value="${esc(s.label)}" placeholder="Ã‰tape" data-sid="${s.id}" />
               <input type="date" class="glass-input tl-date-input" style="width:130px;" data-sid="${s.id}" value="${s.dueDate||''}" />
               <select class="glass-input tl-status-select" style="width:120px;" data-sid="${s.id}">
-                <option value="done"    ${s.status==='done'   ?'selected':''}>âœ… Fait</option>
+                <option value="done"    ${s.status==='done'   ?'selected':''}>✅ Fait</option>
                 <option value="current" ${s.status==='current'?'selected':''}>â–¶ï¸ En cours</option>
-                <option value="pending" ${s.status==='pending'?'selected':''}>â³ Ã€ faire</option>
+                <option value="pending" ${s.status==='pending'?'selected':''}>⏳ À faire</option>
               </select>
               <button class="btn btn-danger btn-sm tl-del" data-sid="${s.id}" title="Supprimer">ðŸ—‘</button>
             </div>
-            <input class="glass-input tl-note-input" placeholder="Note sur cette Ã©tape (optionnel)â€¦" value="${esc(s.note||'')}" data-sid="${s.id}" style="font-size:.8rem;" />
+            <input class="glass-input tl-note-input" placeholder="Note sur cette étape (optionnel)…" value="${esc(s.note||'')}" data-sid="${s.id}" style="font-size:.8rem;" />
           </div>`).join('')}
       </div>
-      <button id="tl-add" class="btn btn-ghost" style="width:100%;justify-content:center;margin:10px 0;">+ Ajouter une Ã©tape</button>
+      <button id="tl-add" class="btn btn-ghost" style="width:100%;justify-content:center;margin:10px 0;">+ Ajouter une étape</button>
       <div style="margin-bottom:14px;">
         <label class="label">Description du projet (optionnel)</label>
-        <textarea id="tl-desc" class="glass-input" placeholder="DÃ©crivez briÃ¨vement le projetâ€¦">${esc(p.description||'')}</textarea>
+        <textarea id="tl-desc" class="glass-input" placeholder="Décrivez brièvement le projet…">${esc(p.description||'')}</textarea>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">Message d'accueil client (affichÃ© sur son tableau de bord)</label>
-        <textarea id="tl-welcome" class="glass-input" placeholder="Ex : Bonjour ! Voici l'avancement de votre projet. N'hÃ©sitez pas Ã  remplir les documents ci-dessous." style="min-height:70px;">${esc(p.welcomeMessage||'')}</textarea>
+        <label class="label">Message d'accueil client (affiché sur son tableau de bord)</label>
+        <textarea id="tl-welcome" class="glass-input" placeholder="Ex : Bonjour ! Voici l'avancement de votre projet. N'hésitez pas Ã  remplir les documents ci-dessous." style="min-height:70px;">${esc(p.welcomeMessage||'')}</textarea>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">Tags (sÃ©parÃ©s par des virgules)</label>
+        <label class="label">Tags (séparés par des virgules)</label>
         <input id="tl-tags" class="glass-input" placeholder="Ex : urgent, VIP, e-commerce" value="${esc((p.tags||[]).join(', '))}" />
       </div>
       <div style="margin-bottom:14px;">
@@ -2285,25 +2286,25 @@
         <label class="label">Statut du projet</label>
         <select id="tl-proj-status" class="glass-input">
           <option value="in_progress" ${p.status==='in_progress'?'selected':''}>En cours</option>
-          <option value="done"        ${p.status==='done'?'selected':''}>TerminÃ©</option>
+          <option value="done"        ${p.status==='done'?'selected':''}>Terminé</option>
           <option value="pending"     ${p.status==='pending'?'selected':''}>En attente</option>
         </select>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">PrioritÃ©</label>
+        <label class="label">Priorité</label>
         <select id="tl-priority" class="glass-input">
-          <option value="urgent" ${p.priority==='urgent'?'selected':''}>ðŸ”´ Urgent</option>
-          <option value="normal"  ${(p.priority||'normal')==='normal'?'selected':''}>ðŸ”µ Normal</option>
-          <option value="low"     ${p.priority==='low'?'selected':''}>âšª Basse prioritÃ©</option>
+          <option value="urgent" ${p.priority==='urgent'?'selected':''}>🔴 Urgent</option>
+          <option value="normal"  ${(p.priority||'normal')==='normal'?'selected':''}>🔵 Normal</option>
+          <option value="low"     ${p.priority==='low'?'selected':''}>⚪ Basse priorité</option>
         </select>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">FAQ client (questions / rÃ©ponses)</label>
+        <label class="label">FAQ client (questions / réponses)</label>
         <div id="tl-faq-list">
           ${(p.faq||[]).map((f,i)=>`
             <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px;margin-bottom:8px;" data-fidx="${i}">
-              <input class="glass-input faq-q" placeholder="Questionâ€¦" value="${esc(f.q||'')}" style="margin-bottom:6px;font-size:.82rem;" />
-              <textarea class="glass-input faq-a" placeholder="RÃ©ponseâ€¦" style="font-size:.82rem;min-height:50px;">${esc(f.a||'')}</textarea>
+              <input class="glass-input faq-q" placeholder="Question…" value="${esc(f.q||'')}" style="margin-bottom:6px;font-size:.82rem;" />
+              <textarea class="glass-input faq-a" placeholder="Réponse…" style="font-size:.82rem;min-height:50px;">${esc(f.a||'')}</textarea>
               <button class="btn btn-danger btn-sm faq-del" data-fidx="${i}" style="margin-top:6px;">ðŸ—‘ Supprimer</button>
             </div>`).join('')}
         </div>
@@ -2320,7 +2321,7 @@
           <div style="font-size:.78rem;font-weight:600;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Historique du projet</div>
           ${projLogs.map(e=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);">
             <span style="font-size:.8rem;color:var(--ink-3);flex:1;">${esc(e.description)}</span>
-            <span style="font-size:.7rem;color:var(--ink-4);white-space:nowrap;">${e.at?new Date(e.at).toLocaleDateString('fr-FR'):'â€”'}</span>
+            <span style="font-size:.7rem;color:var(--ink-4);white-space:nowrap;">${e.at?new Date(e.at).toLocaleDateString('fr-FR'):'—'}</span>
           </div>`).join('')}
         </div>`;
       })()}`,
@@ -2333,16 +2334,16 @@
         div.dataset.sid=newId;
         div.innerHTML=`
           <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;margin-bottom:6px;">
-            <input class="glass-input tl-label-input" value="" placeholder="Nouvelle Ã©tape" data-sid="${newId}" />
+            <input class="glass-input tl-label-input" value="" placeholder="Nouvelle étape" data-sid="${newId}" />
             <input type="date" class="glass-input tl-date-input" style="width:130px;" data-sid="${newId}" value="" />
             <select class="glass-input tl-status-select" style="width:120px;" data-sid="${newId}">
-              <option value="done">âœ… Fait</option>
+              <option value="done">✅ Fait</option>
               <option value="current">â–¶ï¸ En cours</option>
-              <option value="pending" selected>â³ Ã€ faire</option>
+              <option value="pending" selected>⏳ À faire</option>
             </select>
             <button class="btn btn-danger btn-sm tl-del" data-sid="${newId}" title="Supprimer">ðŸ—‘</button>
           </div>
-          <input class="glass-input tl-note-input" placeholder="Note sur cette Ã©tape (optionnel)â€¦" value="" data-sid="${newId}" style="font-size:.8rem;" />`;
+          <input class="glass-input tl-note-input" placeholder="Note sur cette étape (optionnel)…" value="" data-sid="${newId}" style="font-size:.8rem;" />`;
         container.appendChild(div);
         div.querySelector('.tl-del').addEventListener('click',()=>div.remove());
       });
@@ -2374,13 +2375,13 @@
         const div=document.createElement('div');
         div.style.cssText='background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px;margin-bottom:8px;';
         div.dataset.fidx=idx;
-        div.innerHTML=`<input class="glass-input faq-q" placeholder="Questionâ€¦" style="margin-bottom:6px;font-size:.82rem;" /><textarea class="glass-input faq-a" placeholder="RÃ©ponseâ€¦" style="font-size:.82rem;min-height:50px;"></textarea><button class="btn btn-danger btn-sm faq-del" data-fidx="${idx}" style="margin-top:6px;">ðŸ—‘ Supprimer</button>`;
+        div.innerHTML=`<input class="glass-input faq-q" placeholder="Question…" style="margin-bottom:6px;font-size:.82rem;" /><textarea class="glass-input faq-a" placeholder="Réponse…" style="font-size:.82rem;min-height:50px;"></textarea><button class="btn btn-danger btn-sm faq-del" data-fidx="${idx}" style="margin-top:6px;">ðŸ—‘ Supprimer</button>`;
         div.querySelector('.faq-del').addEventListener('click',()=>div.remove());
         list.appendChild(div);
       });
       document.querySelectorAll('.faq-del').forEach(b=>b.addEventListener('click',()=>b.closest('[data-fidx]').remove()));
 
-      // F11 â€” Color picker in edit modal
+      // F11 — Color picker in edit modal
       document.querySelectorAll('#tl-colors .color-dot').forEach(dot=>{
         dot.addEventListener('click',()=>{
           document.querySelectorAll('#tl-colors .color-dot').forEach(d=>d.classList.remove('selected'));
@@ -2423,16 +2424,16 @@
     });
   }
 
-  // â”€â”€ Send Document Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Send Document Modal ────────────────────────
   function openSendDocModal(clientId, projectId){
     if(!projectId){ alert('Associez d\'abord un projet Ã  ce client.'); return; }
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <h2 style="font-size:1.1rem;font-weight:700;">Envoyer un document</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Nom du document</label><input id="sd-name" class="glass-input" placeholder="Ex : Questionnaire Brief Client" /></div>
-      ${(db.docTemplates||[]).length>0?`<div style="margin-bottom:14px;"><label class="label">Charger un modÃ¨le</label><div style="display:flex;gap:8px;"><select id="sd-tpl" class="glass-input" style="flex:1;"><option value="">â€” Choisir un modÃ¨le â€”</option>${(db.docTemplates||[]).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button id="sd-load-tpl" class="btn btn-ghost btn-sm">Charger</button></div></div>`:''}
+      ${(db.docTemplates||[]).length>0?`<div style="margin-bottom:14px;"><label class="label">Charger un modèle</label><div style="display:flex;gap:8px;"><select id="sd-tpl" class="glass-input" style="flex:1;"><option value="">— Choisir un modèle —</option>${(db.docTemplates||[]).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button id="sd-load-tpl" class="btn btn-ghost btn-sm">Charger</button></div></div>`:''}
       <div id="sd-fields">
         <div class="label" style="margin-bottom:8px;">Champs du formulaire</div>
         <div id="sd-fields-list">
@@ -2450,8 +2451,8 @@
       <div id="sd-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;min-width:100px;">Annuler</button>
-        <button id="sd-save-tpl" class="btn btn-ghost btn-sm" style="flex-shrink:0;" title="Sauvegarder comme modÃ¨le">ðŸ’¾ ModÃ¨le</button>
-        <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;min-width:100px;">ðŸ“¤ Envoyer</button>
+        <button id="sd-save-tpl" class="btn btn-ghost btn-sm" style="flex-shrink:0;" title="Sauvegarder comme modèle">ðŸ’¾ Modèle</button>
+        <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;min-width:100px;">📤 Envoyer</button>
       </div>`,
     ()=>{
       const tplLoadBtn = document.getElementById('sd-load-tpl');
@@ -2465,8 +2466,8 @@
           <input class="glass-input sd-field-label" placeholder="Question ou champ" style="flex:1;" value="${esc(f.label)}" />
           <select class="glass-input sd-field-type" style="width:110px;"><option value="text"${f.type==='text'?' selected':''}>Texte</option><option value="textarea"${f.type==='textarea'?' selected':''}>Paragraphe</option></select>
           <input type="checkbox" class="sd-field-req" title="Champ requis" style="width:16px;height:16px;accent-color:var(--coral);cursor:pointer;"${f.required?' checked':''} />
-          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">âœ•</button></div>`).join('');
-        toast('ModÃ¨le chargÃ©.','success');
+          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+        toast('Modèle chargé.','success');
       });
 
       document.getElementById('sd-save-tpl').addEventListener('click',()=>{
@@ -2481,7 +2482,7 @@
         });
         if(!db.docTemplates) db.docTemplates=[];
         db.docTemplates.push({id:uid(),name,fields});
-        saveDB(); toast('ModÃ¨le "'+name+'" sauvegardÃ© !','success');
+        saveDB(); toast('Modèle "'+name+'" sauvegardé !','success');
       });
 
       document.getElementById('sd-add-field').addEventListener('click',()=>{
@@ -2495,7 +2496,7 @@
             <option value="textarea">Paragraphe</option>
           </select>
           <input type="checkbox" class="sd-field-req" title="Champ requis" style="width:16px;height:16px;accent-color:var(--coral);cursor:pointer;" />
-          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">âœ•</button>`;
+          <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>`;
         list.appendChild(row);
       });
 
@@ -2522,46 +2523,46 @@
     });
   }
 
-  // â”€â”€ Confirm Validate Document (F15) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Confirm Validate Document (F15) ───────────
   function confirmValidateDoc(docId){
     const doc=db.documents.find(d=>d.id===docId);
     if(!doc) return;
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">âœ… Valider le document</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">✅ Valider le document</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:16px;">Valider <strong>${esc(doc.name)}</strong> ?</p>
       <div style="margin-bottom:16px;">
         <label class="label">Commentaire pour le client (optionnel)</label>
-        <textarea id="val-comment" class="glass-input" placeholder="Tout est validÃ©, merci !" style="min-height:70px;"></textarea>
+        <textarea id="val-comment" class="glass-input" placeholder="Tout est validé, merci !" style="min-height:70px;"></textarea>
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="val-confirm" class="btn btn-primary" style="flex:1;justify-content:center;">âœ… Valider</button>
+        <button id="val-confirm" class="btn btn-primary" style="flex:1;justify-content:center;">✅ Valider</button>
       </div>`,
     ()=>{
       document.getElementById('val-confirm').addEventListener('click',()=>{
         doc.status='reviewed';
         doc.adminComment=document.getElementById('val-comment').value.trim()||'';
         doc.reviewedAt=new Date().toISOString().slice(0,10);
-        logActivity('doc_validated','Document validÃ© : '+doc.name);
-        saveDB(); toast('Document validÃ© !','success'); closeModal(); refreshAdminTab();
+        logActivity('doc_validated','Document validé : '+doc.name);
+        saveDB(); toast('Document validé !','success'); closeModal(); refreshAdminTab();
       });
     });
   }
 
-  // â”€â”€ View Document Modal (admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── View Document Modal (admin) ────────────────
   function openViewDocModal(docId, canValidate){
     const doc=db.documents.find(d=>d.id===docId);
     if(!doc) return;
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">ðŸ“„ ${esc(doc.name)}</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">📄 ${esc(doc.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="font-size:.8rem;color:rgba(244,238,229,.4);margin-bottom:20px;">
-        EnvoyÃ© le ${esc(doc.sentAt||'â€”')} Â· Statut : <strong style="color:#d97757;">${{pending:'En attente',filled:'Rempli',reviewed:'ValidÃ©'}[doc.status]||doc.status}</strong>
+        Envoyé le ${esc(doc.sentAt||'—')} · Statut : <strong style="color:#d97757;">${{pending:'En attente',filled:'Rempli',reviewed:'Validé'}[doc.status]||doc.status}</strong>
       </div>
       ${doc.fields.map(f=>`
         <div class="pdf-field">
@@ -2571,24 +2572,24 @@
           </div>
         </div>`).join('')}
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap;">
-        ${canValidate&&doc.status==='filled'?`<button id="doc-validate" class="btn btn-success">âœ… Valider</button>`:''}
-        <button id="doc-export-pdf" class="btn btn-ghost">ðŸ“¥ Export PDF</button>
+        ${canValidate&&doc.status==='filled'?`<button id="doc-validate" class="btn btn-success">✅ Valider</button>`:''}
+        <button id="doc-export-pdf" class="btn btn-ghost">📥 Export PDF</button>
         <button onclick="closeModal()" class="btn btn-ghost">Fermer</button>
       </div>`,
     ()=>{
       const btn=document.getElementById('doc-validate');
       if(btn) btn.addEventListener('click',()=>confirmValidateDoc(docId));
       document.getElementById('doc-export-pdf').addEventListener('click',()=>{
-        if(!window.jspdf){ toast('jsPDF non chargÃ©','error'); return; }
+        if(!window.jspdf){ toast('jsPDF non chargé','error'); return; }
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF();
-        const statusLabels = {pending:'En attente',filled:'Rempli',reviewed:'ValidÃ©'};
+        const statusLabels = {pending:'En attente',filled:'Rempli',reviewed:'Validé'};
         pdf.setFont('helvetica','bold'); pdf.setFontSize(18); pdf.setTextColor(217,119,87);
-        pdf.text('Flow â€” Document', 20, 18);
+        pdf.text('Flow — Document', 20, 18);
         pdf.setTextColor(30,20,15); pdf.setFontSize(14);
         pdf.text(doc.name, 20, 28);
         pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(120,100,80);
-        pdf.text('EnvoyÃ© le: '+(doc.sentAt||'â€”')+'  |  Statut: '+(statusLabels[doc.status]||doc.status), 20, 36);
+        pdf.text('Envoyé le: '+(doc.sentAt||'—')+'  |  Statut: '+(statusLabels[doc.status]||doc.status), 20, 36);
         pdf.setDrawColor(217,119,87); pdf.setLineWidth(0.5); pdf.line(20, 40, 190, 40);
         let y = 50;
         doc.fields.forEach(f=>{
@@ -2601,19 +2602,19 @@
           if(y>275){ pdf.addPage(); y=20; }
         });
         pdf.save(doc.name.replace(/[^a-z0-9]/gi,'_').toLowerCase()+'.pdf');
-        toast('PDF exportÃ© !','success');
+        toast('PDF exporté !','success');
       });
     });
   }
 
-  // â”€â”€ Fill Document Modal (client) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fill Document Modal (client) ───────────────
   function openFillDocModal(docId){
     const doc=db.documents.find(d=>d.id===docId);
     if(!doc) return;
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">âœï¸ ${esc(doc.name)}</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">✏ï¸ ${esc(doc.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       ${doc.fields.map(f=>`
         <div class="pdf-field">
@@ -2624,7 +2625,7 @@
         </div>`).join('')}
       <div style="display:flex;gap:10px;margin-top:16px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="fill-submit" class="btn btn-primary" style="flex:1;justify-content:center;">ðŸ“¤ Envoyer Ã  l'admin</button>
+        <button id="fill-submit" class="btn btn-primary" style="flex:1;justify-content:center;">📤 Envoyer Ã  l'admin</button>
       </div>`,
     ()=>{
       document.getElementById('fill-submit').addEventListener('click',()=>{
@@ -2651,17 +2652,17 @@
     });
   }
 
-  // â”€â”€â”€ Tab: Admin Requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin Requests ────────────────────────
   function renderAdminRequests(){
     const pending = db.pendingUsers||[];
     const blocked = db.blockedAccounts||[];
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Demandes d'inscription</h1>
-      <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:24px;">Acceptez, refusez ou bloquez les demandes de crÃ©ation de compte.</p>
+      <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:24px;">Acceptez, refusez ou bloquez les demandes de création de compte.</p>
 
       ${pending.length===0
         ? `<div class="glass-card" style="padding:48px;text-align:center;">
-            <div style="font-size:2.5rem;margin-bottom:12px;">âœ…</div>
+            <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
             <div style="color:var(--ink-3);font-size:.9rem;">Aucune demande en attente.</div>
            </div>`
         : `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:32px;">
@@ -2671,32 +2672,32 @@
                 <div style="flex:1;min-width:0;">
                   <div style="font-weight:600;font-size:.95rem;">${esc(u.firstName||'')} ${esc(u.lastName||'')} <span style="color:var(--ink-3);font-weight:400;">@${esc(u.username)}</span></div>
                   ${u.email?`<div style="font-size:.78rem;color:var(--ink-4);">âœ‰ï¸ ${esc(u.email)}</div>`:''}
-                  <div style="font-size:.72rem;color:var(--ink-4);margin-top:2px;">DemandÃ© le ${u.requestedAt?new Date(u.requestedAt).toLocaleString('fr-FR'):'â€”'}</div>
+                  <div style="font-size:.72rem;color:var(--ink-4);margin-top:2px;">Demandé le ${u.requestedAt?new Date(u.requestedAt).toLocaleString('fr-FR'):'—'}</div>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                   <select class="glass-input req-role-select" data-uid="${u.id}" style="width:130px;padding:7px 10px;font-size:.8rem;">
                     <option value="client">Client</option>
-                    <option value="controller">ContrÃ´leur</option>
+                    <option value="controller">Contrôleur</option>
                     <option value="admin">Admin</option>
                   </select>
-                  <button class="btn btn-success btn-sm btn-approve-req" data-uid="${u.id}" title="Approuver">âœ… Approuver</button>
+                  <button class="btn btn-success btn-sm btn-approve-req" data-uid="${u.id}" title="Approuver">✅ Approuver</button>
                   <button class="btn btn-ghost btn-sm btn-reject-req" data-uid="${u.id}" title="Refuser">âŒ Refuser</button>
-                  <button class="btn btn-danger btn-sm btn-block-req" data-uid="${u.id}" title="Bloquer">ðŸš« Bloquer</button>
+                  <button class="btn btn-danger btn-sm btn-block-req" data-uid="${u.id}" title="Bloquer">🚫 Bloquer</button>
                 </div>
               </div>`).join('')}
            </div>`}
 
       ${blocked.length>0?`
       <div class="glass-card" style="padding:20px;">
-        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:#f08a8a;">ðŸš« Comptes bloquÃ©s (${blocked.length})</h2>
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:#f08a8a;">🚫 Comptes bloqués (${blocked.length})</h2>
         ${blocked.map(b=>`
           <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--glass-edge);">
             <div style="flex:1;min-width:0;">
               <div style="font-size:.85rem;font-weight:500;">@${esc(b.username)}</div>
               ${b.email?`<div style="font-size:.75rem;color:var(--ink-4);">${esc(b.email)}</div>`:''}
-              <div style="font-size:.7rem;color:var(--ink-4);">BloquÃ© le ${b.blockedAt?new Date(b.blockedAt).toLocaleString('fr-FR'):'â€”'}</div>
+              <div style="font-size:.7rem;color:var(--ink-4);">Bloqué le ${b.blockedAt?new Date(b.blockedAt).toLocaleString('fr-FR'):'—'}</div>
             </div>
-            <button class="btn btn-ghost btn-sm btn-unblock-req" data-username="${esc(b.username)}" title="DÃ©bloquer">â†© DÃ©bloquer</button>
+            <button class="btn btn-ghost btn-sm btn-unblock-req" data-username="${esc(b.username)}" title="Débloquer">â†© Débloquer</button>
           </div>`).join('')}
       </div>`:''}
     </div>`;
@@ -2721,8 +2722,8 @@
           internalNote: ''
         });
         db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
-        logActivity('user_created','Compte approuvÃ© : @'+req.username+' ('+role+')');
-        saveDB(); toast('Compte @'+req.username+' approuvÃ© !','success'); refreshAdminTab();
+        logActivity('user_created','Compte approuvé : @'+req.username+' ('+role+')');
+        saveDB(); toast('Compte @'+req.username+' approuvé !','success'); refreshAdminTab();
       });
     });
 
@@ -2732,8 +2733,8 @@
         if(!req) return;
         if(!confirm('Refuser la demande de @'+req.username+' ?')) return;
         db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
-        logActivity('request_rejected','Demande refusÃ©e : @'+req.username);
-        saveDB(); toast('Demande refusÃ©e.','info'); refreshAdminTab();
+        logActivity('request_rejected','Demande refusée : @'+req.username);
+        saveDB(); toast('Demande refusée.','info'); refreshAdminTab();
       });
     });
 
@@ -2741,30 +2742,30 @@
       btn.addEventListener('click',()=>{
         const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
         if(!req) return;
-        if(!confirm('Bloquer @'+req.username+' ? Aucune future demande ne sera acceptÃ©e avec ce pseudo/email.')) return;
+        if(!confirm('Bloquer @'+req.username+' ? Aucune future demande ne sera acceptée avec ce pseudo/email.')) return;
         if(!db.blockedAccounts) db.blockedAccounts = [];
         db.blockedAccounts.push({ username: req.username, email: req.email||'', blockedAt: new Date().toISOString(), blockedBy: me.username });
         db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
-        logActivity('request_blocked','Compte bloquÃ© : @'+req.username);
-        saveDB(); toast('Compte bloquÃ©.','info'); refreshAdminTab();
+        logActivity('request_blocked','Compte bloqué : @'+req.username);
+        saveDB(); toast('Compte bloqué.','info'); refreshAdminTab();
       });
     });
 
     document.querySelectorAll('.btn-unblock-req').forEach(btn=>{
       btn.addEventListener('click',()=>{
         const uname = btn.dataset.username;
-        if(!confirm('DÃ©bloquer @'+uname+' ?')) return;
+        if(!confirm('Débloquer @'+uname+' ?')) return;
         db.blockedAccounts = (db.blockedAccounts||[]).filter(b=>b.username!==uname);
-        logActivity('request_unblocked','Compte dÃ©bloquÃ© : @'+uname);
-        saveDB(); toast('Compte dÃ©bloquÃ©.','success'); refreshAdminTab();
+        logActivity('request_unblocked','Compte débloqué : @'+uname);
+        saveDB(); toast('Compte débloqué.','success'); refreshAdminTab();
       });
     });
   }
 
-  // â”€â”€â”€ Tab: Mon Projet (admin/controller with project) â”€â”€â”€
+  // ─── Tab: Mon Projet (admin/controller with project) ───
   function renderAdminMyProject(){
     const project = getUserProject(me.id);
-    if(!project) return `<div class="fade-up"><div class="glass-card" style="padding:48px;text-align:center;"><div style="font-size:3rem;margin-bottom:12px;">ðŸ“‹</div><div style="color:var(--ink-3);">Aucun projet associÃ© Ã  votre compte.</div></div></div>`;
+    if(!project) return `<div class="fade-up"><div class="glass-card" style="padding:48px;text-align:center;"><div style="font-size:3rem;margin-bottom:12px;">ðŸ“‹</div><div style="color:var(--ink-3);">Aucun projet associé Ã  votre compte.</div></div></div>`;
 
     const done  = project.timeline.filter(s=>s.status==='done').length;
     const total = project.timeline.length;
@@ -2772,12 +2773,12 @@
 
     const ctrDue = project.dueDate && project.status!=='done' ? (()=>{
       const diff = Math.ceil((new Date(project.dueDate)-new Date())/(1000*60*60*24));
-      if(diff<0)   return `<div style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">â°</span><div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">Livraison dÃ©passÃ©e de ${Math.abs(diff)} jour(s)</div></div></div>`;
+      if(diff<0)   return `<div style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.25);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">⏰</span><div><div style="font-size:.9rem;font-weight:600;color:#f08a8a;">Livraison dépassée de ${Math.abs(diff)} jour(s)</div></div></div>`;
       if(diff<=30) return `<div style="background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.2);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:1.4rem;">ðŸŽ¯</span><div><div style="font-size:.9rem;font-weight:600;color:var(--sky);">Livraison dans ${diff} jour(s)</div><div style="font-size:.75rem;color:var(--ink-4);">${new Date(project.dueDate).toLocaleDateString('fr-FR')}</div></div></div>`;
       return '';
     })() : '';
 
-    const prioBadge = {urgent:`<span style="background:rgba(220,80,80,.15);border:1px solid rgba(220,80,80,.35);color:#f08a8a;padding:3px 10px;border-radius:999px;font-size:.72rem;">ðŸ”´ Urgent</span>`,normal:'',low:`<span style="background:var(--glass-bg);border:1px solid var(--glass-edge);color:var(--ink-4);padding:3px 10px;border-radius:999px;font-size:.72rem;">âšª Basse</span>`}[project.priority||'normal']||'';
+    const prioBadge = {urgent:`<span style="background:rgba(220,80,80,.15);border:1px solid rgba(220,80,80,.35);color:#f08a8a;padding:3px 10px;border-radius:999px;font-size:.72rem;">🔴 Urgent</span>`,normal:'',low:`<span style="background:var(--glass-bg);border:1px solid var(--glass-edge);color:var(--ink-4);padding:3px 10px;border-radius:999px;font-size:.72rem;">⚪ Basse</span>`}[project.priority||'normal']||'';
 
     return `<div class="fade-up">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px;">
@@ -2785,8 +2786,8 @@
           <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">${esc(project.name)}</h1>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             ${prioBadge}
-            ${project.dueDate?`<span style="font-size:.78rem;color:var(--ink-4);">ðŸ“… ${new Date(project.dueDate).toLocaleDateString('fr-FR')}</span>`:''}
-            <span style="font-size:.78rem;color:var(--ink-4);">Â· ${pct}% complÃ©tÃ©</span>
+            ${project.dueDate?`<span style="font-size:.78rem;color:var(--ink-4);">📅 ${new Date(project.dueDate).toLocaleDateString('fr-FR')}</span>`:''}
+            <span style="font-size:.78rem;color:var(--ink-4);">· ${pct}% complété</span>
           </div>
         </div>
         ${project.websiteUrl?`<a href="${esc(project.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm">ðŸ”— Voir le site</a>`:''}
@@ -2813,57 +2814,57 @@
 
       ${project.deliverable?`
       <div style="background:rgba(147,181,148,.10);border:1px solid rgba(147,181,148,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <span style="font-size:1.6rem;">ðŸ“¦</span>
+        <span style="font-size:1.6rem;">📦</span>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrÃ©s â€” ${esc(project.deliverable.name)}</div>
-          <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">LivrÃ© le ${new Date(project.deliverable.deliveredAt).toLocaleDateString('fr-FR')} Â· ${(project.deliverable.size/1024/1024).toFixed(2)} Mo</div>
+          <div style="font-size:.9rem;font-weight:600;color:#b6d1b7;">Fichiers livrés — ${esc(project.deliverable.name)}</div>
+          <div style="font-size:.75rem;color:var(--ink-4);margin-top:2px;">Livré le ${new Date(project.deliverable.deliveredAt).toLocaleDateString('fr-FR')} · ${(project.deliverable.size/1024/1024).toFixed(2)} Mo</div>
         </div>
-        <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${project.id}">â¬‡ï¸ TÃ©lÃ©charger</button>
+        <button class="btn btn-success btn-sm btn-download-delivery" data-pid="${project.id}">â¬‡ï¸ Télécharger</button>
       </div>`:''}
 
       ${project.tags&&project.tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">${project.tags.map(t=>`<span style="font-size:.72rem;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);">${esc(t)}</span>`).join('')}</div>`:''}
 
       ${project.faq&&project.faq.length>0?`
       <div class="glass-card" style="padding:20px;">
-        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">â“ Questions frÃ©quentes</h2>
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">❓ Questions fréquentes</h2>
         ${project.faq.map(f=>`
           <div style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.07);">
             <div style="font-size:.875rem;font-weight:600;color:var(--ink-2);margin-bottom:6px;">Q : ${esc(f.q)}</div>
-            <div style="font-size:.85rem;color:var(--ink-3);line-height:1.5;">â†³ ${esc(f.a||'â€”')}</div>
+            <div style="font-size:.85rem;color:var(--ink-3);line-height:1.5;">â†³ ${esc(f.a||'—')}</div>
           </div>`).join('')}
       </div>`:''}
     </div>`;
   }
 
-  // â”€â”€â”€ Tab: Admin History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Tab: Admin History ─────────────────────────
   function renderAdminHistory(){
     const logs = db.activityLog || [];
-    const icons = {login:'ðŸ”',user_created:'ðŸ‘¤',user_deleted:'ðŸ—‘ï¸',project_created:'ðŸ“',project_deleted:'ðŸ—‘ï¸',doc_validated:'âœ…',report_generated:'ðŸ“„'};
+    const icons = {login:'🔐',user_created:'ðŸ‘¤',user_deleted:'ðŸ—‘ï¸',project_created:'📁',project_deleted:'ðŸ—‘ï¸',doc_validated:'✅',report_generated:'📄'};
     return `<div class="fade-up">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Historique</h1>
-      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Les 100 derniÃ¨res actions enregistrÃ©es.</p>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Les 100 dernières actions enregistrées.</p>
       <div class="glass-card" style="padding:0;overflow:hidden;">
         ${logs.length===0
-          ? '<div style="padding:32px;text-align:center;color:rgba(244,238,229,.35);">Aucune activitÃ© enregistrÃ©e.</div>'
+          ? '<div style="padding:32px;text-align:center;color:rgba(244,238,229,.35);">Aucune activité enregistrée.</div>'
           : logs.slice(0,50).map(e=>`
             <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.06);">
-              <span style="font-size:1.2rem;">${icons[e.type]||'ðŸ“'}</span>
+              <span style="font-size:1.2rem;">${icons[e.type]||'📝'}</span>
               <div style="flex:1;min-width:0;">
                 <div style="font-size:.875rem;font-weight:500;">${esc(e.description)}</div>
-                <div style="font-size:.72rem;color:rgba(244,238,229,.38);">${esc(e.actor)} Â· ${e.at?new Date(e.at).toLocaleString('fr-FR'):'â€”'}</div>
+                <div style="font-size:.72rem;color:rgba(244,238,229,.38);">${esc(e.actor)} · ${e.at?new Date(e.at).toLocaleString('fr-FR'):'—'}</div>
               </div>
             </div>`).join('')}
       </div>
     </div>`;
   }
-  function wireAdminHistory(){ /* rien Ã  cÃ¢bler */ }
+  function wireAdminHistory(){ /* rien Ã  câbler */ }
 
-  // â”€â”€â”€ Generate Client Report (PDF) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Generate Client Report (PDF) ───────────────
   function generateClientReport(userId){
     const u = db.users.find(x=>x.id===userId);
     const p = getUserProject(userId);
     if(!u||!p) return;
-    if(!window.jspdf){ toast('jsPDF non chargÃ©','error'); return; }
+    if(!window.jspdf){ toast('jsPDF non chargé','error'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const tl = p.timeline||[];
@@ -2895,7 +2896,7 @@
     doc.setFont('helvetica','normal');
     doc.setTextColor(100,80,60);
     doc.text('Projet : '+p.name, 14, 52);
-    if(p.dueDate) doc.text('Livraison prÃ©vue : '+new Date(p.dueDate).toLocaleDateString('fr-FR'), 14, 60);
+    if(p.dueDate) doc.text('Livraison prévue : '+new Date(p.dueDate).toLocaleDateString('fr-FR'), 14, 60);
 
     // Progress bar
     const y1 = p.dueDate?70:62;
@@ -2920,7 +2921,7 @@
     doc.setFont('helvetica','normal');
     doc.setFontSize(10);
     tl.forEach(s=>{
-      const mark = s.status==='done'?'âœ“':s.status==='current'?'â–¶':'â—‹';
+      const mark = s.status==='done'?'✓':s.status==='current'?'â–¶':'â—‹';
       const col = s.status==='done'?[80,150,80]:s.status==='current'?[217,119,87]:[150,140,130];
       doc.setTextColor(...col);
       doc.text(mark+' '+s.label+(s.dueDate?' ('+new Date(s.dueDate).toLocaleDateString('fr-FR')+')':''), 18, y);
@@ -2939,22 +2940,22 @@
     doc.setTextColor(60,60,60);
     doc.text('En attente : '+docsPending, 18, y); y+=7;
     doc.text('Remplis : '+docsFilled, 18, y); y+=7;
-    doc.text('ValidÃ©s : '+docsReviewed, 18, y); y+=12;
+    doc.text('Validés : '+docsReviewed, 18, y); y+=12;
 
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(180,160,140);
-    doc.text('GÃ©nÃ©rÃ© par Flow â€” '+new Date().toLocaleString('fr-FR'), 14, 285);
+    doc.text('Généré par Flow — '+new Date().toLocaleString('fr-FR'), 14, 285);
 
     doc.save('rapport_'+u.username+'_'+p.name.replace(/\s+/g,'_')+'.pdf');
-    logActivity('report_generated','Rapport gÃ©nÃ©rÃ© pour '+u.username);
+    logActivity('report_generated','Rapport généré pour '+u.username);
     saveDB();
-    toast('Rapport PDF gÃ©nÃ©rÃ© !','success');
+    toast('Rapport PDF généré !','success');
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  FINANCE
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   function renderAdminFinance(){
     const entries = db.finance||[];
     const projects = db.projects.filter(p=>!p.archived);
@@ -2976,7 +2977,7 @@
     const byProject = {};
     entries.forEach(e=>{
       const proj = db.projects.find(p=>p.id===e.projectId);
-      const key = proj ? proj.name : (e.label||'â€”');
+      const key = proj ? proj.name : (e.label||'—');
       byProject[key] = (byProject[key]||0)+Number(e.amount||0);
     });
     const projectEntries = Object.entries(byProject).sort((a,b)=>b[1]-a[1]);
@@ -3010,11 +3011,11 @@
         <h1 style="font-size:1.4rem;font-weight:700;">Finance</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button id="btn-export-finance-csv" class="btn btn-ghost btn-sm">ðŸ“Š Exporter CSV</button>
-          <button id="btn-gen-devis" class="btn btn-ghost">ðŸ“„ Devis / Facture</button>
-          <button id="btn-add-revenue" class="btn btn-primary">${iconPlus()} Ajouter entrÃ©e</button>
+          <button id="btn-gen-devis" class="btn btn-ghost">📄 Devis / Facture</button>
+          <button id="btn-add-revenue" class="btn btn-primary">${iconPlus()} Ajouter entrée</button>
         </div>
       </div>
-      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Revenus par projet Â· Visible uniquement par admin et contrÃ´leur</p>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:24px;">Revenus par projet · Visible uniquement par admin et contrôleur</p>
 
       <!-- KPIs -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px;">
@@ -3022,10 +3023,10 @@
           <span style="font-size:1.5rem;">ðŸ’°</span>
           <div style="font-size:1.8rem;font-weight:700;color:var(--sage);margin-top:8px;">${fmtAmt(total)}</div>
           <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Revenu total</div>
-          <div style="font-size:.72rem;color:var(--ink-4);">${entries.length} entrÃ©e(s)</div>
+          <div style="font-size:.72rem;color:var(--ink-4);">${entries.length} entrée(s)</div>
         </div>
         <div class="glass-card stat-card">
-          <span style="font-size:1.5rem;">ðŸ“…</span>
+          <span style="font-size:1.5rem;">📅</span>
           <div style="font-size:1.8rem;font-weight:700;color:var(--sky);margin-top:8px;">${fmtAmt(monthTotal)}</div>
           <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Ce mois</div>
           <div style="font-size:.72rem;color:var(--ink-4);">${thisMonth}</div>
@@ -3033,7 +3034,7 @@
         <div class="glass-card stat-card">
           <span style="font-size:1.5rem;">ðŸ“Š</span>
           <div style="font-size:1.8rem;font-weight:700;color:var(--peach);margin-top:8px;">${fmtAmt(avgPerProject)}</div>
-          <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Moy. par entrÃ©e</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--ink-2);margin-top:4px;">Moy. par entrée</div>
           <div style="font-size:.72rem;color:var(--ink-4);">${projectEntries.length} projet(s)</div>
         </div>
       </div>
@@ -3044,15 +3045,15 @@
           <h2 style="font-size:.95rem;font-weight:600;color:var(--peach);">ðŸŽ¯ Objectifs</h2>
           <button id="btn-edit-goals" class="btn btn-ghost btn-sm">Modifier</button>
         </div>
-        ${monthGoal<=0&&annualGoal<=0?`<div style="font-size:.82rem;color:var(--ink-4);">Aucun objectif dÃ©fini. Cliquez sur "Modifier".</div>`:''}
+        ${monthGoal<=0&&annualGoal<=0?`<div style="font-size:.82rem;color:var(--ink-4);">Aucun objectif défini. Cliquez sur "Modifier".</div>`:''}
         ${monthGoal>0?`
         <div style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;"><span style="color:var(--ink-2);">Ce mois</span><span style="color:var(--peach);font-weight:600;">${fmtAmt(monthTotal)} / ${fmtAmt(monthGoal)} Â· ${monthPct}%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;"><span style="color:var(--ink-2);">Ce mois</span><span style="color:var(--peach);font-weight:600;">${fmtAmt(monthTotal)} / ${fmtAmt(monthGoal)} · ${monthPct}%</span></div>
           <div style="height:8px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden;"><div style="height:100%;width:${monthPct}%;background:linear-gradient(90deg,var(--peach),var(--coral));border-radius:6px;"></div></div>
         </div>`:''}
         ${annualGoal>0?`
         <div>
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;"><span style="color:var(--ink-2);">Cette annÃ©e</span><span style="color:var(--sage);font-weight:600;">${fmtAmt(annualTotal)} / ${fmtAmt(annualGoal)} Â· ${annualPct}%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;"><span style="color:var(--ink-2);">Cette année</span><span style="color:var(--sage);font-weight:600;">${fmtAmt(annualTotal)} / ${fmtAmt(annualGoal)} · ${annualPct}%</span></div>
           <div style="height:8px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden;"><div style="height:100%;width:${annualPct}%;background:linear-gradient(90deg,var(--sage),var(--sky));border-radius:6px;"></div></div>
         </div>`:''}
       </div>
@@ -3064,7 +3065,7 @@
         <div class="glass-card" style="padding:20px;">
           <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--coral-soft);">Revenus par projet</h2>
           ${projectEntries.length===0
-            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnÃ©e.</div>'
+            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnée.</div>'
             : projectEntries.slice(0,8).map(([label,amt])=>`
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                 <div style="font-size:.78rem;color:var(--ink-2);width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;" title="${esc(label)}">${esc(label)}</div>
@@ -3075,11 +3076,11 @@
               </div>`).join('')}
         </div>
 
-        <!-- Pie chart : rÃ©partition -->
+        <!-- Pie chart : répartition -->
         <div class="glass-card" style="padding:20px;">
-          <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--sky);">RÃ©partition</h2>
+          <h2 style="font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--sky);">Répartition</h2>
           ${pieSegments.length===0
-            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnÃ©e.</div>'
+            ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;">Aucune donnée.</div>'
             : `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
                 <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${pieGradient});flex-shrink:0;"></div>
                 <div style="flex:1;min-width:120px;">
@@ -3110,11 +3111,11 @@
         </div>
       </div>`:''}
 
-      <!-- Table des entrÃ©es -->
+      <!-- Table des entrées -->
       <div class="glass-card" style="padding:20px;">
-        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--ink-2);">Toutes les entrÃ©es</h2>
+        <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--ink-2);">Toutes les entrées</h2>
         ${entries.length===0
-          ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;padding:8px 0;">Aucune entrÃ©e. Cliquez sur "+ Ajouter" pour commencer.</div>'
+          ? '<div style="color:rgba(244,238,229,.35);font-size:.85rem;padding:8px 0;">Aucune entrée. Cliquez sur "+ Ajouter" pour commencer.</div>'
           : `<div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
               <thead>
@@ -3130,10 +3131,10 @@
               <tbody>
                 ${[...entries].reverse().map(e=>`
                   <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
-                    <td style="padding:9px 10px;color:var(--ink-2);">${esc(db.projects.find(p=>p.id===e.projectId)?.name||e.label||'â€”')}</td>
+                    <td style="padding:9px 10px;color:var(--ink-2);">${esc(db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—')}</td>
                     <td style="padding:9px 10px;text-align:right;font-weight:600;color:var(--sage);">${fmtAmt(Number(e.amount||0))}</td>
-                    <td style="padding:9px 10px;color:var(--ink-3);">${esc(e.date||'â€”')}</td>
-                    <td style="padding:9px 10px;"><span style="font-size:.72rem;padding:2px 8px;border-radius:999px;${e.paymentStatus==='paid'?'background:rgba(147,181,148,.18);color:#b6d1b7;border:1px solid rgba(147,181,148,.3);':e.paymentStatus==='partial'?'background:rgba(240,169,136,.18);color:var(--peach);border:1px solid rgba(240,169,136,.3);':'background:rgba(155,184,216,.12);color:var(--sky);border:1px solid rgba(155,184,216,.3);'}">${e.paymentStatus==='paid'?'âœ… PayÃ©':e.paymentStatus==='partial'?'ðŸ”¶ Partiel':'â³ Attente'}</span></td>
+                    <td style="padding:9px 10px;color:var(--ink-3);">${esc(e.date||'—')}</td>
+                    <td style="padding:9px 10px;"><span style="font-size:.72rem;padding:2px 8px;border-radius:999px;${e.paymentStatus==='paid'?'background:rgba(147,181,148,.18);color:#b6d1b7;border:1px solid rgba(147,181,148,.3);':e.paymentStatus==='partial'?'background:rgba(240,169,136,.18);color:var(--peach);border:1px solid rgba(240,169,136,.3);':'background:rgba(155,184,216,.12);color:var(--sky);border:1px solid rgba(155,184,216,.3);'}">${e.paymentStatus==='paid'?'✅ Payé':e.paymentStatus==='partial'?'🔶 Partiel':'⏳ Attente'}</span></td>
                     <td style="padding:9px 10px;color:var(--ink-4);font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.note||e.label||'')}</td>
                     <td style="padding:9px 10px;text-align:right;">
                       <button class="btn btn-danger btn-sm btn-del-finance" data-fid="${e.id}">ðŸ—‘</button>
@@ -3148,16 +3149,16 @@
 
   function wireAdminFinance(){
     document.getElementById('btn-export-finance-csv')?.addEventListener('click',()=>{
-      const rows = [['Projet','Montant','Date','Statut paiement','Note','AjoutÃ© par']];
+      const rows = [['Projet','Montant','Date','Statut paiement','Note','Ajouté par']];
       (db.finance||[]).forEach(e=>{
-        const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'â€”';
+        const pname = db.projects.find(p=>p.id===e.projectId)?.name||e.label||'—';
         rows.push([pname, e.amount||0, e.date||'', e.paymentStatus||'paid', e.note||e.label||'', e.addedBy||'']);
       });
       const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
       const blob = new Blob(['ï»¿'+csv],{type:'text/csv;charset=utf-8'});
       const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
       a.download='flow_finance_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
-      toast('CSV exportÃ© !','success');
+      toast('CSV exporté !','success');
     });
     const btnAdd = document.getElementById('btn-add-revenue');
     if(btnAdd) btnAdd.addEventListener('click',()=>openAddRevenueModal());
@@ -3166,7 +3167,7 @@
 
     const btnGoals=document.getElementById('btn-edit-goals');
     if(btnGoals) btnGoals.addEventListener('click',()=>{
-      showModal(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;"><h2 style="font-size:1.1rem;font-weight:700;">ðŸŽ¯ Objectifs financiers</h2><button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button></div>
+      showModal(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;"><h2 style="font-size:1.1rem;font-weight:700;">ðŸŽ¯ Objectifs financiers</h2><button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
         <div><label class="label">Objectif mensuel (â‚¬)</label><input id="goal-monthly" class="glass-input" type="number" min="0" value="${db.financeGoal?.monthly||0}" /></div>
         <div><label class="label">Objectif annuel (â‚¬)</label><input id="goal-annual" class="glass-input" type="number" min="0" value="${db.financeGoal?.annual||0}" /></div>
@@ -3181,10 +3182,10 @@
         if(!e) return;
         showModal(`
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-            <h2 style="font-size:1.05rem;font-weight:700;">ðŸ—‘ Supprimer l'entrÃ©e</h2>
-            <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+            <h2 style="font-size:1.05rem;font-weight:700;">ðŸ—‘ Supprimer l'entrée</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
           </div>
-          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(e.label)}</strong> â€” <strong>${Number(e.amount).toLocaleString('fr-FR')}â‚¬</strong> ?</p>
+          <p style="color:var(--ink-2);font-size:.9rem;margin-bottom:20px;">Supprimer <strong>${esc(e.label)}</strong> — <strong>${Number(e.amount).toLocaleString('fr-FR')}â‚¬</strong> ?</p>
           <div style="display:flex;gap:10px;">
             <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
             <button id="confirm-del-fin" class="btn btn-danger" style="flex:1;justify-content:center;">Supprimer</button>
@@ -3192,7 +3193,7 @@
         ()=>{
           document.getElementById('confirm-del-fin').addEventListener('click',()=>{
             db.finance = db.finance.filter(x=>x.id!==e.id);
-            saveDB(); toast('EntrÃ©e supprimÃ©e.','info'); closeModal(); refreshAdminTab();
+            saveDB(); toast('Entrée supprimée.','info'); closeModal(); refreshAdminTab();
           });
         });
       });
@@ -3203,18 +3204,18 @@
     const projects = db.projects.filter(p=>!p.archived);
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">ðŸ’° Nouvelle entrÃ©e</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">ðŸ’° Nouvelle entrée</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="margin-bottom:14px;">
         <label class="label">Projet</label>
         <select id="fin-proj" class="glass-input">
-          <option value="">â€” Saisie manuelle â€”</option>
+          <option value="">— Saisie manuelle —</option>
           ${projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
         </select>
       </div>
       <div style="margin-bottom:14px;">
-        <label class="label">LibellÃ© (si saisie manuelle)</label>
+        <label class="label">Libellé (si saisie manuelle)</label>
         <input id="fin-label" class="glass-input" placeholder="Ex : Refonte site Dupont" />
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
@@ -3223,14 +3224,14 @@
       </div>
       <div style="margin-bottom:14px;">
         <label class="label">Note (optionnel)</label>
-        <input id="fin-note" class="glass-input" placeholder="Ex : Paiement final, acompteâ€¦" />
+        <input id="fin-note" class="glass-input" placeholder="Ex : Paiement final, acompte…" />
       </div>
       <div style="margin-bottom:14px;">
         <label class="label">Statut de paiement</label>
         <select id="rev-pstatus" class="glass-input">
-          <option value="paid">âœ… PayÃ©</option>
-          <option value="pending">â³ En attente</option>
-          <option value="partial">ðŸ”¶ Partiel</option>
+          <option value="paid">✅ Payé</option>
+          <option value="pending">⏳ En attente</option>
+          <option value="partial">🔶 Partiel</option>
         </select>
       </div>
       <div id="fin-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
@@ -3251,21 +3252,21 @@
         const date = document.getElementById('fin-date').value;
         const note = document.getElementById('fin-note').value.trim();
         const msg = document.getElementById('fin-msg');
-        if(!label){ showMsg(msg,'Entrez un libellÃ© ou sÃ©lectionnez un projet.','error'); return; }
+        if(!label){ showMsg(msg,'Entrez un libellé ou sélectionnez un projet.','error'); return; }
         if(!amount||isNaN(amount)||amount<=0){ showMsg(msg,'Entrez un montant valide.','error'); return; }
-        if(!date){ showMsg(msg,'SÃ©lectionnez une date.','error'); return; }
+        if(!date){ showMsg(msg,'Sélectionnez une date.','error'); return; }
         const pstatus = document.getElementById('rev-pstatus')?.value||'paid';
         if(!db.finance) db.finance=[];
         db.finance.push({id:uid(),projectId:projId||null,label,amount,date,note,paymentStatus:pstatus,addedBy:me.username,addedAt:new Date().toISOString()});
-        logActivity('finance_added','Revenu enregistrÃ© : '+label+' â€” '+amount+'â‚¬');
-        saveDB(); toast('EntrÃ©e ajoutÃ©e !','success'); closeModal(); refreshAdminTab();
+        logActivity('finance_added','Revenu enregistré : '+label+' — '+amount+'â‚¬');
+        saveDB(); toast('Entrée ajoutée !','success'); closeModal(); refreshAdminTab();
       });
     });
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  HELPERS â€” SVG PROGRESS, CONFETTI, TASKS, DEVIS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
+  //  HELPERS — SVG PROGRESS, CONFETTI, TASKS, DEVIS
+  // ════════════════════════════════════════════════
   function svgProgressCircle(pct, color='#d97757', size=52){
     const r=20; const circ=2*Math.PI*r;
     const dash=Math.round(pct/100*circ);
@@ -3307,12 +3308,12 @@
     };
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <h2 style="font-size:1.05rem;font-weight:700;">âœ… TÃ¢ches â€” ${esc(p.name)}</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.05rem;font-weight:700;">✅ Tâches — ${esc(p.name)}</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div id="tasks-list"></div>
       <div style="display:flex;gap:8px;margin-top:14px;">
-        <input id="new-task-inp" class="glass-input" placeholder="Nouvelle tÃ¢cheâ€¦" style="flex:1;" />
+        <input id="new-task-inp" class="glass-input" placeholder="Nouvelle tâche…" style="flex:1;" />
         <button id="add-task-btn" class="btn btn-primary btn-sm">Ajouter</button>
       </div>`,
     ()=>{
@@ -3327,14 +3328,14 @@
     const clients=db.users.filter(u=>u.role==='client');
     showModal(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-        <h2 style="font-size:1.1rem;font-weight:700;">ðŸ“„ Devis / Facture</h2>
-        <button onclick="closeModal()" class="btn btn-ghost btn-sm">âœ•</button>
+        <h2 style="font-size:1.1rem;font-weight:700;">📄 Devis / Facture</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <div><label class="label">Client</label><select id="dv-client" class="glass-input"><option value="">â€” Libre â€”</option>${clients.map(c=>`<option value="${c.id}">${esc(c.username)}</option>`).join('')}</select></div>
-        <div><label class="label">NÂ° document</label><input id="dv-num" class="glass-input" value="${new Date().getFullYear()}-${String(Date.now()).slice(-3)}" /></div>
+        <div><label class="label">Client</label><select id="dv-client" class="glass-input"><option value="">— Libre —</option>${clients.map(c=>`<option value="${c.id}">${esc(c.username)}</option>`).join('')}</select></div>
+        <div><label class="label">N° document</label><input id="dv-num" class="glass-input" value="${new Date().getFullYear()}-${String(Date.now()).slice(-3)}" /></div>
       </div>
-      <div style="margin-bottom:14px;"><label class="label">Objet</label><input id="dv-title" class="glass-input" placeholder="CrÃ©ation site vitrine" /></div>
+      <div style="margin-bottom:14px;"><label class="label">Objet</label><input id="dv-title" class="glass-input" placeholder="Création site vitrine" /></div>
       <div id="dv-lines">
         <div style="font-size:.78rem;font-weight:600;color:var(--ink-3);margin-bottom:6px;">Lignes</div>
         <div class="dv-line" style="display:grid;grid-template-columns:1fr 60px 90px auto;gap:6px;margin-bottom:6px;">
@@ -3347,14 +3348,14 @@
       <button id="dv-add-line" class="btn btn-ghost btn-sm" style="margin-bottom:16px;">+ Ligne</button>
       <div style="display:flex;gap:10px;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
-        <button id="dv-gen" class="btn btn-primary" style="flex:1;justify-content:center;">GÃ©nÃ©rer PDF</button>
+        <button id="dv-gen" class="btn btn-primary" style="flex:1;justify-content:center;">Générer PDF</button>
       </div>`,
     ()=>{
       const addLine=()=>{ const d=document.createElement('div'); d.className='dv-line'; d.style.cssText='display:grid;grid-template-columns:1fr 60px 90px auto;gap:6px;margin-bottom:6px;'; d.innerHTML=`<input class="glass-input dv-desc" placeholder="Description"/><input class="glass-input dv-qty" type="number" value="1" min="1"/><input class="glass-input dv-price" type="number" placeholder="Prix HT â‚¬"/><button class="btn btn-danger btn-sm dv-dl">ðŸ—‘</button>`; d.querySelector('.dv-dl').addEventListener('click',()=>d.remove()); document.getElementById('dv-lines').appendChild(d); };
       document.getElementById('dv-add-line').addEventListener('click',addLine);
       document.querySelectorAll('.dv-dl').forEach(b=>b.addEventListener('click',()=>b.closest('.dv-line').remove()));
       document.getElementById('dv-gen').addEventListener('click',()=>{
-        if(!window.jspdf){ toast('jsPDF non chargÃ©','error'); return; }
+        if(!window.jspdf){ toast('jsPDF non chargé','error'); return; }
         const {jsPDF}=window.jspdf;
         const pdf=new jsPDF();
         const cid=document.getElementById('dv-client').value;
@@ -3366,14 +3367,14 @@
         const tva=ht*0.2; const ttc=ht+tva;
         pdf.setFillColor(217,119,87); pdf.rect(0,0,210,28,'F');
         pdf.setTextColor(255,255,255); pdf.setFontSize(22); pdf.setFont('helvetica','bold'); pdf.text('flow',14,18);
-        pdf.setFontSize(11); pdf.setFont('helvetica','normal'); pdf.text('NÂ° '+num,50,18); pdf.text(new Date().toLocaleDateString('fr-FR'),160,18);
+        pdf.setFontSize(11); pdf.setFont('helvetica','normal'); pdf.text('N° '+num,50,18); pdf.text(new Date().toLocaleDateString('fr-FR'),160,18);
         pdf.setTextColor(26,19,14); pdf.setFontSize(13); pdf.setFont('helvetica','bold'); pdf.text('Pour :',14,42);
         pdf.setFont('helvetica','normal'); pdf.setFontSize(11);
         if(client){ pdf.text((client.firstName||'')+' '+(client.lastName||client.username),14,52); if(client.email) pdf.text(client.email,14,60); }
         pdf.setFontSize(14); pdf.setFont('helvetica','bold'); pdf.setTextColor(217,119,87); pdf.text(title,14,72);
         let y=84; pdf.setFillColor(245,238,230); pdf.rect(14,y-6,182,10,'F');
         pdf.setFontSize(10); pdf.setFont('helvetica','bold'); pdf.setTextColor(80,60,40);
-        pdf.text('Description',16,y); pdf.text('QtÃ©',128,y); pdf.text('PU HT',148,y); pdf.text('Total HT',172,y); y+=10;
+        pdf.text('Description',16,y); pdf.text('Qté',128,y); pdf.text('PU HT',148,y); pdf.text('Total HT',172,y); y+=10;
         pdf.setFont('helvetica','normal'); pdf.setTextColor(26,19,14);
         lines.forEach(l=>{ pdf.text(l.desc.slice(0,55),16,y); pdf.text(String(l.qty),128,y); pdf.text(l.price.toLocaleString('fr-FR')+'â‚¬',148,y); pdf.text((l.qty*l.price).toLocaleString('fr-FR')+'â‚¬',172,y); y+=8; if(y>265){pdf.addPage();y=20;} });
         y+=4; pdf.setDrawColor(200,180,160); pdf.line(128,y,196,y); y+=8;
@@ -3381,16 +3382,16 @@
         pdf.text('TVA 20%',128,y); pdf.text(tva.toLocaleString('fr-FR')+'â‚¬',172,y); y+=8;
         pdf.setFont('helvetica','bold'); pdf.setTextColor(217,119,87);
         pdf.text('Total TTC',128,y); pdf.text(ttc.toLocaleString('fr-FR')+'â‚¬',172,y);
-        pdf.setFontSize(8); pdf.setTextColor(180,160,140); pdf.setFont('helvetica','normal'); pdf.text('GÃ©nÃ©rÃ© par Flow â€” '+new Date().toLocaleString('fr-FR'),14,285);
+        pdf.setFontSize(8); pdf.setTextColor(180,160,140); pdf.setFont('helvetica','normal'); pdf.text('Généré par Flow — '+new Date().toLocaleString('fr-FR'),14,285);
         pdf.save('devis_'+num+'_'+(client?.username||'client')+'.pdf');
-        toast('Devis gÃ©nÃ©rÃ© !','success'); closeModal();
+        toast('Devis généré !','success'); closeModal();
       });
     });
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  SVG ICONS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   function iconHome(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`; }
   function iconUsers(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
   function iconDocs(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`; }
@@ -3402,9 +3403,9 @@
   function iconProject(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>`; }
   function iconHistory(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   //  INIT
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════
   bootApp();
 
 
