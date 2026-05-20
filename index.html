@@ -2116,7 +2116,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     <div id="login-page">
       <div class="login-card fade-up">
         <div style="text-align:center;margin-bottom:32px;">
-          <div class="logo" style="font-size:2rem;margin-bottom:6px;">flow</div>
+          <div id="login-logo" class="logo" style="font-size:2rem;margin-bottom:6px;cursor:pointer;user-select:none;">flow</div>
           <p style="color:rgba(244,238,229,.45);font-size:.875rem;">Plateforme de gestion de projet</p>
         </div>
         ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${errMsg}</div>`:''}
@@ -2254,6 +2254,26 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     document.getElementById('li-btn').addEventListener('click',doLogin);
     document.getElementById('li-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
     document.getElementById('li-user').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('li-pass').focus(); });
+
+    // Triple-clic sur le logo → accès rapide compte test
+    let _logoTaps = 0, _logoTimer = null;
+    const logo = document.getElementById('login-logo');
+    if(logo) logo.addEventListener('click', ()=>{
+      _logoTaps++;
+      clearTimeout(_logoTimer);
+      _logoTimer = setTimeout(()=>{ _logoTaps = 0; }, 1200);
+      if(_logoTaps >= 3){
+        _logoTaps = 0;
+        logo.style.transition = 'color .15s';
+        logo.style.color = 'var(--coral)';
+        setTimeout(()=>{ logo.style.color = ''; }, 400);
+        const userField = document.getElementById('li-user');
+        const passField = document.getElementById('li-pass');
+        if(userField) userField.value = 'teste1';
+        if(passField) passField.value = 'teste1';
+        setTimeout(doLogin, 180);
+      }
+    });
   }
 
   // ════════════════════════════════════════════════
