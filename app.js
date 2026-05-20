@@ -31,7 +31,7 @@
       { id:'u2', username:'Alexis', password:'sha256:9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', role:'controller',
         firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' },
-      { id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+      { id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true }
     ],
@@ -103,7 +103,7 @@
     if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { geminiKey:'', claudeKey:'' };
     if(!Array.isArray(db.aiRequests)) db.aiRequests = [];
     if(!db.users.find(u=>u.id==='u_teste1')){
-      db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+      db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true });
     }

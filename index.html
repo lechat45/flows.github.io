@@ -2,14 +2,21 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Flow — Gestion de Projet</title>
+  <meta name="description" content="Plateforme de gestion de projet et suivi client" />
+  <meta name="theme-color" content="#d97757" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Flow" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <style>
 /* ═══════════════════════════════════════════════
        FLOW — Claude.ai aesthetic × Liquid Glass
@@ -306,29 +313,30 @@
     }
 
     .glass-dark {
-      background: rgba(20,12,8,.40);
-      backdrop-filter: blur(44px) saturate(180%);
-      -webkit-backdrop-filter: blur(44px) saturate(180%);
+      background: rgba(20,12,8,.52);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
       border: 1px solid rgba(255,250,242,.08);
       box-shadow:
         inset 0 1px 0 rgba(255,250,242,.12),
         inset 0 -1px 0 rgba(0,0,0,.20),
         var(--shadow-md);
+      will-change: transform;
     }
     :root[data-theme="light"] .glass-dark {
-      background: rgba(255,253,247,.55);
+      background: rgba(255,253,247,.72);
       border-color: rgba(28,22,15,.08);
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.70),
+        inset 0 1px 0 rgba(255,255,255,.80),
         inset 0 -1px 0 rgba(28,22,15,.04),
         var(--shadow-md);
     }
 
     .glass-card {
       background: var(--glass-bg);
-      contain: layout style;
-      backdrop-filter: blur(18px) saturate(180%);
-      -webkit-backdrop-filter: blur(18px) saturate(180%);
+      contain: layout style paint;
+      backdrop-filter: blur(12px) saturate(160%);
+      -webkit-backdrop-filter: blur(12px) saturate(160%);
       border: 1px solid var(--glass-edge);
       border-radius: var(--radius-lg);
       box-shadow:
@@ -336,11 +344,11 @@
         inset 0 -1px 0 var(--glass-edge-lo),
         var(--shadow-md);
       transition:
-        border-color .25s ease,
-        box-shadow .35s ease,
-        transform .25s cubic-bezier(.2,.7,.2,1),
-        background .25s ease;
+        border-color .2s ease,
+        box-shadow .25s ease,
+        transform .2s cubic-bezier(.2,.7,.2,1);
       overflow: hidden;
+      transform: translateZ(0);
     }
     /* Top specular sheen */
     .glass-card::before {
@@ -674,11 +682,13 @@
       border-radius: var(--radius-sm);
       color: var(--ink-3);
       font-size: .885rem; font-weight: 500;
-      cursor: pointer; transition: all .2s;
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
       margin-bottom: 2px;
       border: 1px solid transparent;
       background: transparent;
       width: 100%; text-align: left;
+      will-change: background, color;
     }
     .nav-item:hover {
       background: var(--glass-bg-hi);
@@ -707,6 +717,10 @@
       position: relative;
       z-index: 1;
       max-width: 1480px;
+      contain: layout;
+    }
+    #tab-content {
+      contain: layout style;
     }
 
     /* ═══════════════════════════════════════════════
@@ -848,10 +862,10 @@
        ANIMATIONS
        ═══════════════════════════════════════════════ */
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(14px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .fade-up { animation: fadeUp .42s cubic-bezier(.2,.7,.2,1) forwards; }
+    .fade-up { animation: fadeUp .28s cubic-bezier(.2,.8,.3,1) forwards; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .fade-in { animation: fadeIn .25s ease forwards; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -864,6 +878,26 @@
       }
       body::before, body::after { animation: none !important; }
     }
+
+    /* ── PWA / Chrome installed app ── */
+    @media (display-mode: standalone) {
+      body { padding-top: env(safe-area-inset-top, 0); }
+      #sidebar {
+        padding-top: calc(16px + env(safe-area-inset-top, 0));
+        padding-bottom: env(safe-area-inset-bottom, 0);
+      }
+      #mobile-tabbar {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        height: calc(60px + env(safe-area-inset-bottom, 0));
+      }
+      #login-page { padding-top: env(safe-area-inset-top, 0); }
+    }
+    /* Scrollbar fine */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(244,238,229,.18); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(244,238,229,.32); }
+    * { scrollbar-width: thin; scrollbar-color: rgba(244,238,229,.18) transparent; }
 
     /* ═══════════════════════════════════════════════
        MISC
@@ -1594,7 +1628,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
       { id:'u2', username:'Alexis', password:'sha256:9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', role:'controller',
         firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01' },
-      { id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+      { id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true }
     ],
@@ -1666,7 +1700,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { geminiKey:'', claudeKey:'' };
     if(!Array.isArray(db.aiRequests)) db.aiRequests = [];
     if(!db.users.find(u=>u.id==='u_teste1')){
-      db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+      db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true });
     }
@@ -1969,8 +2003,15 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     fbdb.ref('flow').once('value')
       .then(snap=>{
         const remote = snap.val();
-        if(remote && remote.users){ db = remote; normalizeDB(); _lastSavedJSON = JSON.stringify(db); saveLocalDB(); }
-        else { fbdb.ref('flow').set(db); }
+        if(remote && remote.users){
+          db = remote;
+          const preStr = JSON.stringify(db);
+          normalizeDB();
+          const postStr = JSON.stringify(db);
+          saveLocalDB();
+          if(postStr !== preStr){ fbdb.ref('flow').set(db).catch(()=>{}); }
+          _lastSavedJSON = postStr;
+        } else { fbdb.ref('flow').set(db); }
         setSyncState('ok');
         startRealtimeSync();
         migratePasswords().then(()=>{
@@ -2013,7 +2054,13 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     fbdb.ref('flow').on('value', snap=>{
       const remote = snap.val();
       if(!remote || !remote.users) return;
-      db = remote; normalizeDB(); _lastSavedJSON = JSON.stringify(db); saveLocalDB();
+      db = remote;
+      const preStr = JSON.stringify(db);
+      normalizeDB();
+      const postStr = JSON.stringify(db);
+      saveLocalDB();
+      if(postStr !== preStr){ fbdb.ref('flow').set(db).catch(()=>{}); }
+      _lastSavedJSON = postStr;
       if(me && me.role !== 'client'){
         const nowFilled = db.documents.filter(d=>d.status==='filled');
         nowFilled.forEach(d=>{
@@ -2026,7 +2073,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
         });
         prevFilledDocIds = new Set(nowFilled.map(d=>d.id));
       }
-      if(me){ me = db.users.find(u=>u.id===me.id)||me; clearTimeout(_refreshTimer); _refreshTimer=setTimeout(()=>{ if(me.role==='client') refreshClientTab(); else refreshAdminTab(); },180); }
+      if(me){ me = db.users.find(u=>u.id===me.id)||me; clearTimeout(_refreshTimer); _refreshTimer=setTimeout(()=>{ if(me.role==='client') refreshClientTab(); else refreshAdminTab(); },300); }
     });
   }
 
