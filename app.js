@@ -30,7 +30,10 @@
         projectId:null, createdAt:'2024-01-01' },
       { id:'u2', username:'Alexis', password:'sha256:9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', role:'controller',
         firstName:'Alexis', lastName:'', email:'alexis@flow.app', photo:null,
-        projectId:null, createdAt:'2024-01-01' }
+        projectId:null, createdAt:'2024-01-01' },
+      { id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+        firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
+        projectId:null, createdAt:'2024-01-01', hasDiscussion:true }
     ],
     projects:[
       { id:'proj1', name:'Site Vitrine Demo', clientId:null,
@@ -97,6 +100,14 @@
     if(!Array.isArray(db.pendingUsers)) db.pendingUsers = [];
     if(!Array.isArray(db.blockedAccounts)) db.blockedAccounts = [];
     if(!Array.isArray(db.docTemplates)) db.docTemplates = [];
+    if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { geminiKey:'', claudeKey:'' };
+    if(!Array.isArray(db.aiRequests)) db.aiRequests = [];
+    if(!db.users.find(u=>u.id==='u_teste1')){
+      db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:2ed0f0289930159765073fe775e4f3c33c822ed73703a5c6196b7692d70e222b', role:'client',
+        firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
+        projectId:null, createdAt:'2024-01-01', hasDiscussion:true });
+    }
+    db.users.forEach(u=>{ if(u.hasDiscussion===undefined) u.hasDiscussion=false; });
     db.projects.forEach(p=>{
       if(!p.priority) p.priority='normal';
       if(!Array.isArray(p.internalTasks)) p.internalTasks=[];
@@ -603,24 +614,38 @@
   //  ADMIN / CONTROLLER SHELL
   // ════════════════════════════════════════════════
   const adminTabs = [
-    { id:'home',      icon:iconHome(),      label:'Accueil'      },
-    { id:'users',     icon:iconUsers(),     label:'Utilisateurs' },
-    { id:'documents', icon:iconDocs(),      label:'Suivi & Docs' },
-    { id:'finance',   icon:iconFinance(),   label:'Finance'      },
-    { id:'requests',  icon:iconRequests(),  label:'Demandes'     },
-    { id:'history',   icon:iconHistory(),   label:'Historique'   },
-    { id:'profile',   icon:iconProfile(),   label:'Profil'       }
+    { id:'home',           icon:iconHome(),      label:'Accueil'           },
+    { id:'users',          icon:iconUsers(),     label:'Utilisateurs'      },
+    { id:'documents',      icon:iconDocs(),      label:'Suivi & Docs'      },
+    { id:'finance',        icon:iconFinance(),   label:'Finance'           },
+    { id:'requests',       icon:iconRequests(),  label:'Demandes'          },
+    { id:'history',        icon:iconHistory(),   label:'Historique'        },
+    { id:'ai-automation',  icon:iconAI(),        label:'Automatisation IA', beta:true },
+    { id:'ai-visual',      icon:iconEye(),       label:'Visuel',            beta:true },
+    { id:'profile',        icon:iconProfile(),   label:'Profil'            }
   ];
   function canManageProjects(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function canAccessFinance(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function canReviewRequests(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function canViewHistory(user=me){ return !!user && user.role==='admin'; }
+  function canAccessAI(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
   function getAdminVisibleTabs(){
     return adminTabs.filter(t=>
       (t.id!=='history'||canViewHistory()) &&
       (t.id!=='finance'||canAccessFinance()) &&
-      (t.id!=='requests'||canReviewRequests())
+      (t.id!=='requests'||canReviewRequests()) &&
+      (t.id!=='ai-automation'||canAccessAI()) &&
+      (t.id!=='ai-visual'||canAccessAI())
     );
+  }
+  function getClientVisibleTabs(){
+    const base = [
+      { id:'home',      icon:iconHome(),    label:'Accueil'   },
+      { id:'documents', icon:iconDocs(),    label:'Documents' },
+      { id:'profile',   icon:iconProfile(), label:'Profil'    }
+    ];
+    if(me && me.hasDiscussion) base.splice(1,0,{ id:'discussion', icon:iconChat(), label:'Discussion', beta:true });
+    return base;
   }
 
   function renderAdminShell(){
@@ -636,11 +661,13 @@
       ${(()=>{
         const pendingCount = (db.pendingUsers||[]).length;
         const myProject = getUserProject(me.id);
+        const aiPendingCount = (db.aiRequests||[]).filter(r=>r.status==='pending_admin').length;
         return getAdminVisibleTabs().map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}" style="position:relative;">
-          ${t.icon} <span>${t.label}</span>
+          ${t.icon} <span>${t.label}</span>${t.beta?` <span style="font-size:.55rem;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;padding:1px 5px;letter-spacing:.06em;text-transform:uppercase;margin-left:4px;">BÊTA</span>`:''}
           ${t.id==='documents'?`<span id="notif-badge" style="display:${notifBadge>0?'inline-flex':'none'};align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(220,80,80,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${notifBadge>9?'9+':notifBadge}</span>`:''}
           ${t.id==='requests'&&pendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(155,184,216,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#0a0604;min-width:16px;">${pendingCount}</span>`:''}
+          ${t.id==='ai-automation'&&aiPendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(217,119,87,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${aiPendingCount}</span>`:''}
         </button>`).join('') +
         (myProject ? `
         <div style="height:1px;background:rgba(255,255,255,.07);margin:10px 4px;"></div>
@@ -667,14 +694,16 @@
   }
 
   function renderAdminTab(){
-    if(activeTab==='home')      return renderAdminHome();
-    if(activeTab==='users')     return renderAdminUsers();
-    if(activeTab==='documents') return renderAdminDocuments();
-    if(activeTab==='history')   return renderAdminHistory();
-    if(activeTab==='finance')   return renderAdminFinance();
-    if(activeTab==='requests')  return renderAdminRequests();
-    if(activeTab==='myproject') return renderAdminMyProject();
-    if(activeTab==='profile')   return renderAdminProfile();
+    if(activeTab==='home')           return renderAdminHome();
+    if(activeTab==='users')          return renderAdminUsers();
+    if(activeTab==='documents')      return renderAdminDocuments();
+    if(activeTab==='history')        return renderAdminHistory();
+    if(activeTab==='finance')        return renderAdminFinance();
+    if(activeTab==='requests')       return renderAdminRequests();
+    if(activeTab==='ai-automation')  return renderAdminAIAutomation();
+    if(activeTab==='ai-visual')      return renderAdminAIVisual();
+    if(activeTab==='myproject')      return renderAdminMyProject();
+    if(activeTab==='profile')        return renderAdminProfile();
     return '';
   }
 
@@ -702,21 +731,23 @@
   }
 
   function wireAdminTabContent(){
-    if(activeTab==='home')      wireAdminHome();
-    if(activeTab==='users')     wireAdminUsers();
-    if(activeTab==='documents') wireAdminDocuments();
-    if(activeTab==='history')   wireAdminHistory();
-    if(activeTab==='finance')   wireAdminFinance();
-    if(activeTab==='requests')  wireAdminRequests();
+    if(activeTab==='home')          wireAdminHome();
+    if(activeTab==='users')         wireAdminUsers();
+    if(activeTab==='documents')     wireAdminDocuments();
+    if(activeTab==='history')       wireAdminHistory();
+    if(activeTab==='finance')       wireAdminFinance();
+    if(activeTab==='requests')      wireAdminRequests();
+    if(activeTab==='ai-automation') wireAdminAIAutomation();
+    if(activeTab==='ai-visual')     wireAdminAIVisual();
     if(activeTab==='myproject'){ document.querySelectorAll('.btn-download-delivery').forEach(btn=>{ btn.addEventListener('click',()=>downloadDelivery(btn.dataset.pid)); }); }
-    if(activeTab==='profile')   wireAdminProfile();
+    if(activeTab==='profile')       wireAdminProfile();
     renderMobileTabbar('admin');
   }
 
   function renderMobileTabbar(shell){
     const bar = document.getElementById('mobile-tabbar');
     if(!bar) return;
-    const tabs = shell==='admin' ? getAdminVisibleTabs().concat(getUserProject(me?.id)?[{id:'myproject',icon:iconProject(),label:'Mon projet'}]:[]) : clientTabs;
+    const tabs = shell==='admin' ? getAdminVisibleTabs().concat(getUserProject(me?.id)?[{id:'myproject',icon:iconProject(),label:'Mon projet'}]:[]) : getClientVisibleTabs();
     const hasNewVersion = localStorage.getItem('flow_seen_version') !== APP_VERSION;
     bar.innerHTML = tabs.map((t,idx)=>`
       <button class="mob-tab ${activeTab===t.id?'active':''}" data-mob-tab="${t.id}">
@@ -1653,6 +1684,7 @@
     { id:'documents', icon:iconDocs(),    label:'Documents' },
     { id:'profile',   icon:iconProfile(), label:'Profil'    }
   ];
+  // clientTabs kept for legacy compatibility; use getClientVisibleTabs() for rendering
 
   function renderClientShell(){
     const project = getUserProject(me.id);
@@ -1665,9 +1697,9 @@
         </div>
         <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace Client</p>
       </div>
-      ${clientTabs.map(t=>`
+      ${getClientVisibleTabs().map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}">
-          ${t.icon} <span>${t.label}</span>
+          ${t.icon} <span>${t.label}</span>${t.beta?` <span style="font-size:.55rem;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;padding:1px 5px;letter-spacing:.06em;text-transform:uppercase;margin-left:4px;">TEST</span>`:''}
         </button>`).join('')}
       <div style="flex:1;"></div>
       <div style="padding:12px 8px 0;border-top:1px solid rgba(255,255,255,.07);">
@@ -1687,9 +1719,10 @@
   }
 
   function renderClientTab(){
-    if(activeTab==='home')      return renderClientHome();
-    if(activeTab==='documents') return renderClientDocuments();
-    if(activeTab==='profile')   return renderClientProfile();
+    if(activeTab==='home')       return renderClientHome();
+    if(activeTab==='documents')  return renderClientDocuments();
+    if(activeTab==='discussion') return renderClientDiscussion();
+    if(activeTab==='profile')    return renderClientProfile();
     return '';
   }
 
@@ -1713,9 +1746,10 @@
   }
 
   function wireClientTabContent(){
-    if(activeTab==='home')      wireClientHome();
-    if(activeTab==='documents') wireClientDocuments();
-    if(activeTab==='profile')   wireClientProfile();
+    if(activeTab==='home')       wireClientHome();
+    if(activeTab==='documents')  wireClientDocuments();
+    if(activeTab==='discussion') wireClientDiscussion();
+    if(activeTab==='profile')    wireClientProfile();
     renderMobileTabbar('client');
   }
 
@@ -3402,6 +3436,430 @@
   function iconRequests(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`; }
   function iconProject(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>`; }
   function iconHistory(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
+  function iconAI(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a7 7 0 0 1-7 7H8a7 7 0 0 1-7-7v-1H0a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2z"/><circle cx="9" cy="13" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`; }
+  function iconChat(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`; }
+  function iconEye(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`; }
+
+  // ════════════════════════════════════════════════
+  //  AI AUTOMATION — Admin/Controller
+  // ════════════════════════════════════════════════
+  function renderAdminAIAutomation(){
+    const config = db.aiConfig || { geminiKey:'', claudeKey:'' };
+    const pending = (db.aiRequests||[]).filter(r=>r.status==='pending_admin').sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    const allReqs = (db.aiRequests||[]).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Automatisation IA</h1>
+        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">BÊTA</span>
+      </div>
+      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
+        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Configuration API</h2>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:18px;">Ces clés sont utilisées pour les opérations de modération Gemini et de génération Claude.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+          <div>
+            <label class="label">Clé API Google AI Studio (Gemini)</label>
+            <input id="ai-gemini-key" class="glass-input" type="password" placeholder="AIza..." value="${esc(config.geminiKey||'')}"/>
+          </div>
+          <div>
+            <label class="label">Clé API Claude (Anthropic)</label>
+            <input id="ai-claude-key" class="glass-input" type="password" placeholder="sk-ant-..." value="${esc(config.claudeKey||'')}"/>
+          </div>
+        </div>
+        <button id="btn-save-ai-config" class="btn btn-primary">Enregistrer les clés</button>
+      </div>
+      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <h2 style="font-size:.95rem;font-weight:700;">Demandes en attente de validation</h2>
+            <p style="font-size:.8rem;color:var(--ink-3);margin-top:3px;">Prompts reformulés par Gemini, à approuver avant envoi à Claude.</p>
+          </div>
+          ${pending.length>0?`<span style="background:rgba(217,119,87,.9);color:#fff;border-radius:999px;font-size:.7rem;padding:2px 10px;font-weight:700;">${pending.length}</span>`:''}
+        </div>
+        ${pending.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande en attente</div>`:
+          pending.map(r=>`
+          <div data-req-id="${r.id}" style="border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;margin-bottom:14px;background:rgba(255,255,255,.02);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:var(--sky);flex-shrink:0;">${esc((r.clientUsername||'?')[0].toUpperCase())}</div>
+              <div>
+                <div style="font-size:.875rem;font-weight:600;">${esc(r.clientUsername||'Inconnu')}</div>
+                <div style="font-size:.72rem;color:var(--ink-4);">${new Date(r.createdAt).toLocaleString('fr-FR')}</div>
+              </div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:.7rem;font-weight:600;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Message original</div>
+              <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:.85rem;color:var(--ink-2);line-height:1.5;">${esc(r.originalMessage)}</div>
+              ${r.originalPhoto?`<img src="${r.originalPhoto}" style="max-width:200px;max-height:160px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
+            </div>
+            <div style="margin-bottom:14px;">
+              <div style="font-size:.7rem;font-weight:600;color:rgba(155,184,216,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Prompt reformulé par Gemini (modifiable)</div>
+              <textarea id="prompt-edit-${r.id}" class="glass-input" style="min-height:80px;resize:vertical;font-size:.85rem;line-height:1.5;">${esc(r.reformulatedPrompt)}</textarea>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary btn-sm btn-ai-accept" data-id="${r.id}" style="flex:1;justify-content:center;">✓ Accepter</button>
+              <button class="btn btn-ghost btn-sm btn-ai-modify" data-id="${r.id}" style="flex:1;justify-content:center;">✏ Modifier & Envoyer</button>
+              <button class="btn btn-ghost btn-sm btn-ai-reject" data-id="${r.id}" style="flex:1;justify-content:center;color:#f08a8a;border-color:rgba(240,138,138,.25);">✕ Refuser</button>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="glass-card" style="padding:22px;">
+        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:16px;">Historique des demandes</h2>
+        ${allReqs.length===0?`<div style="text-align:center;padding:24px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande</div>`:
+          `<div style="display:flex;flex-direction:column;gap:8px;">
+            ${allReqs.map(r=>{
+              const smap={'pending_moderation':'⏳ Modération','moderation_failed':'❌ Non conforme','pending_admin':'🔔 Attente admin','approved':'⏳ En traitement','processing':'⏳ En traitement','completed':'✅ Complété','rejected':'❌ Refusé','error':'⚠ Erreur'};
+              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;">
+                <div>
+                  <span style="font-size:.825rem;font-weight:600;">${esc(r.clientUsername||'—')}</span>
+                  <span style="font-size:.78rem;color:var(--ink-4);margin-left:10px;">${esc(r.originalMessage.substring(0,60))}${r.originalMessage.length>60?'…':''}</span>
+                </div>
+                <span style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;margin-left:12px;">${smap[r.status]||r.status}</span>
+              </div>`;
+            }).join('')}
+          </div>`}
+      </div>
+    </div>`;
+  }
+
+  function wireAdminAIAutomation(){
+    const seenKey = 'flow_ai_automation_seen';
+    if(!sessionStorage.getItem(seenKey)){
+      sessionStorage.setItem(seenKey,'1');
+      showModal(`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${iconAI()}
+            <h2 style="font-size:1.1rem;font-weight:700;">Automatisation IA — Bêta</h2>
+          </div>
+          <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+        </div>
+        <p style="font-size:.875rem;color:var(--ink-2);line-height:1.6;margin-bottom:16px;">Cette section vous permet de piloter un <strong>workflow IA en plusieurs étapes</strong> :</p>
+        <ol style="list-style:decimal;padding-left:20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Modération automatique</strong> via Gemini — chaque message client est analysé pour vérifier sa conformité éthique et sécuritaire.</li>
+          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Reformulation intelligente</strong> — Gemini optimise la demande pour maximiser la qualité de la réponse Claude.</li>
+          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Validation humaine</strong> — vous pouvez accepter, modifier ou refuser chaque prompt avant envoi.</li>
+          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Génération Claude</strong> — le résultat est affiché dans l'onglet <em>Visuel</em>.</li>
+        </ol>
+        <div style="background:rgba(217,119,87,.08);border:1px solid rgba(217,119,87,.2);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:.82rem;color:var(--ink-2);">
+          ⚠ <strong>Note :</strong> L'API Anthropic (Claude) ne supporte pas les appels directs depuis un navigateur (CORS). Pour un déploiement en production, un proxy backend est nécessaire. En test local ou avec un proxy, tout fonctionne normalement.
+        </div>
+        <button onclick="closeModal()" class="btn btn-primary" style="width:100%;justify-content:center;">Compris, allons-y !</button>
+      `);
+    }
+    const saveBtn = document.getElementById('btn-save-ai-config');
+    if(saveBtn) saveBtn.addEventListener('click',()=>{
+      const g = document.getElementById('ai-gemini-key').value.trim();
+      const c = document.getElementById('ai-claude-key').value.trim();
+      if(!db.aiConfig) db.aiConfig={};
+      db.aiConfig.geminiKey=g; db.aiConfig.claudeKey=c;
+      saveDB(); toast('Clés API enregistrées.','success');
+    });
+    document.querySelectorAll('.btn-ai-accept').forEach(btn=>{
+      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'accept'));
+    });
+    document.querySelectorAll('.btn-ai-modify').forEach(btn=>{
+      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'modify'));
+    });
+    document.querySelectorAll('.btn-ai-reject').forEach(btn=>{
+      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'reject'));
+    });
+  }
+
+  // ════════════════════════════════════════════════
+  //  AI VISUAL — Admin/Controller
+  // ════════════════════════════════════════════════
+  function renderAdminAIVisual(){
+    const completed = (db.aiRequests||[]).filter(r=>r.status==='completed').sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Visuel</h1>
+        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">BÊTA</span>
+      </div>
+      ${completed.length===0?`
+      <div class="glass-card" style="padding:60px;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:16px;">🎨</div>
+        <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">Aucun visuel généré</div>
+        <div style="font-size:.825rem;color:var(--ink-3);">Les sites web créés par Claude s'afficheront ici après approbation d'une demande.</div>
+      </div>`:
+      completed.map(r=>`
+      <div class="glass-card" style="padding:20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div>
+            <div style="font-size:.95rem;font-weight:600;">${esc(r.clientUsername||'Client')}</div>
+            <div style="font-size:.75rem;color:var(--ink-4);">${new Date(r.updatedAt||r.createdAt).toLocaleString('fr-FR')}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm btn-toggle-visual" data-id="${r.id}">👁 Afficher</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadVisualHTML('${r.id}')">⬇ HTML</button>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;font-size:.82rem;color:var(--ink-3);background:rgba(255,255,255,.03);border-radius:8px;padding:8px 12px;border:1px solid rgba(255,255,255,.06);">
+          <span style="font-size:.7rem;color:var(--ink-4);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Demande : </span>${esc(r.originalMessage.substring(0,120))}${r.originalMessage.length>120?'…':''}
+        </div>
+        <div id="visual-preview-${r.id}" style="display:none;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;margin-top:12px;">
+          <iframe id="visual-iframe-${r.id}" style="width:100%;height:540px;border:none;background:#fff;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  function wireAdminAIVisual(){
+    document.querySelectorAll('.btn-toggle-visual').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id = btn.dataset.id;
+        const wrap = document.getElementById('visual-preview-'+id);
+        const iframe = document.getElementById('visual-iframe-'+id);
+        if(!wrap) return;
+        if(wrap.style.display==='none'){
+          wrap.style.display='block';
+          btn.textContent='👁 Masquer';
+          const req = (db.aiRequests||[]).find(r=>r.id===id);
+          if(req&&req.claudeResponse&&iframe){
+            iframe.srcdoc = req.claudeResponse;
+          }
+        } else { wrap.style.display='none'; btn.textContent='👁 Afficher'; }
+      });
+    });
+  }
+
+  function downloadVisualHTML(reqId){
+    const req = (db.aiRequests||[]).find(r=>r.id===reqId);
+    if(!req||!req.claudeResponse){ toast('Aucun contenu à télécharger.','error'); return; }
+    const blob = new Blob([req.claudeResponse],{type:'text/html'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'site_'+reqId+'.html';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  // ════════════════════════════════════════════════
+  //  DISCUSSION — Client (teste1)
+  // ════════════════════════════════════════════════
+  function renderClientDiscussion(){
+    const reqs = (db.aiRequests||[]).filter(r=>r.clientId===me.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    const statusLabel = {
+      'pending_moderation': '⏳ Votre demande est enregistrée — modération en cours...',
+      'moderation_failed':  '❌ Demande non conforme aux règles de sécurité.',
+      'pending_admin':      '🔔 En attente de validation par l\'équipe.',
+      'approved':           '⏳ Validation reçue — traitement IA en cours...',
+      'processing':         '⏳ Traitement IA en cours...',
+      'completed':          '✅ Votre site a été généré ! Contactez votre équipe pour y accéder.',
+      'rejected':           '❌ Votre demande a été refusée par l\'équipe.',
+      'error':              '⚠ Une erreur est survenue lors du traitement.'
+    };
+    return `<div class="fade-up" style="display:flex;flex-direction:column;min-height:calc(100vh - 120px);">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Discussion</h1>
+        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">TEST</span>
+      </div>
+      <div class="glass-card" style="padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--ink-3);line-height:1.5;">
+        💬 Décrivez ici votre projet de site web. Notre équipe et l'IA traiteront votre demande et vous prépareront un aperçu visuel personnalisé.
+      </div>
+      <div id="discussion-messages" style="flex:1;display:flex;flex-direction:column;gap:14px;margin-bottom:20px;min-height:160px;">
+        ${reqs.length===0?`<div style="text-align:center;padding:48px 0;color:var(--ink-4);font-size:.875rem;">Envoyez votre première demande ci-dessous pour commencer.</div>`:
+          reqs.map(r=>`
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="max-width:78%;background:rgba(155,184,216,.18);border:1px solid rgba(155,184,216,.22);border-radius:14px 14px 4px 14px;padding:10px 14px;">
+                <div style="font-size:.875rem;color:var(--ink-2);line-height:1.5;white-space:pre-wrap;">${esc(r.originalMessage)}</div>
+                ${r.originalPhoto?`<img src="${r.originalPhoto}" style="max-width:100%;max-height:180px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
+                <div style="font-size:.7rem;color:var(--ink-4);margin-top:5px;text-align:right;">${new Date(r.createdAt).toLocaleString('fr-FR')}</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-start;">
+              <div style="max-width:78%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:9px 13px;font-size:.8rem;color:var(--ink-3);">
+                ${statusLabel[r.status]||r.status}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="glass-card" style="padding:14px;margin-top:auto;">
+        <div id="discussion-photo-preview" style="display:none;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <textarea id="discussion-input" class="glass-input" placeholder="Décrivez votre projet de site web..." style="flex:1;min-height:64px;max-height:130px;resize:vertical;font-size:.875rem;"></textarea>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;padding:8px 10px;text-align:center;" title="Joindre une photo">
+              📷
+              <input id="discussion-photo-input" type="file" accept="image/*" style="display:none;">
+            </label>
+            <button id="discussion-send-btn" class="btn btn-primary btn-sm" style="padding:8px 14px;">Envoyer</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function wireClientDiscussion(){
+    const photoInput = document.getElementById('discussion-photo-input');
+    const photoPreview = document.getElementById('discussion-photo-preview');
+    let pendingPhotoBase64 = null;
+
+    if(photoInput) photoInput.addEventListener('change',()=>{
+      const file = photoInput.files[0];
+      if(!file){ pendingPhotoBase64=null; return; }
+      const reader = new FileReader();
+      reader.onload = e=>{
+        pendingPhotoBase64 = e.target.result;
+        if(photoPreview){
+          photoPreview.style.display='flex';
+          photoPreview.style.alignItems='center';
+          photoPreview.style.gap='8px';
+          photoPreview.innerHTML=`<img src="${pendingPhotoBase64}" style="height:48px;border-radius:6px;object-fit:cover;"><span style="font-size:.78rem;color:var(--ink-3);">${esc(file.name)}</span><button onclick="this.parentElement.style.display='none';document.getElementById('discussion-photo-input').value='';window._pendingDiscussionPhoto=null;" style="background:none;border:none;cursor:pointer;color:var(--ink-4);font-size:.85rem;">✕</button>`;
+          window._pendingDiscussionPhoto = pendingPhotoBase64;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    const sendBtn = document.getElementById('discussion-send-btn');
+    if(sendBtn) sendBtn.addEventListener('click', async ()=>{
+      const input = document.getElementById('discussion-input');
+      const text = (input?.value||'').trim();
+      if(!text){ toast('Veuillez saisir un message.','error'); return; }
+      const photo = window._pendingDiscussionPhoto||null;
+      window._pendingDiscussionPhoto=null;
+      if(input) input.value='';
+      if(photoPreview){ photoPreview.style.display='none'; photoPreview.innerHTML=''; }
+      if(photoInput) photoInput.value='';
+      await submitDiscussionMessage(text, photo);
+    });
+
+    const msgs = document.getElementById('discussion-messages');
+    if(msgs) msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // ════════════════════════════════════════════════
+  //  AI WORKFLOW
+  // ════════════════════════════════════════════════
+  async function submitDiscussionMessage(text, photoBase64){
+    const reqId = 'air_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const req = {
+      id: reqId,
+      clientId: me.id,
+      clientUsername: me.username,
+      originalMessage: text,
+      originalPhoto: photoBase64||null,
+      moderationPassed: null,
+      moderationReason: '',
+      reformulatedPrompt: '',
+      adminAction: null,
+      adminModifiedPrompt: '',
+      claudeResponse: '',
+      status: 'pending_moderation',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    db.aiRequests.push(req);
+    saveDB();
+    refreshClientTab();
+    toast('Votre demande est enregistrée.','success');
+    const geminiKey = db.aiConfig&&db.aiConfig.geminiKey;
+    if(!geminiKey){
+      const r = db.aiRequests.find(x=>x.id===reqId);
+      if(r){ r.status='error'; r.moderationReason='Clé Gemini non configurée.'; r.updatedAt=new Date().toISOString(); saveDB(); }
+      toast('Clé Gemini non configurée — contact votre admin.','error'); return;
+    }
+    try{
+      const modResult = await callGeminiModerate(text, photoBase64, geminiKey);
+      const r = db.aiRequests.find(x=>x.id===reqId);
+      if(!r) return;
+      if(!modResult.passed){
+        r.status='moderation_failed'; r.moderationPassed=false; r.moderationReason=modResult.reason; r.updatedAt=new Date().toISOString();
+        saveDB(); refreshClientTab(); return;
+      }
+      r.moderationPassed=true;
+      const reformulated = await callGeminiReformulate(text, geminiKey);
+      r.reformulatedPrompt = reformulated;
+      r.status = 'pending_admin';
+      r.updatedAt = new Date().toISOString();
+      saveDB();
+      refreshClientTab();
+      logActivity('ai_request','Demande IA soumise par '+me.username);
+    } catch(err){
+      const r = db.aiRequests.find(x=>x.id===reqId);
+      if(r){ r.status='error'; r.moderationReason=String(err); r.updatedAt=new Date().toISOString(); saveDB(); }
+      toast('Erreur lors de la modération : '+err,'error');
+    }
+  }
+
+  async function callGeminiModerate(text, photoBase64, apiKey){
+    const parts = [{ text: `Tu es un modérateur de contenu. Analyse ce message et réponds UNIQUEMENT par un JSON valide avec deux champs : "passed" (true/false) et "reason" (string expliquant la décision). Le message doit être refusé s'il contient du contenu haineux, violent, illégal, ou contraire à l'éthique. Message à analyser : "${text.replace(/"/g,'\\"')}"` }];
+    if(photoBase64&&photoBase64.startsWith('data:image')){
+      const [meta,data] = photoBase64.split(',');
+      const mime = meta.match(/data:(.*);/)?.[1]||'image/jpeg';
+      parts.push({ inlineData:{ mimeType:mime, data:data } });
+    }
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{ parts }] })
+    });
+    if(!resp.ok) throw new Error('Gemini modération erreur HTTP '+resp.status);
+    const json = await resp.json();
+    const raw = json.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    const clean = raw.replace(/```json\n?/,'').replace(/```$/,'').trim();
+    try{ return JSON.parse(clean); }
+    catch(_){ return { passed: true, reason: 'Analyse non parseable — approuvé par défaut.' }; }
+  }
+
+  async function callGeminiReformulate(text, apiKey){
+    const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). Reformule et optimise la demande suivante pour générer un site web HTML complet, esthétique et fonctionnel. Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.\n\nDemande originale : "${text.replace(/"/g,'\\"')}"`;
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
+    });
+    if(!resp.ok) throw new Error('Gemini reformulation erreur HTTP '+resp.status);
+    const json = await resp.json();
+    return json.candidates?.[0]?.content?.parts?.[0]?.text||text;
+  }
+
+  async function adminHandleAIRequest(reqId, action){
+    const req = (db.aiRequests||[]).find(r=>r.id===reqId);
+    if(!req) return;
+    if(action==='reject'){
+      req.status='rejected'; req.adminAction='rejected'; req.updatedAt=new Date().toISOString();
+      saveDB(); toast('Demande refusée.','info'); refreshAdminTab(); return;
+    }
+    const editedPrompt = document.getElementById('prompt-edit-'+reqId)?.value?.trim()||req.reformulatedPrompt;
+    if(action==='modify') req.adminModifiedPrompt = editedPrompt;
+    const finalPrompt = action==='modify' ? editedPrompt : req.reformulatedPrompt;
+    req.status='approved'; req.adminAction=action; req.updatedAt=new Date().toISOString();
+    saveDB(); refreshAdminTab();
+    const claudeKey = db.aiConfig&&db.aiConfig.claudeKey;
+    if(!claudeKey){ toast('Clé Claude non configurée.','error'); return; }
+    req.status='processing'; req.updatedAt=new Date().toISOString(); saveDB();
+    try{
+      const html = await callClaudeGenerate(finalPrompt, claudeKey);
+      req.claudeResponse = html; req.status='completed'; req.updatedAt=new Date().toISOString();
+      saveDB(); toast('Site généré avec succès ! Voir l\'onglet Visuel.','success'); refreshAdminTab();
+    } catch(err){
+      req.status='error'; req.updatedAt=new Date().toISOString(); saveDB();
+      toast('Erreur Claude : '+err,'error'); refreshAdminTab();
+    }
+  }
+
+  async function callClaudeGenerate(prompt, apiKey){
+    const systemPrompt = `Tu es un expert développeur web. Génère un site web HTML complet, moderne et esthétique en une seule page HTML autonome (tout le CSS et JS inclus dans le fichier). Le site doit être responsive, beau, avec un design soigné. Réponds UNIQUEMENT avec le code HTML complet, sans aucun commentaire avant ou après le code.`;
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-7',
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages:[{ role:'user', content: prompt }]
+      })
+    });
+    if(!resp.ok){
+      const errText = await resp.text().catch(()=>'');
+      throw new Error('HTTP '+resp.status+' — '+errText.substring(0,200));
+    }
+    const json = await resp.json();
+    return json.content?.[0]?.text||'';
+  }
 
   // ════════════════════════════════════════════════
   //  INIT
