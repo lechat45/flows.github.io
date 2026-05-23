@@ -870,6 +870,12 @@
     .fade-in { animation: fadeIn .25s ease forwards; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin { animation: spin .7s linear infinite; }
+    .ai-hist-card { transition: background .18s, border-color .18s, transform .15s; cursor:default; }
+    .ai-hist-card:hover { background:rgba(255,255,255,.055)!important; border-color:rgba(255,255,255,.14)!important; transform:translateY(-1px); }
+    #discussion-messages::-webkit-scrollbar { width:4px; }
+    #discussion-messages::-webkit-scrollbar-track { background:transparent; }
+    #discussion-messages::-webkit-scrollbar-thumb { background:rgba(217,119,87,.25); border-radius:99px; }
+    #discussion-messages::-webkit-scrollbar-thumb:hover { background:rgba(217,119,87,.45); }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -1724,6 +1730,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
 
   // F1 — Idle auto-logout
   let lastActivity = Date.now();
+  let _discType = 'site';
   function resetIdleTimer(){ lastActivity = Date.now(); }
 
   // ─── Toast ──────────────────────────────────────
@@ -2409,8 +2416,17 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       { id:'documents', icon:iconDocs(),    label:'Documents' },
       { id:'profile',   icon:iconProfile(), label:'Profil'    }
     ];
-    if(me && me.hasDiscussion) base.splice(1,0,{ id:'discussion', icon:iconChat(), label:'Discussion', beta:true });
+    if(me && me.hasDiscussion){
+      const seen = JSON.parse(localStorage.getItem('flow_ai_seen_ids')||'[]');
+      const newCount = (db.aiRequests||[]).filter(r=>r.clientId===me.id&&r.status==='completed'&&!seen.includes(r.id)).length;
+      const badgeHtml = newCount>0?` <span style="background:rgba(217,119,87,.9);color:#fff;border-radius:999px;font-size:.55rem;padding:1px 5px;font-weight:700;vertical-align:middle;">${newCount}</span>`:'';
+      base.splice(1,0,{ id:'discussion', icon:iconChat(), label:`Discussion${badgeHtml}`, beta:true });
+    }
     return base;
+  }
+  function markAIRequestsSeen(){
+    const ids = (db.aiRequests||[]).filter(r=>r.clientId===me?.id&&r.status==='completed').map(r=>r.id);
+    localStorage.setItem('flow_ai_seen_ids', JSON.stringify(ids));
   }
 
   function renderAdminShell(){
@@ -3651,7 +3667,13 @@ DOCUMENTS
     wireClientTabContent();
   }
 
-  function refreshClientTab(){
+  let _clientTabTimer = null;
+  function refreshClientTab(immediate){
+    if(immediate){ _doRefreshClientTab(); return; }
+    clearTimeout(_clientTabTimer);
+    _clientTabTimer = setTimeout(_doRefreshClientTab, 80);
+  }
+  function _doRefreshClientTab(){
     try{
       normalizeDB();
       document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));
@@ -3976,6 +3998,10 @@ DOCUMENTS
         <label class="label">🔒 Notes internes (invisibles du client)</label>
         <textarea id="eu-notes" class="glass-input" placeholder="Notes privées sur ce client…" style="min-height:60px;">${esc(u.internalNotes||'')}</textarea>
       </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">🤖 Instructions IA (ton, contraintes, charte graphique…)</label>
+        <textarea id="eu-ai-instr" class="glass-input" placeholder="Ex : Toujours utiliser un ton formel. Couleurs : bleu marine et or. Éviter le jargon technique." style="min-height:72px;">${esc(u.aiInstructions||'')}</textarea>
+      </div>
       <div style="margin-bottom:14px;"><label class="label">Lien site web</label><input id="eu-url" class="glass-input" placeholder="https://..." value="${esc(projects.find(p=>p.clientId===u.id)?.websiteUrl||'')}" /></div>
       ${isAdmin?`
       <div style="margin-bottom:14px;">
@@ -4020,6 +4046,7 @@ DOCUMENTS
 
         u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.role=role; u.phone=phone; u.sector=sector;
         u.internalNotes = document.getElementById('eu-notes')?.value.trim()||'';
+        u.aiInstructions = document.getElementById('eu-ai-instr')?.value.trim()||'';
 
         const applyEdit=()=>{
           if(isAdmin){
@@ -5418,18 +5445,35 @@ DOCUMENTS
         ${pending.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande en attente</div>`:
           pending.map(r=>`
           <div data-req-id="${r.id}" style="border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;margin-bottom:14px;background:rgba(255,255,255,.02);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
               <div style="width:32px;height:32px;border-radius:50%;background:rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:var(--sky);flex-shrink:0;">${esc((r.clientUsername||'?')[0].toUpperCase())}</div>
-              <div>
+              <div style="flex:1;min-width:0;">
                 <div style="font-size:.875rem;font-weight:600;">${esc(r.clientUsername||'Inconnu')}</div>
-                <div style="font-size:.72rem;color:var(--ink-4);">${new Date(r.createdAt).toLocaleString('fr-FR')}</div>
+                <div style="font-size:.72rem;color:var(--ink-4);">${(d=>isNaN(d)?'':d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
               </div>
+              ${r.requestType?`<span style="font-size:.68rem;background:rgba(155,184,216,.14);border:1px solid rgba(155,184,216,.28);color:var(--sky);padding:2px 8px;border-radius:999px;">${{site:'🌐 Site',text:'✍️ Texte',email:'📧 Email',resume:'📋 Résumé',analyse:'📊 Analyse'}[r.requestType]||r.requestType}</span>`:''}
+              ${r.isRevision?`<span style="font-size:.68rem;background:rgba(240,169,136,.14);border:1px solid rgba(240,169,136,.28);color:var(--peach);padding:2px 8px;border-radius:999px;">🔄 Révision</span>`:''}
             </div>
             <div style="margin-bottom:12px;">
               <div style="font-size:.7rem;font-weight:600;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Message original</div>
               <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:.85rem;color:var(--ink-2);line-height:1.5;">${esc(r.originalMessage)}</div>
-              ${r.originalPhoto?`<img src="${r.originalPhoto}" style="max-width:200px;max-height:160px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
+              ${r.originalPhoto&&r.originalPhoto.startsWith('data:image/')?`<img src="${r.originalPhoto}" style="max-width:200px;max-height:160px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
             </div>
+            ${r.projectContext?`
+            <div style="margin-bottom:12px;">
+              <div style="font-size:.7rem;font-weight:600;color:rgba(147,181,148,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Contexte projet injecté</div>
+              <div style="background:rgba(147,181,148,.06);border:1px solid rgba(147,181,148,.18);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--ink-3);line-height:1.7;">
+                ${r.projectContext.name?`<span style="color:var(--ink-2);font-weight:600;">${esc(r.projectContext.name)}</span> · `:''}
+                ${r.projectContext.progress!=null?`Avancement ${r.projectContext.progress}%`:''}
+                ${r.projectContext.currentStep?` · ${esc(r.projectContext.currentStep)}`:''}
+                ${r.projectContext.tags?`<br><span style="color:var(--ink-4);">${esc(r.projectContext.tags)}</span>`:''}
+              </div>
+            </div>`:''}
+            ${(()=>{ const u=db.users.find(x=>x.username===r.clientUsername); return u?.aiInstructions?`
+            <div style="margin-bottom:12px;">
+              <div style="font-size:.7rem;font-weight:600;color:rgba(217,119,87,.7);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Instructions IA client</div>
+              <div style="background:rgba(217,119,87,.06);border:1px solid rgba(217,119,87,.18);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--ink-3);">${esc(u.aiInstructions)}</div>
+            </div>`:'' })()}
             <div style="margin-bottom:14px;">
               <div style="font-size:.7rem;font-weight:600;color:rgba(155,184,216,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Prompt reformulé par Gemini (modifiable)</div>
               <textarea id="prompt-edit-${r.id}" class="glass-input" style="min-height:80px;resize:vertical;font-size:.85rem;line-height:1.5;">${esc(r.reformulatedPrompt)}</textarea>
@@ -5446,7 +5490,46 @@ DOCUMENTS
         ${allReqs.length===0?`<div style="text-align:center;padding:24px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande</div>`:
           `<div style="display:flex;flex-direction:column;gap:8px;">
             ${allReqs.map(r=>{
-              const smap={'pending_moderation':'⏳ Modération','moderation_failed':'❌ Non conforme','pending_admin':'🔔 Attente admin','approved':'⏳ En traitement','processing':'⏳ En traitement','completed':'✅ Complété','rejected':'❌ Refusé','error':'⚠ Erreur'};
+              const smap={'pending_moderation':'⏳ Modération','moderation_failed':'❌ Non conforme','pending_admin':'🔔 Attente admin','approved':'⏳ En traitement','processing':'⏳ En traitement','completed':'✅ Complété','rejected':'❌ Refusé','error':'⚠ Erreur','answered':'💬 Répondu par IA'};
+              const typeColors={'site':'#4f9cf9','text':'#a78bfa','email':'#34d399','resume':'#f59e0b','analyse':'#f472b6'};
+              const typeLabel={'site':'🌐 Site','text':'✍️ Texte','email':'📧 Email','resume':'📋 Résumé','analyse':'📊 Analyse'};
+              const typeIcon={'site':'🌐','text':'✍️','email':'📧','resume':'📋','analyse':'📊'};
+              if(r.status==='answered' && r.geminiAnswer){
+                const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))(new Date(r.updatedAt||r.createdAt));
+                const preview=r.geminiAnswer.substring(0,80);
+                return `<div class="ai-hist-card" style="display:flex;gap:12px;padding:12px;background:rgba(155,184,216,.04);border:1px solid rgba(155,184,216,.12);border-radius:10px;align-items:flex-start;">
+                  <div style="flex-shrink:0;width:48px;height:48px;border-radius:10px;background:rgba(155,184,216,.12);border:1px solid rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✨</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                      <span style="font-size:.825rem;font-weight:700;">${esc(r.clientUsername||'—')}</span>
+                      <span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.3);font-weight:600;">💬 Q&A IA</span>
+                      <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">✨ ${ts}</span>
+                    </div>
+                    <div style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(preview)}${preview.length>=80?'…':''}</div>
+                  </div>
+                </div>`;
+              }
+              if(r.status==='completed' && r.claudeResponse){
+                const initials=(r.clientUsername||'?').substring(0,2).toUpperCase();
+                const color=typeColors[r.requestType]||'#6b7280';
+                const label=typeLabel[r.requestType]||'';
+                const ts=r.completedAt?new Date(r.completedAt).toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+                const preview=r.claudeResponse.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,80);
+                return `<div class="ai-hist-card" style="display:flex;gap:12px;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;align-items:flex-start;">
+                  <div style="flex-shrink:0;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,${color}33,${color}18);border:1px solid ${color}44;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">
+                    ${typeIcon[r.requestType]||'📄'}
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                      <span style="font-size:.825rem;font-weight:700;">${esc(r.clientUsername||'—')}</span>
+                      ${label?`<span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:${color}22;color:${color};border:1px solid ${color}44;font-weight:600;">${label}</span>`:''}
+                      ${r.isRevision?`<span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);font-weight:600;">🔄 Révision</span>`:''}
+                      <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">✅ ${ts}</span>
+                    </div>
+                    <div style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(preview)}${preview.length>=80?'…':''}</div>
+                  </div>
+                </div>`;
+              }
               return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;">
                 <div>
                   <span style="font-size:.825rem;font-weight:600;">${esc(r.clientUsername||'—')}</span>
@@ -5536,7 +5619,10 @@ DOCUMENTS
           <span style="font-size:.7rem;color:var(--ink-4);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Demande : </span>${esc(r.originalMessage.substring(0,120))}${r.originalMessage.length>120?'…':''}
         </div>
         <div id="visual-preview-${r.id}" style="display:none;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;margin-top:12px;">
-          <iframe id="visual-iframe-${r.id}" style="width:100%;height:540px;border:none;background:#fff;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+          <div style="position:relative;">
+            <div id="visual-spinner-${r.id}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.7);border-radius:0;z-index:2;"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
+            <iframe id="visual-iframe-${r.id}" style="width:100%;height:540px;border:none;background:#fff;" sandbox="allow-scripts allow-forms allow-popups" onload="document.getElementById('visual-spinner-${r.id}')?.remove()"></iframe>
+          </div>
         </div>
       </div>`).join('')}
     </div>`;
@@ -5580,9 +5666,72 @@ DOCUMENTS
       'pending_admin':      '🔔 En attente de validation par l\'équipe.',
       'approved':           '⏳ Validation reçue — traitement IA en cours...',
       'processing':         '⏳ Traitement IA en cours...',
-      'completed':          '✅ Votre site a été généré ! Contactez votre équipe pour y accéder.',
       'rejected':           '❌ Votre demande a été refusée par l\'équipe.',
-      'error':              '⚠ Une erreur est survenue lors du traitement.'
+      'error':              '⚠ Une erreur est survenue lors du traitement.',
+      'answered':           '💬 Réponse IA reçue.'
+    };
+    const typeLabel = {site:'🌐 Site web',text:'✍️ Rédaction',email:'📧 Email',resume:'📋 Résumé',analyse:'📊 Analyse'};
+    const completedByClient = reqs.filter(r=>r.status==='completed'&&r.claudeResponse);
+    const buildStatusBubble = r => {
+      if(r.status==='answered' && r.geminiAnswer){
+        return `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;">✨</div>
+            <div style="font-size:.8rem;color:var(--sky);font-weight:600;">Réponse IA</div>
+          </div>
+          <div style="font-size:.875rem;color:var(--ink-2);line-height:1.7;white-space:pre-wrap;">${esc(r.geminiAnswer)}</div>`;
+      }
+      if(r.status==='completed' && r.claudeResponse){
+        const vNum = completedByClient.indexOf(r)+1;
+        const comments = r.comments||[];
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <div style="font-size:.875rem;color:var(--sage);font-weight:600;">${{site:'✅ Votre site est prêt !',text:'✅ Votre texte est prêt !',email:'✅ Votre email est prêt !',resume:'✅ Votre résumé est prêt !',analyse:'✅ Votre analyse est prête !'}[r.requestType]||'✅ Votre livrable est prêt !'}</div>
+            <div style="display:flex;gap:6px;">
+              ${r.requestType&&typeLabel[r.requestType]?`<span style="font-size:.68rem;background:rgba(155,184,216,.14);border:1px solid rgba(155,184,216,.28);color:var(--sky);padding:2px 8px;border-radius:999px;">${typeLabel[r.requestType]}</span>`:''}
+              <span style="font-size:.68rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);padding:2px 8px;border-radius:999px;">v${vNum}</span>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm btn-toggle-client-visual" data-id="${r.id}" style="width:100%;justify-content:center;margin-bottom:0;">${{site:'👁 Voir l\'aperçu de mon site',text:'👁 Voir le texte généré',email:'👁 Voir l\'email généré',resume:'👁 Voir le résumé',analyse:'👁 Voir l\'analyse'}[r.requestType]||'👁 Voir le résultat'}</button>
+          <div id="client-visual-${r.id}" style="display:none;margin-top:10px;">
+            <div style="display:flex;gap:4px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:8px 8px 0 0;border:1px solid rgba(255,255,255,.08);border-bottom:none;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm btn-prev-desktop" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Bureau">🖥</button>
+              <button class="btn btn-ghost btn-sm btn-prev-tablet" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Tablette">📟</button>
+              <button class="btn btn-ghost btn-sm btn-prev-mobile" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Mobile">📱</button>
+              <button class="btn btn-ghost btn-sm btn-fullscreen-visual" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;margin-left:auto;" title="Plein écran">⛶</button>
+              <button class="btn btn-ghost btn-sm btn-copy-html" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Copier HTML">📋</button>
+              <button class="btn btn-ghost btn-sm" onclick="window.open('https://app.netlify.com/drop','_blank')" style="font-size:.68rem;padding:3px 8px;" title="Netlify Drop">🌐</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadVisualHTML('${r.id}')" style="font-size:.68rem;padding:3px 8px;" title="Télécharger">⬇</button>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,.08);border-radius:0 0 0 0;overflow:hidden;position:relative;">
+              <div id="client-spinner-${r.id}" style="height:460px;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.6);"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
+              <iframe id="client-iframe-${r.id}" style="width:100%;height:460px;border:none;background:#fff;display:none;transition:width .3s;" sandbox="allow-scripts allow-forms allow-popups" onload="(function(el){const sp=document.getElementById('client-spinner-${r.id}');if(sp)sp.remove();el.style.display='block';})(this)"></iframe>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,.08);border-top:none;border-radius:0 0 8px 8px;padding:12px;">
+              <div style="font-size:.72rem;font-weight:600;color:var(--ink-4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">Commentaires (${comments.length})</div>
+              ${comments.length>0?comments.map(c=>`
+                <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+                  <div style="width:24px;height:24px;border-radius:50%;background:rgba(217,119,87,.2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--coral);flex-shrink:0;">${esc((c.author||'?')[0].toUpperCase())}</div>
+                  <div style="flex:1;">
+                    <div style="font-size:.75rem;font-weight:600;color:var(--ink-2);">${esc(c.author||'—')} <span style="font-weight:400;color:var(--ink-4);">${new Date(c.createdAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>
+                    <div style="font-size:.82rem;color:var(--ink-3);line-height:1.5;white-space:pre-wrap;">${esc(c.text)}</div>
+                  </div>
+                </div>`).join(''):'<div style="font-size:.8rem;color:var(--ink-4);margin-bottom:8px;">Aucun commentaire pour l\'instant.</div>'}
+              <div style="display:flex;gap:8px;margin-top:8px;">
+                <textarea id="comment-input-${r.id}" class="glass-input" placeholder="Ajouter un commentaire…" style="flex:1;min-height:44px;max-height:90px;resize:vertical;font-size:.82rem;"></textarea>
+                <button class="btn btn-ghost btn-sm btn-comment-submit" data-id="${r.id}" style="align-self:flex-end;padding:8px 12px;">Envoyer</button>
+              </div>
+            </div>
+            <div style="padding:10px 0 4px;">
+              <button class="btn btn-ghost btn-sm btn-request-revision" data-id="${r.id}" style="width:100%;justify-content:center;font-size:.8rem;color:var(--peach);border-color:rgba(240,169,136,.25);">✏ Demander une révision</button>
+              <div id="revision-form-${r.id}" style="display:none;margin-top:10px;">
+                <textarea id="revision-input-${r.id}" class="glass-input" placeholder="Décrivez les modifications souhaitées…" style="width:100%;min-height:72px;resize:vertical;font-size:.82rem;margin-bottom:8px;"></textarea>
+                <button class="btn btn-primary btn-sm btn-revision-submit" data-id="${r.id}" style="width:100%;justify-content:center;">Envoyer la demande de révision</button>
+              </div>
+            </div>
+          </div>`;
+      }
+      return statusLabel[r.status]||r.status;
     };
     return `<div class="fade-up" style="display:flex;flex-direction:column;min-height:calc(100vh - 120px);">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
@@ -5592,28 +5741,38 @@ DOCUMENTS
       <div class="glass-card" style="padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--ink-3);line-height:1.5;">
         💬 Décrivez ici votre projet de site web. Notre équipe et l'IA traiteront votre demande et vous prépareront un aperçu visuel personnalisé.
       </div>
-      <div id="discussion-messages" style="flex:1;display:flex;flex-direction:column;gap:14px;margin-bottom:20px;min-height:160px;">
+      <div id="discussion-messages" style="flex:1;display:flex;flex-direction:column;gap:14px;margin-bottom:20px;min-height:160px;overflow-y:auto;">
         ${reqs.length===0?`<div style="text-align:center;padding:48px 0;color:var(--ink-4);font-size:.875rem;">Envoyez votre première demande ci-dessous pour commencer.</div>`:
           reqs.map(r=>`
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:flex;justify-content:flex-end;">
               <div style="max-width:78%;background:rgba(155,184,216,.18);border:1px solid rgba(155,184,216,.22);border-radius:14px 14px 4px 14px;padding:10px 14px;">
                 <div style="font-size:.875rem;color:var(--ink-2);line-height:1.5;white-space:pre-wrap;">${esc(r.originalMessage)}</div>
-                ${r.originalPhoto?`<img src="${r.originalPhoto}" style="max-width:100%;max-height:180px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
-                <div style="font-size:.7rem;color:var(--ink-4);margin-top:5px;text-align:right;">${new Date(r.createdAt).toLocaleString('fr-FR')}</div>
+                ${r.originalPhoto&&r.originalPhoto.startsWith('data:image/')?`<img src="${r.originalPhoto}" style="max-width:100%;max-height:180px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
+                <div style="font-size:.7rem;color:var(--ink-4);margin-top:5px;text-align:right;">${(d=>isNaN(d)?'':d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
               </div>
             </div>
             <div style="display:flex;justify-content:flex-start;">
-              <div style="max-width:78%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:9px 13px;font-size:.8rem;color:var(--ink-3);">
-                ${statusLabel[r.status]||r.status}
+              <div style="max-width:${r.status==='completed'&&r.claudeResponse?'92':'78'}%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:${r.status==='completed'&&r.claudeResponse?'14px 16px':'9px 13px'};font-size:.8rem;color:var(--ink-3);${r.status==='completed'&&r.claudeResponse?'width:100%;':''}">
+                ${buildStatusBubble(r)}
               </div>
             </div>
           </div>`).join('')}
       </div>
       <div class="glass-card" style="padding:14px;margin-top:auto;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          ${[['site','🌐 Site web'],['text','✍️ Rédaction'],['email','📧 Email'],['resume','📋 Résumé'],['analyse','📊 Analyse']].map(([t,l])=>`
+            <button class="disc-type-btn" data-type="${t}" style="font-size:.72rem;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:var(--ink-3);cursor:pointer;transition:all .15s;font-family:inherit;">${l}</button>
+          `).join('')}
+        </div>
         <div id="discussion-photo-preview" style="display:none;margin-bottom:10px;"></div>
         <div style="display:flex;gap:10px;align-items:flex-end;">
-          <textarea id="discussion-input" class="glass-input" placeholder="Décrivez votre projet de site web..." style="flex:1;min-height:64px;max-height:130px;resize:vertical;font-size:.875rem;"></textarea>
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <textarea id="discussion-input" class="glass-input" placeholder="Décrivez votre demande…" style="width:100%;min-height:64px;max-height:130px;resize:vertical;font-size:.875rem;" maxlength="2000"></textarea>
+            <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+              <span id="disc-char-count" style="font-size:.68rem;color:var(--ink-4);transition:color .2s;">0 / 2000</span>
+            </div>
+          </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;padding:8px 10px;text-align:center;" title="Joindre une photo">
               📷
@@ -5644,17 +5803,127 @@ DOCUMENTS
       };
       reader.readAsDataURL(file);
     });
+    const DISC_MAX = 2000;
+    const discInput = document.getElementById('discussion-input');
+    const charCount = document.getElementById('disc-char-count');
+    if(discInput && charCount){
+      discInput.addEventListener('input',()=>{
+        const len = discInput.value.length;
+        charCount.textContent = `${len} / ${DISC_MAX}`;
+        charCount.style.color = len >= DISC_MAX ? 'var(--coral)' : len >= DISC_MAX * 0.85 ? 'var(--peach)' : 'var(--ink-4)';
+      });
+    }
     const sendBtn = document.getElementById('discussion-send-btn');
     if(sendBtn) sendBtn.addEventListener('click', async ()=>{
       const input = document.getElementById('discussion-input');
       const text = (input?.value||'').trim();
       if(!text){ toast('Veuillez saisir un message.','error'); return; }
+      if(text.length > DISC_MAX){ toast(`Message trop long — maximum ${DISC_MAX} caractères.`,'error'); return; }
       const photo = window._pendingDiscussionPhoto||null;
       window._pendingDiscussionPhoto=null;
       if(input) input.value='';
+      if(charCount) charCount.textContent = `0 / ${DISC_MAX}`;
+      if(charCount) charCount.style.color = 'var(--ink-4)';
       if(photoPreview){ photoPreview.style.display='none'; photoPreview.innerHTML=''; }
       if(photoInput) photoInput.value='';
       await submitDiscussionMessage(text, photo);
+    });
+    // Type chips
+    const typeChips = document.querySelectorAll('.disc-type-btn');
+    function applyTypeChip(){
+      typeChips.forEach(c=>{ const active=c.dataset.type===_discType; c.style.background=active?'rgba(217,119,87,.18)':'rgba(255,255,255,.05)'; c.style.borderColor=active?'rgba(217,119,87,.4)':'rgba(255,255,255,.10)'; c.style.color=active?'var(--coral-soft)':'var(--ink-3)'; });
+    }
+    typeChips.forEach(c=>{ c.addEventListener('click',()=>{ _discType=c.dataset.type; applyTypeChip(); }); });
+    applyTypeChip();
+
+    // Toggle visual preview
+    document.querySelectorAll('.btn-toggle-client-visual').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.dataset.id, wrap=document.getElementById('client-visual-'+id), iframe=document.getElementById('client-iframe-'+id);
+        if(!wrap) return;
+        if(wrap.style.display==='none'){
+          wrap.style.display='block'; btn.textContent='👁 Masquer l\'aperçu';
+          const req=(db.aiRequests||[]).find(r=>r.id===id);
+          if(req&&req.claudeResponse&&iframe) iframe.srcdoc=req.claudeResponse;
+          markAIRequestsSeen(); refreshClientTab && void 0;
+        } else { wrap.style.display='none'; btn.textContent='👁 Voir l\'aperçu de mon site'; }
+      });
+    });
+
+    // Responsive toggles
+    document.querySelectorAll('.btn-prev-desktop').forEach(btn=>{
+      btn.addEventListener('click',()=>{ const f=document.getElementById('client-iframe-'+btn.dataset.id); if(f){ f.style.width='100%'; f.style.marginLeft=''; } });
+    });
+    document.querySelectorAll('.btn-prev-tablet').forEach(btn=>{
+      btn.addEventListener('click',()=>{ const f=document.getElementById('client-iframe-'+btn.dataset.id); if(f){ f.style.width='768px'; f.style.margin='0 auto'; f.style.display='block'; } });
+    });
+    document.querySelectorAll('.btn-prev-mobile').forEach(btn=>{
+      btn.addEventListener('click',()=>{ const f=document.getElementById('client-iframe-'+btn.dataset.id); if(f){ f.style.width='390px'; f.style.margin='0 auto'; f.style.display='block'; } });
+    });
+
+    // Fullscreen
+    document.querySelectorAll('.btn-fullscreen-visual').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const req=(db.aiRequests||[]).find(r=>r.id===btn.dataset.id);
+        if(!req||!req.claudeResponse) return;
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:.9rem;font-weight:600;">Aperçu plein écran</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" data-dlid="${esc(req.id)}" onclick="downloadVisualHTML(this.dataset.dlid)">⬇ HTML</button>
+              <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+            </div>
+          </div>
+          <div style="position:relative;">
+            <div id="fs-spinner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.6);border-radius:8px;z-index:2;"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
+            <iframe id="fs-iframe" style="width:100%;height:70vh;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#fff;display:block;" sandbox="allow-scripts allow-forms allow-popups" onload="document.getElementById('fs-spinner')?.remove()"></iframe>
+          </div>
+        `);
+        { const f=document.getElementById('fs-iframe'); if(f) f.srcdoc=req.claudeResponse; }
+      });
+    });
+
+    // Copy HTML
+    document.querySelectorAll('.btn-copy-html').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const req=(db.aiRequests||[]).find(r=>r.id===btn.dataset.id);
+        if(!req||!req.claudeResponse){ toast('Aucun contenu.','error'); return; }
+        navigator.clipboard.writeText(req.claudeResponse).then(()=>toast('HTML copié !','success')).catch(()=>toast('Échec copie.','error'));
+      });
+    });
+
+    // Comments
+    document.querySelectorAll('.btn-comment-submit').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.dataset.id, inp=document.getElementById('comment-input-'+id);
+        const text=(inp?.value||'').trim();
+        if(!text){ toast('Commentaire vide.','error'); return; }
+        const req=(db.aiRequests||[]).find(r=>r.id===id);
+        if(!req) return;
+        if(!Array.isArray(req.comments)) req.comments=[];
+        req.comments.push({ id:'c_'+Date.now(), author:me.username||me.firstName||'Client', text, createdAt:new Date().toISOString() });
+        saveDB(); toast('Commentaire ajouté.','success'); refreshClientTab();
+      });
+    });
+
+    // Revision toggle
+    document.querySelectorAll('.btn-request-revision').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const form=document.getElementById('revision-form-'+btn.dataset.id);
+        if(form) form.style.display=form.style.display==='none'?'block':'none';
+      });
+    });
+
+    // Revision submit
+    document.querySelectorAll('.btn-revision-submit').forEach(btn=>{
+      btn.addEventListener('click',async ()=>{
+        const id=btn.dataset.id, inp=document.getElementById('revision-input-'+id);
+        const text=(inp?.value||'').trim();
+        if(!text){ toast('Décrivez les modifications souhaitées.','error'); return; }
+        btn.disabled=true; btn.textContent='Envoi…';
+        await submitDiscussionMessage(text, null, { isRevision:true, revisedFromId:id });
+        toast('Demande de révision envoyée.','success');
+      });
     });
     const msgs = document.getElementById('discussion-messages');
     if(msgs) msgs.scrollTop = msgs.scrollHeight;
@@ -5663,14 +5932,37 @@ DOCUMENTS
   // ════════════════════════════════════════════════
   //  AI WORKFLOW
   // ════════════════════════════════════════════════
-  async function submitDiscussionMessage(text, photoBase64){
+  function localModerate(text){
+    const banned = /haine|violence|meurtre|terroris|pornograph|racist|sexist|illégal|drogue|arnaque/i;
+    if(banned.test(text)) return { passed:false, reason:'Contenu non conforme détecté localement.' };
+    if(text.length<3) return { passed:false, reason:'Message trop court.' };
+    return { passed:true, reason:'' };
+  }
+
+  async function submitDiscussionMessage(text, photoBase64, opts={}){
     const reqId = 'air_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const _proj = getUserProject(me.id)||getUserProjects(me.id)[0]||null;
+    let projectContext = null;
+    if(_proj){
+      const tl=_proj.timeline||[];
+      const doneCnt=tl.filter(s=>s.status==='done').length;
+      projectContext={
+        name:_proj.name, description:_proj.description||'',
+        status:_proj.status, websiteUrl:_proj.websiteUrl||'',
+        progress:tl.length>0?Math.round(doneCnt/tl.length*100):0,
+        currentStep:tl.find(s=>s.status==='current')?.label||'',
+        dueDate:_proj.dueDate||'', tags:(_proj.tags||[]).join(', '),
+        priority:_proj.priority||''
+      };
+    }
     const req = {
       id: reqId, clientId: me.id, clientUsername: me.username,
       originalMessage: text, originalPhoto: photoBase64||null,
+      projectContext, requestType: _discType||'site',
+      isRevision: opts.isRevision||false, revisedFromId: opts.revisedFromId||null,
       moderationPassed: null, moderationReason: '',
       reformulatedPrompt: '', adminAction: null, adminModifiedPrompt: '',
-      claudeResponse: '', status: 'pending_moderation',
+      claudeResponse: '', comments: [], status: 'pending_moderation',
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
     db.aiRequests.push(req);
@@ -5679,9 +5971,17 @@ DOCUMENTS
     toast('Votre demande est enregistrée.','success');
     const geminiKey = db.aiConfig&&db.aiConfig.geminiKey;
     if(!geminiKey){
+      // Modération locale sans Gemini
+      const localMod = localModerate(text);
       const r=db.aiRequests.find(x=>x.id===reqId);
-      if(r){ r.status='error'; r.moderationReason='Clé Gemini non configurée.'; r.updatedAt=new Date().toISOString(); saveDB(); }
-      toast('Clé Gemini non configurée — contactez votre admin.','error'); return;
+      if(!r) return;
+      if(!localMod.passed){
+        r.status='moderation_failed'; r.moderationPassed=false; r.moderationReason=localMod.reason; r.updatedAt=new Date().toISOString();
+        saveDB(); refreshClientTab(); return;
+      }
+      r.moderationPassed=true; r.reformulatedPrompt=text; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
+      saveDB(); refreshClientTab();
+      toast('Demande transmise à l\'équipe (mode sans Gemini).','info'); return;
     }
     try{
       const modResult = await callGeminiModerate(text, photoBase64, geminiKey);
@@ -5692,7 +5992,20 @@ DOCUMENTS
         saveDB(); refreshClientTab(); return;
       }
       r.moderationPassed=true;
-      const reformulated = await callGeminiReformulate(text, geminiKey);
+      // Détection d'intention : question sur le site existant vs génération
+      const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
+      if(lastCompleted && !opts.isRevision){
+        const intentResult = await callGeminiClassifyIntent(text, lastCompleted.claudeResponse, geminiKey);
+        if(intentResult.intent==='question'){
+          toast('Réponse IA en cours…','info');
+          const answer = await callGeminiAnswer(text, lastCompleted.claudeResponse, r.projectContext, geminiKey);
+          r.status='answered'; r.geminiAnswer=answer; r.updatedAt=new Date().toISOString();
+          saveDB(); refreshClientTab();
+          toast('Réponse IA reçue !','success');
+          return;
+        }
+      }
+      const reformulated = await callGeminiReformulate(text, geminiKey, r.projectContext||null, r.requestType||'site');
       r.reformulatedPrompt=reformulated; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
       saveDB(); refreshClientTab();
       logActivity('ai_request','Demande IA soumise par '+me.username);
@@ -5722,8 +6035,34 @@ DOCUMENTS
     catch(_){ return { passed:true, reason:'Analyse non parseable — approuvé par défaut.' }; }
   }
 
-  async function callGeminiReformulate(text, apiKey){
-    const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). Reformule et optimise la demande suivante pour générer un site web HTML complet, esthétique et fonctionnel. Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.\n\nDemande originale : "${text.replace(/"/g,'\\"')}"`;
+  async function callGeminiReformulate(text, apiKey, projectContext=null, requestType='site'){
+    let ctxBlock='';
+    if(projectContext){
+      const lines=[
+        projectContext.name        && `- Nom du projet : ${projectContext.name}`,
+        projectContext.description && `- Description : ${projectContext.description}`,
+        projectContext.websiteUrl  && `- URL actuelle : ${projectContext.websiteUrl}`,
+        projectContext.status      && `- Statut : ${{pending:'En attente',in_progress:'En cours',done:'Terminé'}[projectContext.status]||projectContext.status}`,
+        projectContext.progress!=null && `- Avancement timeline : ${projectContext.progress}%`,
+        projectContext.currentStep && `- Étape en cours : ${projectContext.currentStep}`,
+        projectContext.tags        && `- Secteur / tags : ${projectContext.tags}`,
+        projectContext.priority    && `- Priorité : ${projectContext.priority}`,
+        projectContext.dueDate     && `- Livraison prévue : ${projectContext.dueDate}`
+      ].filter(Boolean).join('\n');
+      if(lines) ctxBlock=`\n\nContexte du projet client :\n${lines}`;
+    }
+    const clientUser = db.users.find(u=>u.username===(projectContext?.clientUsername)||false) || null;
+    const aiInstr = clientUser?.aiInstructions || '';
+    const instrBlock = aiInstr ? `\n\nInstructions spéciales pour ce client :\n${aiInstr}` : '';
+    const baseByType = {
+      site:    'Reformule et optimise la demande suivante pour générer un site web HTML complet, esthétique et fonctionnel.',
+      text:    'Reformule et optimise la demande suivante pour générer un texte professionnel, structuré et convaincant (article, page About, description, etc.).',
+      email:   'Reformule et optimise la demande suivante pour générer un email client professionnel, clair et impactant.',
+      resume:  'Reformule et optimise la demande suivante pour générer un résumé structuré du projet, concis et factuel.',
+      analyse: 'Reformule et optimise la demande suivante pour générer une analyse détaillée du brief fourni, avec recommandations.'
+    };
+    const base = baseByType[requestType]||baseByType.site;
+    const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). ${base} Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.${ctxBlock}${instrBlock}\n\nDemande originale du client : "${text.replace(/"/g,'\\"')}"`;
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
@@ -5731,6 +6070,56 @@ DOCUMENTS
     if(!resp.ok) throw new Error('Gemini reformulation erreur HTTP '+resp.status);
     const json = await resp.json();
     return json.candidates?.[0]?.content?.parts?.[0]?.text||text;
+  }
+
+  async function callGeminiClassifyIntent(text, existingSiteHtml, apiKey){
+    const siteText = existingSiteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,600);
+    const prompt = `Tu es un classificateur d'intentions. Un client d'une agence web envoie un message. Détermine si c'est :
+- "question" : il pose une question sur son site existant, demande une information, un résumé, une explication à propos du contenu existant.
+- "generation" : il demande la création, la modification ou la génération d'un nouveau contenu (site, texte, email, page, section, etc.).
+
+Contenu actuel du site (extrait) : "${siteText.replace(/"/g,"'")}"
+Message : "${text.replace(/"/g,"'")}"
+
+Réponds UNIQUEMENT avec ce JSON valide, sans explication : {"intent":"question"} ou {"intent":"generation"}`;
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
+    });
+    if(!resp.ok) return { intent:'generation' };
+    const json = await resp.json();
+    const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
+    try{ return JSON.parse(raw); } catch(_){ return { intent:'generation' }; }
+  }
+
+  async function callGeminiAnswer(question, existingSiteHtml, projectContext, apiKey){
+    const siteText = existingSiteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,2000);
+    let ctxBlock = '';
+    if(projectContext){
+      const parts = [
+        projectContext.name        && `Projet : ${projectContext.name}`,
+        projectContext.status      && `Statut : ${projectContext.status}`,
+        projectContext.progress!=null && `Avancement : ${projectContext.progress}%`,
+        projectContext.currentStep && `Étape en cours : ${projectContext.currentStep}`,
+        projectContext.tags        && `Tags : ${projectContext.tags}`
+      ].filter(Boolean);
+      if(parts.length) ctxBlock = `\nContexte projet — ${parts.join(' · ')}`;
+    }
+    const prompt = `Tu es l'assistant IA d'une agence web. Un client te pose une question sur son site web existant. Réponds de façon claire, concise et utile en français.${ctxBlock}
+
+Contenu textuel du site actuel :
+"${siteText.replace(/"/g,"'")}"
+
+Question du client : "${question.replace(/"/g,"'")}"
+
+Réponds directement en français, sans préambule ni répétition de la question.`;
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
+    });
+    if(!resp.ok) throw new Error('Gemini réponse HTTP '+resp.status);
+    const json = await resp.json();
+    return json.candidates?.[0]?.content?.parts?.[0]?.text||'Désolé, je ne peux pas répondre pour le moment.';
   }
 
   async function adminHandleAIRequest(reqId, action){

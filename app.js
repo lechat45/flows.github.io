@@ -3490,6 +3490,18 @@
               <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:.85rem;color:var(--ink-2);line-height:1.5;">${esc(r.originalMessage)}</div>
               ${r.originalPhoto?`<img src="${r.originalPhoto}" style="max-width:200px;max-height:160px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
             </div>
+            ${r.projectContext?`
+            <div style="margin-bottom:12px;">
+              <div style="font-size:.7rem;font-weight:600;color:rgba(147,181,148,.7);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Contexte projet injecté automatiquement</div>
+              <div style="background:rgba(147,181,148,.06);border:1px solid rgba(147,181,148,.18);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--ink-3);line-height:1.6;">
+                ${r.projectContext.name?`<div><strong style="color:var(--ink-2);">Projet :</strong> ${esc(r.projectContext.name)}</div>`:''}
+                ${r.projectContext.description?`<div><strong style="color:var(--ink-2);">Description :</strong> ${esc(r.projectContext.description)}</div>`:''}
+                ${r.projectContext.websiteUrl?`<div><strong style="color:var(--ink-2);">URL :</strong> ${esc(r.projectContext.websiteUrl)}</div>`:''}
+                ${r.projectContext.progress!=null?`<div><strong style="color:var(--ink-2);">Avancement :</strong> ${r.projectContext.progress}%${r.projectContext.currentStep?' — '+esc(r.projectContext.currentStep):''}</div>`:''}
+                ${r.projectContext.tags?`<div><strong style="color:var(--ink-2);">Tags :</strong> ${esc(r.projectContext.tags)}</div>`:''}
+              </div>
+            </div>`:''}
+
             <div style="margin-bottom:14px;">
               <div style="font-size:.7rem;font-weight:600;color:rgba(155,184,216,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Prompt reformulé par Gemini (modifiable)</div>
               <textarea id="prompt-edit-${r.id}" class="glass-input" style="min-height:80px;resize:vertical;font-size:.85rem;line-height:1.5;">${esc(r.reformulatedPrompt)}</textarea>
@@ -3642,9 +3654,28 @@
       'pending_admin':      '🔔 En attente de validation par l\'équipe.',
       'approved':           '⏳ Validation reçue — traitement IA en cours...',
       'processing':         '⏳ Traitement IA en cours...',
-      'completed':          '✅ Votre site a été généré ! Contactez votre équipe pour y accéder.',
       'rejected':           '❌ Votre demande a été refusée par l\'équipe.',
       'error':              '⚠ Une erreur est survenue lors du traitement.'
+    };
+    const buildStatusBubble = r => {
+      if(r.status==='completed' && r.claudeResponse){
+        return `
+          <div style="font-size:.875rem;color:var(--sage);font-weight:600;margin-bottom:10px;">✅ Votre site est prêt !</div>
+          <button class="btn btn-ghost btn-sm btn-toggle-client-visual" data-id="${r.id}" style="width:100%;justify-content:center;margin-bottom:0;">
+            👁 Voir l'aperçu de mon site
+          </button>
+          <div id="client-visual-${r.id}" style="display:none;margin-top:10px;">
+            <div style="display:flex;gap:6px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:8px 8px 0 0;border:1px solid rgba(255,255,255,.08);border-bottom:none;">
+              <button class="btn btn-ghost btn-sm btn-prev-desktop" data-id="${r.id}" style="font-size:.72rem;padding:3px 9px;" title="Aperçu bureau">🖥</button>
+              <button class="btn btn-ghost btn-sm btn-prev-mobile" data-id="${r.id}" style="font-size:.72rem;padding:3px 9px;" title="Aperçu mobile">📱</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadVisualHTML('${r.id}')" style="font-size:.72rem;padding:3px 9px;margin-left:auto;">⬇ HTML</button>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,.08);border-radius:0 0 8px 8px;overflow:hidden;">
+              <iframe id="client-iframe-${r.id}" style="width:100%;height:460px;border:none;background:#fff;display:block;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+            </div>
+          </div>`;
+      }
+      return statusLabel[r.status]||r.status;
     };
     return `<div class="fade-up" style="display:flex;flex-direction:column;min-height:calc(100vh - 120px);">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
@@ -3666,8 +3697,8 @@
               </div>
             </div>
             <div style="display:flex;justify-content:flex-start;">
-              <div style="max-width:78%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:9px 13px;font-size:.8rem;color:var(--ink-3);">
-                ${statusLabel[r.status]||r.status}
+              <div style="max-width:${r.status==='completed'&&r.claudeResponse?'92':'78'}%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:${r.status==='completed'&&r.claudeResponse?'14px 16px':'9px 13px'};font-size:.8rem;color:var(--ink-3);${r.status==='completed'&&r.claudeResponse?'width:100%;':''}">
+                ${buildStatusBubble(r)}
               </div>
             </div>
           </div>`).join('')}
@@ -3723,6 +3754,38 @@
       await submitDiscussionMessage(text, photo);
     });
 
+    document.querySelectorAll('.btn-toggle-client-visual').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id = btn.dataset.id;
+        const wrap = document.getElementById('client-visual-'+id);
+        const iframe = document.getElementById('client-iframe-'+id);
+        if(!wrap) return;
+        if(wrap.style.display==='none'){
+          wrap.style.display='block';
+          btn.textContent='👁 Masquer l\'aperçu';
+          const req = (db.aiRequests||[]).find(r=>r.id===id);
+          if(req&&req.claudeResponse&&iframe) iframe.srcdoc = req.claudeResponse;
+        } else {
+          wrap.style.display='none';
+          btn.textContent='👁 Voir l\'aperçu de mon site';
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-prev-desktop').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const iframe = document.getElementById('client-iframe-'+btn.dataset.id);
+        if(iframe){ iframe.style.width='100%'; iframe.style.marginLeft=''; }
+      });
+    });
+
+    document.querySelectorAll('.btn-prev-mobile').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const iframe = document.getElementById('client-iframe-'+btn.dataset.id);
+        if(iframe){ iframe.style.width='390px'; iframe.style.marginLeft='auto'; iframe.style.marginRight='auto'; }
+      });
+    });
+
     const msgs = document.getElementById('discussion-messages');
     if(msgs) msgs.scrollTop = msgs.scrollHeight;
   }
@@ -3732,12 +3795,33 @@
   // ════════════════════════════════════════════════
   async function submitDiscussionMessage(text, photoBase64){
     const reqId = 'air_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+
+    const _proj = getUserProject(me.id) || getUserProjects(me.id)[0] || null;
+    let projectContext = null;
+    if(_proj){
+      const tl = _proj.timeline||[];
+      const doneCnt = tl.filter(s=>s.status==='done').length;
+      const pct = tl.length>0 ? Math.round(doneCnt/tl.length*100) : 0;
+      projectContext = {
+        name:        _proj.name,
+        description: _proj.description||'',
+        status:      _proj.status,
+        websiteUrl:  _proj.websiteUrl||'',
+        progress:    pct,
+        currentStep: tl.find(s=>s.status==='current')?.label||'',
+        dueDate:     _proj.dueDate||'',
+        tags:        (_proj.tags||[]).join(', '),
+        priority:    _proj.priority||''
+      };
+    }
+
     const req = {
       id: reqId,
       clientId: me.id,
       clientUsername: me.username,
       originalMessage: text,
       originalPhoto: photoBase64||null,
+      projectContext: projectContext,
       moderationPassed: null,
       moderationReason: '',
       reformulatedPrompt: '',
@@ -3767,7 +3851,7 @@
         saveDB(); refreshClientTab(); return;
       }
       r.moderationPassed=true;
-      const reformulated = await callGeminiReformulate(text, geminiKey);
+      const reformulated = await callGeminiReformulate(text, geminiKey, r.projectContext||null);
       r.reformulatedPrompt = reformulated;
       r.status = 'pending_admin';
       r.updatedAt = new Date().toISOString();
@@ -3800,8 +3884,23 @@
     catch(_){ return { passed: true, reason: 'Analyse non parseable — approuvé par défaut.' }; }
   }
 
-  async function callGeminiReformulate(text, apiKey){
-    const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). Reformule et optimise la demande suivante pour générer un site web HTML complet, esthétique et fonctionnel. Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.\n\nDemande originale : "${text.replace(/"/g,'\\"')}"`;
+  async function callGeminiReformulate(text, apiKey, projectContext=null){
+    let ctxBlock = '';
+    if(projectContext){
+      const lines = [
+        projectContext.name        && `- Nom du projet : ${projectContext.name}`,
+        projectContext.description && `- Description : ${projectContext.description}`,
+        projectContext.websiteUrl  && `- URL actuelle : ${projectContext.websiteUrl}`,
+        projectContext.status      && `- Statut : ${ {pending:'En attente',in_progress:'En cours',done:'Terminé'}[projectContext.status]||projectContext.status }`,
+        projectContext.progress!=null && `- Avancement timeline : ${projectContext.progress}%`,
+        projectContext.currentStep && `- Étape en cours : ${projectContext.currentStep}`,
+        projectContext.tags        && `- Secteur / tags : ${projectContext.tags}`,
+        projectContext.priority    && `- Priorité : ${projectContext.priority}`,
+        projectContext.dueDate     && `- Livraison prévue : ${projectContext.dueDate}`
+      ].filter(Boolean).join('\n');
+      if(lines) ctxBlock = `\n\nContexte du projet client :\n${lines}`;
+    }
+    const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). Reformule et optimise la demande suivante pour générer un site web HTML complet, esthétique et fonctionnel, en tenant compte du contexte du projet fourni. Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.${ctxBlock}\n\nDemande originale du client : "${text.replace(/"/g,'\\"')}"`;
     const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
