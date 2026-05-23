@@ -6011,9 +6011,49 @@ DOCUMENTS
       logActivity('ai_request','Demande IA soumise par '+me.username);
     } catch(err){
       const r=db.aiRequests.find(x=>x.id===reqId);
-      if(r){ r.status='error'; r.moderationReason=String(err); r.updatedAt=new Date().toISOString(); saveDB(); }
-      toast('Erreur lors de la modération : '+err,'error');
+      const isRateLimit = String(err).includes('RATE_LIMIT')||String(err).includes('429')||String(err).includes('rate limit');
+      if(r){
+        if(isRateLimit){
+          // Rate limit persistant : fallback modération locale → pending_admin
+          const localMod = localModerate(text);
+          if(!localMod.passed){
+            r.status='moderation_failed'; r.moderationPassed=false; r.moderationReason=localMod.reason; r.updatedAt=new Date().toISOString();
+            saveDB(); refreshClientTab(); return;
+          }
+          r.moderationPassed=true; r.reformulatedPrompt=text; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
+          saveDB(); refreshClientTab();
+          toast('Gemini temporairement indisponible — demande transmise sans reformulation.','info');
+        } else {
+          r.status='error'; r.moderationReason=String(err); r.updatedAt=new Date().toISOString();
+          saveDB(); refreshClientTab();
+          toast('Erreur IA : '+String(err).substring(0,80),'error');
+        }
+      }
     }
+  }
+
+  // ─── Gemini fetch avec retry exponentiel ─────────
+  const _geminiDelay = ms => new Promise(r=>setTimeout(r,ms));
+  async function geminiPost(apiKey, body, maxRetries=3){
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    let lastErr;
+    for(let attempt=0; attempt<=maxRetries; attempt++){
+      if(attempt>0){
+        const wait = Math.pow(2,attempt)*1000; // 2s, 4s, 8s
+        toast(`⏳ Gemini rate limit — nouvelle tentative dans ${wait/1000}s…`,'info');
+        await _geminiDelay(wait);
+      }
+      try{
+        const resp = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if(resp.status===429||resp.status===503){
+          lastErr = new Error('RATE_LIMIT_'+resp.status);
+          continue; // retry
+        }
+        if(!resp.ok) throw new Error('HTTP_'+resp.status);
+        return await resp.json();
+      }catch(e){ lastErr=e; if(!String(e).includes('RATE_LIMIT')) throw e; }
+    }
+    throw lastErr; // épuisé les retries
   }
 
   async function callGeminiModerate(text, photoBase64, apiKey){
@@ -6023,16 +6063,20 @@ DOCUMENTS
       const mime=meta.match(/data:(.*);/)?.[1]||'image/jpeg';
       parts.push({ inlineData:{ mimeType:mime, data:data } });
     }
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{ parts }] })
-    });
-    if(!resp.ok) throw new Error('Gemini modération erreur HTTP '+resp.status);
-    const json = await resp.json();
-    const raw = json.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    const clean = raw.replace(/```json\n?/,'').replace(/```$/,'').trim();
-    try{ return JSON.parse(clean); }
-    catch(_){ return { passed:true, reason:'Analyse non parseable — approuvé par défaut.' }; }
+    try{
+      const json = await geminiPost(apiKey,{ contents:[{ parts }] });
+      const raw = json.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      const clean = raw.replace(/```json\n?/g,'').replace(/```/g,'').trim();
+      try{ return JSON.parse(clean); }
+      catch(_){ return { passed:true, reason:'Analyse non parseable — approuvé par défaut.' }; }
+    }catch(e){
+      if(String(e).includes('RATE_LIMIT')){
+        // Fallback : modération locale si Gemini reste KO
+        toast('Gemini indisponible — modération locale activée.','info');
+        return localModerate(text);
+      }
+      throw e;
+    }
   }
 
   async function callGeminiReformulate(text, apiKey, projectContext=null, requestType='site'){
@@ -6063,13 +6107,16 @@ DOCUMENTS
     };
     const base = baseByType[requestType]||baseByType.site;
     const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). ${base} Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.${ctxBlock}${instrBlock}\n\nDemande originale du client : "${text.replace(/"/g,'\\"')}"`;
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
-    });
-    if(!resp.ok) throw new Error('Gemini reformulation erreur HTTP '+resp.status);
-    const json = await resp.json();
-    return json.candidates?.[0]?.content?.parts?.[0]?.text||text;
+    try{
+      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
+      return json.candidates?.[0]?.content?.parts?.[0]?.text||text;
+    }catch(e){
+      if(String(e).includes('RATE_LIMIT')){
+        toast('Gemini indisponible — prompt original utilisé.','info');
+        return text; // fallback : prompt non reformulé
+      }
+      throw e;
+    }
   }
 
   async function callGeminiClassifyIntent(text, existingSiteHtml, apiKey){
@@ -6082,14 +6129,11 @@ Contenu actuel du site (extrait) : "${siteText.replace(/"/g,"'")}"
 Message : "${text.replace(/"/g,"'")}"
 
 Réponds UNIQUEMENT avec ce JSON valide, sans explication : {"intent":"question"} ou {"intent":"generation"}`;
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
-    });
-    if(!resp.ok) return { intent:'generation' };
-    const json = await resp.json();
-    const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
-    try{ return JSON.parse(raw); } catch(_){ return { intent:'generation' }; }
+    try{
+      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
+      const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
+      try{ return JSON.parse(raw); } catch(_){ return { intent:'generation' }; }
+    }catch(_){ return { intent:'generation' }; } // fallback safe si rate limit
   }
 
   async function callGeminiAnswer(question, existingSiteHtml, projectContext, apiKey){
@@ -6113,13 +6157,13 @@ Contenu textuel du site actuel :
 Question du client : "${question.replace(/"/g,"'")}"
 
 Réponds directement en français, sans préambule ni répétition de la question.`;
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }] })
-    });
-    if(!resp.ok) throw new Error('Gemini réponse HTTP '+resp.status);
-    const json = await resp.json();
-    return json.candidates?.[0]?.content?.parts?.[0]?.text||'Désolé, je ne peux pas répondre pour le moment.';
+    try{
+      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
+      return json.candidates?.[0]?.content?.parts?.[0]?.text||'Désolé, je ne peux pas répondre pour le moment.';
+    }catch(e){
+      if(String(e).includes('RATE_LIMIT')) throw new Error('Gemini rate limit — impossible de répondre pour le moment. Réessayez dans quelques secondes.');
+      throw e;
+    }
   }
 
   async function adminHandleAIRequest(reqId, action){
