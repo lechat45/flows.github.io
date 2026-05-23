@@ -6035,32 +6035,24 @@ DOCUMENTS
   // ─── Gemini fetch : throttle global + retry exponentiel ──
   const _geminiDelay = ms => new Promise(r=>setTimeout(r,ms));
   let _lastGeminiCallTime = 0;
-  const GEMINI_MIN_GAP = 2200; // ms minimum entre chaque appel (≈ 27 req/min max)
+  const GEMINI_MIN_GAP = 4100; // ms entre appels (free tier = 15 RPM = 1 req/4s)
 
-  async function geminiPost(apiKey, body, maxRetries=2){
+  async function geminiPost(apiKey, body){
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    // Throttle : respect du délai minimum entre appels
+    // Throttle strict : jamais plus d'1 req/4s
     const gap = GEMINI_MIN_GAP - (Date.now() - _lastGeminiCallTime);
     if(gap > 0) await _geminiDelay(gap);
-    let lastErr;
-    for(let attempt=0; attempt<=maxRetries; attempt++){
-      if(attempt>0){
-        const wait = Math.pow(2,attempt)*2500; // 5s, 10s, 20s
-        toast(`⏳ Gemini rate limit — reprise dans ${wait/1000}s…`,'info');
-        await _geminiDelay(wait);
-      }
-      _lastGeminiCallTime = Date.now();
-      try{
-        const resp = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        if(resp.status===429||resp.status===503){
-          lastErr = new Error('RATE_LIMIT_'+resp.status);
-          continue; // retry
-        }
-        if(!resp.ok) throw new Error('HTTP_'+resp.status);
-        return await resp.json();
-      }catch(e){ lastErr=e; if(!String(e).includes('RATE_LIMIT')) throw e; }
+    _lastGeminiCallTime = Date.now();
+    const resp = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    if(resp.status===429){
+      // Lire le Retry-After si présent, sinon on throw immédiatement → fallback local
+      const retryAfter = parseInt(resp.headers.get('Retry-After')||'0')*1000;
+      if(retryAfter>0) _lastGeminiCallTime = Date.now()+retryAfter; // bloquer les prochains appels
+      throw new Error('RATE_LIMIT_429');
     }
-    throw lastErr;
+    if(resp.status===503) throw new Error('RATE_LIMIT_503');
+    if(!resp.ok) throw new Error('HTTP_'+resp.status);
+    return await resp.json();
   }
 
   // ─── Appel combiné : modération + classification intention (1 seul call) ──
