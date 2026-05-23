@@ -5984,26 +5984,25 @@ DOCUMENTS
       toast('Demande transmise à l\'équipe (mode sans Gemini).','info'); return;
     }
     try{
-      const modResult = await callGeminiModerate(text, photoBase64, geminiKey);
+      // Appel unique : modération + classification d'intention combinées
+      const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
+      const siteHtml = (!opts.isRevision && lastCompleted) ? lastCompleted.claudeResponse : null;
+      const combined = await callGeminiModerateAndClassify(text, photoBase64, siteHtml, geminiKey);
       const r=db.aiRequests.find(x=>x.id===reqId);
       if(!r) return;
-      if(!modResult.passed){
-        r.status='moderation_failed'; r.moderationPassed=false; r.moderationReason=modResult.reason; r.updatedAt=new Date().toISOString();
+      if(!combined.moderation.passed){
+        r.status='moderation_failed'; r.moderationPassed=false; r.moderationReason=combined.moderation.reason; r.updatedAt=new Date().toISOString();
         saveDB(); refreshClientTab(); return;
       }
       r.moderationPassed=true;
-      // Détection d'intention : question sur le site existant vs génération
-      const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
-      if(lastCompleted && !opts.isRevision){
-        const intentResult = await callGeminiClassifyIntent(text, lastCompleted.claudeResponse, geminiKey);
-        if(intentResult.intent==='question'){
-          toast('Réponse IA en cours…','info');
-          const answer = await callGeminiAnswer(text, lastCompleted.claudeResponse, r.projectContext, geminiKey);
-          r.status='answered'; r.geminiAnswer=answer; r.updatedAt=new Date().toISOString();
-          saveDB(); refreshClientTab();
-          toast('Réponse IA reçue !','success');
-          return;
-        }
+      // Brancher selon l'intention détectée
+      if(siteHtml && combined.intent==='question'){
+        toast('Réponse IA en cours…','info');
+        const answer = await callGeminiAnswer(text, siteHtml, r.projectContext, geminiKey);
+        r.status='answered'; r.geminiAnswer=answer; r.updatedAt=new Date().toISOString();
+        saveDB(); refreshClientTab();
+        toast('Réponse IA reçue !','success');
+        return;
       }
       const reformulated = await callGeminiReformulate(text, geminiKey, r.projectContext||null, r.requestType||'site');
       r.reformulatedPrompt=reformulated; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
@@ -6033,16 +6032,24 @@ DOCUMENTS
   }
 
   // ─── Gemini fetch avec retry exponentiel ─────────
+  // ─── Gemini fetch : throttle global + retry exponentiel ──
   const _geminiDelay = ms => new Promise(r=>setTimeout(r,ms));
-  async function geminiPost(apiKey, body, maxRetries=3){
+  let _lastGeminiCallTime = 0;
+  const GEMINI_MIN_GAP = 2200; // ms minimum entre chaque appel (≈ 27 req/min max)
+
+  async function geminiPost(apiKey, body, maxRetries=2){
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // Throttle : respect du délai minimum entre appels
+    const gap = GEMINI_MIN_GAP - (Date.now() - _lastGeminiCallTime);
+    if(gap > 0) await _geminiDelay(gap);
     let lastErr;
     for(let attempt=0; attempt<=maxRetries; attempt++){
       if(attempt>0){
-        const wait = Math.pow(2,attempt)*1000; // 2s, 4s, 8s
-        toast(`⏳ Gemini rate limit — nouvelle tentative dans ${wait/1000}s…`,'info');
+        const wait = Math.pow(2,attempt)*2500; // 5s, 10s, 20s
+        toast(`⏳ Gemini rate limit — reprise dans ${wait/1000}s…`,'info');
         await _geminiDelay(wait);
       }
+      _lastGeminiCallTime = Date.now();
       try{
         const resp = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
         if(resp.status===429||resp.status===503){
@@ -6053,27 +6060,46 @@ DOCUMENTS
         return await resp.json();
       }catch(e){ lastErr=e; if(!String(e).includes('RATE_LIMIT')) throw e; }
     }
-    throw lastErr; // épuisé les retries
+    throw lastErr;
   }
 
-  async function callGeminiModerate(text, photoBase64, apiKey){
-    const parts = [{ text: `Tu es un modérateur de contenu. Analyse ce message et réponds UNIQUEMENT par un JSON valide avec deux champs : "passed" (true/false) et "reason" (string expliquant la décision). Le message doit être refusé s'il contient du contenu haineux, violent, illégal, ou contraire à l'éthique. Message à analyser : "${text.replace(/"/g,'\\"')}"` }];
+  // ─── Appel combiné : modération + classification intention (1 seul call) ──
+  async function callGeminiModerateAndClassify(text, photoBase64, existingSiteHtml, apiKey){
+    const siteCtx = existingSiteHtml
+      ? `\nSite existant du client (extrait) : "${existingSiteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,500).replace(/"/g,"'")}"`
+      : '';
+    const intentField = existingSiteHtml
+      ? `\n- "intent" : "question" si c'est une question/demande d'info sur le site existant, "generation" si c'est une demande de création ou modification`
+      : `\n- "intent" : "generation"`;
+    const promptText = `Tu es l'assistant IA d'une agence web. Analyse ce message et réponds UNIQUEMENT avec un JSON valide contenant :
+- "passed" : true si le message est acceptable, false s'il contient du contenu haineux, violent, illégal ou contraire à l'éthique
+- "reason" : courte explication de la décision de modération${intentField}${siteCtx}
+
+Message : "${text.replace(/"/g,"'")}"
+
+Réponds UNIQUEMENT avec le JSON, sans markdown ni explication supplémentaire.`;
+    const parts = [{ text: promptText }];
     if(photoBase64&&photoBase64.startsWith('data:image')){
       const [meta,data]=photoBase64.split(',');
-      const mime=meta.match(/data:(.*);/)?.[1]||'image/jpeg';
-      parts.push({ inlineData:{ mimeType:mime, data:data } });
+      parts.push({ inlineData:{ mimeType:meta.match(/data:(.*);/)?.[1]||'image/jpeg', data } });
     }
     try{
       const json = await geminiPost(apiKey,{ contents:[{ parts }] });
-      const raw = json.candidates?.[0]?.content?.parts?.[0]?.text||'';
-      const clean = raw.replace(/```json\n?/g,'').replace(/```/g,'').trim();
-      try{ return JSON.parse(clean); }
-      catch(_){ return { passed:true, reason:'Analyse non parseable — approuvé par défaut.' }; }
+      const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
+      try{
+        const parsed = JSON.parse(raw);
+        return {
+          moderation: { passed: !!parsed.passed, reason: parsed.reason||'' },
+          intent: parsed.intent||'generation'
+        };
+      }catch(_){
+        return { moderation:{ passed:true, reason:'Non parseable — approuvé.' }, intent:'generation' };
+      }
     }catch(e){
       if(String(e).includes('RATE_LIMIT')){
-        // Fallback : modération locale si Gemini reste KO
         toast('Gemini indisponible — modération locale activée.','info');
-        return localModerate(text);
+        const loc = localModerate(text);
+        return { moderation: loc, intent:'generation' };
       }
       throw e;
     }
@@ -6117,23 +6143,6 @@ DOCUMENTS
       }
       throw e;
     }
-  }
-
-  async function callGeminiClassifyIntent(text, existingSiteHtml, apiKey){
-    const siteText = existingSiteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,600);
-    const prompt = `Tu es un classificateur d'intentions. Un client d'une agence web envoie un message. Détermine si c'est :
-- "question" : il pose une question sur son site existant, demande une information, un résumé, une explication à propos du contenu existant.
-- "generation" : il demande la création, la modification ou la génération d'un nouveau contenu (site, texte, email, page, section, etc.).
-
-Contenu actuel du site (extrait) : "${siteText.replace(/"/g,"'")}"
-Message : "${text.replace(/"/g,"'")}"
-
-Réponds UNIQUEMENT avec ce JSON valide, sans explication : {"intent":"question"} ou {"intent":"generation"}`;
-    try{
-      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
-      const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
-      try{ return JSON.parse(raw); } catch(_){ return { intent:'generation' }; }
-    }catch(_){ return { intent:'generation' }; } // fallback safe si rate limit
   }
 
   async function callGeminiAnswer(question, existingSiteHtml, projectContext, apiKey){
