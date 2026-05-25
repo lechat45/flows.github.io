@@ -876,6 +876,11 @@
     #discussion-messages::-webkit-scrollbar-track { background:transparent; }
     #discussion-messages::-webkit-scrollbar-thumb { background:rgba(217,119,87,.25); border-radius:99px; }
     #discussion-messages::-webkit-scrollbar-thumb:hover { background:rgba(217,119,87,.45); }
+    #qa-messages::-webkit-scrollbar { width:4px; }
+    #qa-messages::-webkit-scrollbar-track { background:transparent; }
+    #qa-messages::-webkit-scrollbar-thumb { background:rgba(155,184,216,.25); border-radius:99px; }
+    #qa-messages::-webkit-scrollbar-thumb:hover { background:rgba(155,184,216,.45); }
+    @keyframes qa-dot { 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -1636,7 +1641,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
         projectId:null, createdAt:'2024-01-01' },
       { id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
-        projectId:null, createdAt:'2024-01-01', hasDiscussion:true }
+        projectId:null, createdAt:'2024-01-01', hasDiscussion:true, discussionMode:'qa' }
     ],
     projects:[
       { id:'proj1', name:'Site Vitrine Demo', clientId:null,
@@ -2123,7 +2128,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     <div id="login-page">
       <div class="login-card fade-up">
         <div style="text-align:center;margin-bottom:32px;">
-          <div id="login-logo" class="logo" style="font-size:2rem;margin-bottom:6px;cursor:pointer;user-select:none;">flow</div>
+          <img src="logo.png" alt="Flow" style="width:96px;height:96px;object-fit:cover;border-radius:18px;margin-bottom:10px;cursor:pointer;" id="login-logo" onclick="showWhatsNew&&showWhatsNew()">
           <p style="color:rgba(244,238,229,.45);font-size:.875rem;">Plateforme de gestion de projet</p>
         </div>
         ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${errMsg}</div>`:''}
@@ -2433,11 +2438,14 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     return `
     <div id="sidebar" class="glass-dark" role="navigation" aria-label="Navigation principale">
       <div class="logo-wrap" style="margin-bottom:28px;padding:0 4px;">
-        <div style="display:flex;align-items:baseline;gap:0;">
-          <button onclick="showWhatsNew()" class="logo" style="background:none;border:none;cursor:pointer;padding:0;font-family:'Instrument Serif',serif;font-size:1.7rem;font-weight:400;letter-spacing:-.025em;color:var(--ink);">flow</button>
-          <span style="font-size:.6rem;color:var(--ink-4);margin-left:6px;position:relative;top:-4px;">v${APP_VERSION}</span>
-        </div>
-        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace ${roleLabel(me.role)}</p>
+        <button onclick="showWhatsNew()" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:10px;">
+          <img src="logo.png" alt="Flow" style="width:38px;height:38px;object-fit:cover;border-radius:9px;flex-shrink:0;">
+          <div style="text-align:left;">
+            <div style="font-family:'Instrument Serif',serif;font-size:1.25rem;font-weight:400;color:var(--ink);letter-spacing:-.02em;line-height:1;">flow</div>
+            <div style="font-size:.6rem;color:var(--ink-4);">v${APP_VERSION}</div>
+          </div>
+        </button>
+        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:6px;">Espace ${roleLabel(me.role)}</p>
       </div>
       ${(()=>{
         const pendingCount = (db.pendingUsers||[]).length;
@@ -3624,11 +3632,14 @@ DOCUMENTS
     return `
     <div id="sidebar" class="glass-dark">
       <div class="logo-wrap" style="margin-bottom:28px;padding:0 4px;">
-        <div style="display:flex;align-items:baseline;gap:0;">
-          <button onclick="showWhatsNew()" class="logo" style="background:none;border:none;cursor:pointer;padding:0;font-family:'Instrument Serif',serif;font-size:1.7rem;font-weight:400;letter-spacing:-.025em;color:var(--ink);">flow</button>
-          <span style="font-size:.6rem;color:var(--ink-4);margin-left:6px;position:relative;top:-4px;">v${APP_VERSION}</span>
-        </div>
-        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:2px;">Espace Client</p>
+        <button onclick="showWhatsNew()" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:10px;">
+          <img src="logo.png" alt="Flow" style="width:38px;height:38px;object-fit:cover;border-radius:9px;flex-shrink:0;">
+          <div style="text-align:left;">
+            <div style="font-family:'Instrument Serif',serif;font-size:1.25rem;font-weight:400;color:var(--ink);letter-spacing:-.02em;line-height:1;">flow</div>
+            <div style="font-size:.6rem;color:var(--ink-4);">v${APP_VERSION}</div>
+          </div>
+        </button>
+        <p style="font-size:.72rem;color:rgba(244,238,229,.35);margin-top:6px;">Espace Client</p>
       </div>
       ${getClientVisibleTabs().map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}">
@@ -4002,6 +4013,15 @@ DOCUMENTS
         <label class="label">🤖 Instructions IA (ton, contraintes, charte graphique…)</label>
         <textarea id="eu-ai-instr" class="glass-input" placeholder="Ex : Toujours utiliser un ton formel. Couleurs : bleu marine et or. Éviter le jargon technique." style="min-height:72px;">${esc(u.aiInstructions||'')}</textarea>
       </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">💬 Mode Discussion IA</label>
+        <select id="eu-disc-mode" class="glass-input">
+          <option value="">— Désactivé —</option>
+          <option value="qa" ${u.discussionMode==='qa'?'selected':''}>Q&A uniquement — questions sur le projet</option>
+          <option value="full" ${u.discussionMode==='full'||(!u.discussionMode&&u.hasDiscussion&&u.discussionMode!=='qa')?'selected':''}>Complet — génération + Q&A</option>
+        </select>
+        <div style="font-size:.72rem;color:var(--ink-4);margin-top:4px;">Q&A : Gemini répond aux questions, sans créer ni modifier de code.</div>
+      </div>
       <div style="margin-bottom:14px;"><label class="label">Lien site web</label><input id="eu-url" class="glass-input" placeholder="https://..." value="${esc(projects.find(p=>p.clientId===u.id)?.websiteUrl||'')}" /></div>
       ${isAdmin?`
       <div style="margin-bottom:14px;">
@@ -4047,6 +4067,9 @@ DOCUMENTS
         u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.role=role; u.phone=phone; u.sector=sector;
         u.internalNotes = document.getElementById('eu-notes')?.value.trim()||'';
         u.aiInstructions = document.getElementById('eu-ai-instr')?.value.trim()||'';
+        const discMode = document.getElementById('eu-disc-mode')?.value||'';
+        u.discussionMode = discMode;
+        u.hasDiscussion = !!discMode;
 
         const applyEdit=()=>{
           if(isAdmin){
@@ -5659,6 +5682,8 @@ DOCUMENTS
   //  DISCUSSION — Client (teste1)
   // ════════════════════════════════════════════════
   function renderClientDiscussion(){
+    const _discUser = db.users.find(u=>u.id===me.id)||me;
+    if(_discUser.discussionMode==='qa') return renderClientDiscussionQA();
     const reqs = (db.aiRequests||[]).filter(r=>r.clientId===me.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
     const statusLabel = {
       'pending_moderation': '⏳ Votre demande est enregistrée — modération en cours...',
@@ -5783,6 +5808,163 @@ DOCUMENTS
         </div>
       </div>
     </div>`;
+  }
+
+  /* ── Discussion Q&A mode (teste clients) ─────────────────────── */
+  function renderClientDiscussionQA(){
+    const qaReqs = (db.aiRequests||[])
+      .filter(r=>r.clientId===me.id && r.status==='answered' && r.geminiAnswer)
+      .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    const panel = document.getElementById('client-discussion-panel');
+    if(!panel) return;
+    panel.innerHTML = `
+      <div style="display:flex;flex-direction:column;height:100%;gap:0;">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--peach));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">💬</div>
+          <div>
+            <div style="font-size:.95rem;font-weight:700;color:var(--ink-1);">Assistant projet</div>
+            <div style="font-size:.73rem;color:var(--ink-4);">Posez vos questions sur votre projet</div>
+          </div>
+        </div>
+        <!-- Disclaimer -->
+        <div style="margin:12px 16px 0;padding:10px 13px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.18);border-radius:10px;flex-shrink:0;">
+          <div style="font-size:.78rem;color:var(--sky);line-height:1.55;">ℹ️ Posez vos questions sur l'avancement du projet, le code ou le site. Les demandes de modification ou de création ne sont pas traitées ici.</div>
+        </div>
+        <!-- Messages -->
+        <div id="qa-messages" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0;">
+          ${qaReqs.length===0
+            ? `<div style="text-align:center;color:var(--ink-4);font-size:.83rem;margin-top:32px;">Aucune conversation pour l'instant.<br>Commencez par poser une question ! 👇</div>`
+            : qaReqs.map(r=>`
+              <!-- Question -->
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                <div style="max-width:80%;background:var(--coral);color:#fff;border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:.875rem;line-height:1.55;">${esc(r.originalMessage)}</div>
+                <div style="font-size:.68rem;color:var(--ink-4);">${(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
+              </div>
+              <!-- Answer -->
+              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                  <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;">✨</div>
+                  <span style="font-size:.72rem;color:var(--sky);font-weight:600;">Assistant IA</span>
+                </div>
+                <div style="max-width:85%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:11px 14px;font-size:.875rem;color:var(--ink-2);line-height:1.65;white-space:pre-wrap;">${esc(r.geminiAnswer)}</div>
+              </div>
+            `).join('')}
+          <div id="qa-typing" style="display:none;align-items:flex-start;gap:6px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;">✨</div>
+            <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:10px 14px;">
+              <span style="display:inline-flex;gap:4px;align-items:center;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .0s infinite;display:inline-block;"></span>
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .2s infinite;display:inline-block;"></span>
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .4s infinite;display:inline-block;"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <!-- Input -->
+        <div style="padding:12px 16px 16px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <div style="flex:1;position:relative;">
+              <textarea id="qa-input" maxlength="500" placeholder="Posez une question sur votre projet…" rows="2"
+                style="width:100%;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px 24px;font-size:.875rem;color:var(--ink-1);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s;"
+                onfocus="this.style.borderColor='rgba(155,184,216,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"></textarea>
+              <span id="qa-char-count" style="position:absolute;bottom:7px;right:10px;font-size:.68rem;color:var(--ink-4);">0 / 500</span>
+            </div>
+            <button id="qa-send-btn" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;align-self:flex-end;">Envoyer</button>
+          </div>
+        </div>
+      </div>`;
+    // Scroll to bottom
+    const msgs = document.getElementById('qa-messages');
+    if(msgs) msgs.scrollTop = msgs.scrollHeight;
+    wireClientDiscussionQA();
+  }
+
+  function wireClientDiscussionQA(){
+    const input = document.getElementById('qa-input');
+    const sendBtn = document.getElementById('qa-send-btn');
+    const charCount = document.getElementById('qa-char-count');
+    if(!input || !sendBtn) return;
+    if(charCount){
+      input.addEventListener('input',()=>{
+        const len = input.value.length;
+        charCount.textContent = `${len} / 500`;
+        charCount.style.color = len>=500 ? 'var(--coral)' : len>=425 ? 'var(--peach)' : 'var(--ink-4)';
+      });
+    }
+    const doSend = async ()=>{
+      const text = input.value.trim();
+      if(!text) return;
+      if(text.length > 500){ toast('Question trop longue (max 500 caractères).','error'); return; }
+      const geminiKey = db.aiConfig && db.aiConfig.geminiKey;
+      if(!geminiKey){
+        toast('L\'assistant IA n\'est pas configuré. Contactez votre équipe.','error'); return;
+      }
+      input.value=''; if(charCount) charCount.textContent='0 / 500';
+      input.disabled=true; sendBtn.disabled=true;
+      // Show typing indicator
+      const typing = document.getElementById('qa-typing');
+      if(typing){ typing.style.display='flex'; const msgs=document.getElementById('qa-messages'); if(msgs) msgs.scrollTop=msgs.scrollHeight; }
+      // Build project context
+      const proj = (db.projects||[]).find(p=>p.clientId===me.id);
+      const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
+      const siteHtml = lastCompleted ? lastCompleted.claudeResponse : '';
+      try{
+        const answer = await callGeminiQA(text, proj||null, siteHtml, geminiKey);
+        // Store as answered request
+        const reqId = 'qa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+        const req = {
+          id:reqId, clientId:me.id, type:'qa',
+          originalMessage:text, status:'answered', geminiAnswer:answer,
+          createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+        };
+        if(!db.aiRequests) db.aiRequests=[];
+        db.aiRequests.push(req);
+        saveDB();
+        toast('Réponse reçue !','success');
+      } catch(err){
+        const msg = String(err).includes('RATE_LIMIT')||String(err).includes('rate limit')
+          ? 'Assistant temporairement indisponible. Réessayez dans quelques secondes.'
+          : 'Impossible d\'obtenir une réponse : '+String(err).substring(0,80);
+        toast(msg,'error');
+      } finally {
+        input.disabled=false; sendBtn.disabled=false; input.focus();
+        refreshClientTab();
+      }
+    };
+    sendBtn.addEventListener('click', doSend);
+    input.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); doSend(); } });
+  }
+
+  async function callGeminiQA(question, project, siteHtml, apiKey){
+    const siteText = siteHtml ? siteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,2500) : '';
+    const ctxParts = [];
+    if(project){
+      if(project.name)        ctxParts.push(`Nom du projet : ${project.name}`);
+      if(project.status)      ctxParts.push(`Statut : ${project.status}`);
+      if(project.progress!=null) ctxParts.push(`Avancement : ${project.progress}%`);
+      if(project.currentStep) ctxParts.push(`Étape en cours : ${project.currentStep}`);
+      if(project.tags)        ctxParts.push(`Technologies : ${project.tags}`);
+    }
+    const requests = (db.aiRequests||[]).filter(r=>r.clientId===(me&&me.id||''));
+    const completed = requests.filter(r=>r.status==='completed').length;
+    const pending   = requests.filter(r=>['pending_moderation','pending_admin','approved','processing'].includes(r.status)).length;
+    if(completed) ctxParts.push(`Livrables finalisés : ${completed}`);
+    if(pending)   ctxParts.push(`Demandes en cours : ${pending}`);
+    const ctxBlock = ctxParts.length ? `\n\nContexte projet :\n${ctxParts.join('\n')}` : '';
+    const siteBlock = siteText ? `\n\nContenu textuel du site actuel :\n"${siteText.replace(/"/g,"'")}"` : '\n\n(Aucun site généré pour l\'instant.)';
+    const prompt = `Tu es l'assistant projet d'une agence web qui travaille pour ce client. Ton rôle est UNIQUEMENT de répondre à des questions d'information sur le projet, l'avancement, le code ou le site existant. Tu NE dois PAS générer, modifier ou créer du code, même si le client le demande — dans ce cas, réponds poliment que les modifications passent par l'équipe.${ctxBlock}${siteBlock}
+
+Question du client : "${question.replace(/"/g,"'")}"
+
+Réponds directement en français, de façon claire et concise. Si la question demande une modification ou création de code/site, refuse poliment et explique que les demandes de modification doivent être soumises via le formulaire principal.`;
+    try{
+      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
+      return json.candidates?.[0]?.content?.parts?.[0]?.text || 'Désolé, je ne peux pas répondre pour le moment.';
+    } catch(e){
+      if(String(e).includes('RATE_LIMIT')) throw new Error('RATE_LIMIT');
+      throw e;
+    }
   }
 
   function wireClientDiscussion(){
