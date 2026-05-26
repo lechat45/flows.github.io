@@ -583,9 +583,9 @@
     /* Kebab dropdown menu */
     .kebab-wrap { position: relative; }
     .kebab-menu {
-      display: none; position: absolute; right: 0; top: calc(100% + 6px);
+      display: none; position: fixed; right: 0; top: 0;
       background: var(--bg-1); border: 1px solid var(--glass-edge-hi);
-      border-radius: 14px; padding: 6px; min-width: 180px; z-index: 300;
+      border-radius: 14px; padding: 6px; min-width: 180px; z-index: 9999;
       box-shadow: var(--shadow-lg);
       backdrop-filter: blur(24px) saturate(160%);
       -webkit-backdrop-filter: blur(24px) saturate(160%);
@@ -602,6 +602,8 @@
     .kebab-item.kebab-danger { color: #f08a8a; }
     .kebab-item.kebab-danger:hover { background: rgba(220,80,80,.14); color: #f08a8a; }
     .kebab-divider { height: 1px; background: var(--glass-edge); margin: 4px 2px; }
+    /* Perf: skip layout/paint of off-screen doc panels */
+    .client-doc-panel-wrap { content-visibility: auto; contain-intrinsic-size: 0 320px; }
 
     /* ═══════════════════════════════════════════════
        PROFILE GRID
@@ -1838,7 +1840,15 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     ? `<img src="${esc(u.photo)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;" />`
     : `<div class="avatar" style="width:72px;height:72px;font-size:1.4rem;background:${avatarColor(u)}">${initials(u)}</div>`;
   const avatarColors=['linear-gradient(135deg,#d97757,#c25a3a)','linear-gradient(135deg,#9bb8d8,#6f8db0)','linear-gradient(135deg,#a8c4a9,#10b981)','linear-gradient(135deg,#e88aa6,#ec4899)','linear-gradient(135deg,#9bb8d8,#3b82f6)'];
-  function avatarColor(u){ let h=0; for(let c of (u.id||'x')) h=(h*31+c.charCodeAt(0))&0xffff; return avatarColors[h%avatarColors.length]; }
+  const _avatarColorCache = new Map();
+  function avatarColor(u){
+    const id = u.id||'x';
+    if(_avatarColorCache.has(id)) return _avatarColorCache.get(id);
+    let h=0; for(let c of id) h=(h*31+c.charCodeAt(0))&0xffff;
+    const v = avatarColors[h%avatarColors.length];
+    _avatarColorCache.set(id, v);
+    return v;
+  }
 
   function logActivity(type, description){
     if(!db.activityLog) db.activityLog = [];
@@ -2088,7 +2098,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
         });
         prevFilledDocIds = new Set(nowFilled.map(d=>d.id));
       }
-      if(me){ me = db.users.find(u=>u.id===me.id)||me; clearTimeout(_refreshTimer); _refreshTimer=setTimeout(()=>{ if(me.role==='client') refreshClientTab(); else refreshAdminTab(); },300); }
+      if(me){ me = db.users.find(u=>u.id===me.id)||me; clearTimeout(_refreshTimer); _refreshTimer=setTimeout(()=>{ if(me.role==='client') refreshClientTab(); else refreshAdminTab(); },500); }
     });
   }
 
@@ -2270,25 +2280,6 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     document.getElementById('li-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
     document.getElementById('li-user').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('li-pass').focus(); });
 
-    // Triple-clic sur le logo → accès rapide compte test
-    let _logoTaps = 0, _logoTimer = null;
-    const logo = document.getElementById('login-logo');
-    if(logo) logo.addEventListener('click', ()=>{
-      _logoTaps++;
-      clearTimeout(_logoTimer);
-      _logoTimer = setTimeout(()=>{ _logoTaps = 0; }, 1200);
-      if(_logoTaps >= 3){
-        _logoTaps = 0;
-        logo.style.transition = 'color .15s';
-        logo.style.color = 'var(--coral)';
-        setTimeout(()=>{ logo.style.color = ''; }, 400);
-        const userField = document.getElementById('li-user');
-        const passField = document.getElementById('li-pass');
-        if(userField) userField.value = 'teste1';
-        if(passField) passField.value = 'teste1';
-        setTimeout(doLogin, 180);
-      }
-    });
   }
 
   // ════════════════════════════════════════════════
@@ -3278,7 +3269,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
   }
 
   function wireAdminDocuments(){
-    // Kebab menu toggle
+    // Kebab menu toggle — position:fixed so it escapes overflow:hidden glass-card
     document.querySelectorAll('.kebab-btn').forEach(btn=>{
       btn.addEventListener('click',(e)=>{
         e.stopPropagation();
@@ -3287,7 +3278,18 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
         if(!menu) return;
         const isOpen = menu.classList.contains('open');
         document.querySelectorAll('.kebab-menu.open').forEach(m=>m.classList.remove('open'));
-        if(!isOpen) menu.classList.add('open');
+        if(!isOpen){
+          const rect = btn.getBoundingClientRect();
+          menu.style.top  = (rect.bottom + 6) + 'px';
+          menu.style.right = (window.innerWidth - rect.right) + 'px';
+          menu.style.left  = 'auto';
+          // Clamp to viewport bottom
+          menu.classList.add('open');
+          const mRect = menu.getBoundingClientRect();
+          if(mRect.bottom > window.innerHeight - 8){
+            menu.style.top = (rect.top - mRect.height - 6) + 'px';
+          }
+        }
       });
     });
     if(!window._kebabCloseWired){
