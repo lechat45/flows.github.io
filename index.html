@@ -10,7 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Flow" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="manifest" href="/manifest.json" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <link rel="icon" type="image/png" href="logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -1708,7 +1710,8 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     if(!Array.isArray(db.pendingUsers)) db.pendingUsers = [];
     if(!Array.isArray(db.blockedAccounts)) db.blockedAccounts = [];
     if(!Array.isArray(db.docTemplates)) db.docTemplates = [];
-    if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { geminiKey:'', claudeKey:'' };
+    if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { geminiKey:'' };
+    if('claudeKey' in (db.aiConfig||{})) delete db.aiConfig.claudeKey;
     if(!Array.isArray(db.aiRequests)) db.aiRequests = [];
     if(!db.users.find(u=>u.id==='u_teste1')){
       db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
@@ -2298,8 +2301,8 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     { id:'finance',        icon:iconFinance(),   label:'Finance'           },
     { id:'requests',       icon:iconRequests(),  label:'Demandes'          },
     { id:'history',        icon:iconHistory(),   label:'Historique'        },
-    { id:'ai-automation',  icon:iconAI(),        label:'Automatisation IA', beta:true },
-    { id:'ai-visual',      icon:iconEye(),       label:'Visuel',            beta:true },
+    { id:'ai-automation',  icon:iconAI(),        label:'Assistant IA' },
+    { id:'ai-visual',      icon:iconEye(),       label:'Sites liés' },
     { id:'profile',        icon:iconProfile(),   label:'Profil'            }
   ];
   function canManageProjects(user=me){ return !!user && (user.role==='admin'||user.role==='controller'); }
@@ -2421,11 +2424,9 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       { id:'documents', icon:iconDocs(),    label:'Documents' },
       { id:'profile',   icon:iconProfile(), label:'Profil'    }
     ];
-    if(me && me.hasDiscussion){
-      const seen = JSON.parse(localStorage.getItem('flow_ai_seen_ids')||'[]');
-      const newCount = (db.aiRequests||[]).filter(r=>r.clientId===me.id&&r.status==='completed'&&!seen.includes(r.id)).length;
-      const badgeHtml = newCount>0?` <span style="background:rgba(217,119,87,.9);color:#fff;border-radius:999px;font-size:.55rem;padding:1px 5px;font-weight:700;vertical-align:middle;">${newCount}</span>`:'';
-      base.splice(1,0,{ id:'discussion', icon:iconChat(), label:`Discussion${badgeHtml}`, beta:true });
+    const _discProject = getUserProject(me.id);
+    if(_discProject && _discProject.siteHtml){
+      base.splice(1,0,{ id:'discussion', icon:iconChat(), label:'Discussion', beta:true });
     }
     return base;
   }
@@ -3181,7 +3182,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
         ${avatar(u)}
         <div style="flex:1;">
           <div style="font-weight:600;">${esc(u.username)}</div>
-          <div style="font-size:.78rem;color:rgba(244,238,229,.4);">${project?esc(project.name):'Aucun projet'}</div>
+          <div style="font-size:.78rem;color:rgba(244,238,229,.4);">${project?esc(project.name):'Aucun projet'}${project&&project.siteHtml?` <span style="font-size:.62rem;background:rgba(147,181,148,.15);border:1px solid rgba(147,181,148,.3);color:var(--sage);border-radius:999px;padding:1px 6px;vertical-align:middle;">🌐 Site lié</span>`:''}</div>
           ${project&&project.description?`<div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;">${esc(project.description)}</div>`:''}
           ${project&&project.tags&&project.tags.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${project.tags.map(tag=>`<span style="font-size:.68rem;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);">${esc(tag)}</span>`).join('')}</div>`:''}
         </div>
@@ -3196,6 +3197,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
               <button class="kebab-item btn-text-summary" data-pid="${project.id}" data-uid="${u.id}">📝 Résumé texte</button>
               <button class="kebab-item btn-dup-project" data-pid="${project.id}">📋 Dupliquer</button>
               <button class="kebab-item btn-deliver-files" data-pid="${project.id}">${project.deliverable?'📦 Remplacer la livraison':'📦 Livrer les fichiers'}</button>
+              <button class="kebab-item btn-link-site" data-pid="${project.id}">${project.siteHtml?'🌐 Remplacer le site lié':'🌐 Lier le fichier site'}</button>
               <div class="kebab-divider"></div>
               <button class="kebab-item btn-archive-project" data-pid="${project.id}">🗄️ Archiver</button>
               <button class="kebab-item kebab-danger btn-del-project" data-pid="${project.id}">🗑 Supprimer</button>
@@ -3407,6 +3409,9 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     });
     document.querySelectorAll('.btn-deliver-files').forEach(b=>{
       b.addEventListener('click',()=>openDeliverFilesModal(b.dataset.pid));
+    });
+    document.querySelectorAll('.btn-link-site').forEach(b=>{
+      b.addEventListener('click',()=>openLinkSiteModal(b.dataset.pid));
     });
 
     // Relance client — génère un message de rappel et copie dans le presse-papier
@@ -3698,7 +3703,7 @@ DOCUMENTS
   function wireClientTabContent(){
     if(activeTab==='home')       wireClientHome();
     if(activeTab==='documents')  wireClientDocuments();
-    if(activeTab==='discussion') wireClientDiscussion();
+    if(activeTab==='discussion'){ wireClientDiscussionQA(); const m=document.getElementById('qa-messages'); if(m) m.scrollTop=m.scrollHeight; }
     if(activeTab==='profile')    wireClientProfile();
     renderMobileTabbar('client');
   }
@@ -4013,14 +4018,8 @@ DOCUMENTS
         <label class="label">🤖 Instructions IA (ton, contraintes, charte graphique…)</label>
         <textarea id="eu-ai-instr" class="glass-input" placeholder="Ex : Toujours utiliser un ton formel. Couleurs : bleu marine et or. Éviter le jargon technique." style="min-height:72px;">${esc(u.aiInstructions||'')}</textarea>
       </div>
-      <div style="margin-bottom:14px;">
-        <label class="label">💬 Mode Discussion IA</label>
-        <select id="eu-disc-mode" class="glass-input">
-          <option value="">— Désactivé —</option>
-          <option value="qa" ${u.discussionMode==='qa'?'selected':''}>Q&A uniquement — questions sur le projet</option>
-          <option value="full" ${u.discussionMode==='full'||(!u.discussionMode&&u.hasDiscussion&&u.discussionMode!=='qa')?'selected':''}>Complet — génération + Q&A</option>
-        </select>
-        <div style="font-size:.72rem;color:var(--ink-4);margin-top:4px;">Q&A : Gemini répond aux questions, sans créer ni modifier de code.</div>
+      <div style="margin-bottom:14px;padding:10px 12px;background:rgba(155,184,216,.06);border:1px solid rgba(155,184,216,.15);border-radius:10px;">
+        <div style="font-size:.78rem;color:var(--sky);">💬 Discussion IA — activée automatiquement lorsqu'un fichier site est lié au projet client (via ⋮ → 🌐 Lier le fichier site).</div>
       </div>
       <div style="margin-bottom:14px;"><label class="label">Lien site web</label><input id="eu-url" class="glass-input" placeholder="https://..." value="${esc(projects.find(p=>p.clientId===u.id)?.websiteUrl||'')}" /></div>
       ${isAdmin?`
@@ -4067,9 +4066,6 @@ DOCUMENTS
         u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.role=role; u.phone=phone; u.sector=sector;
         u.internalNotes = document.getElementById('eu-notes')?.value.trim()||'';
         u.aiInstructions = document.getElementById('eu-ai-instr')?.value.trim()||'';
-        const discMode = document.getElementById('eu-disc-mode')?.value||'';
-        u.discussionMode = discMode;
-        u.hasDiscussion = !!discMode;
 
         const applyEdit=()=>{
           if(isAdmin){
@@ -4193,6 +4189,85 @@ DOCUMENTS
         logActivity('delivery_uploaded','Fichiers livrés pour : '+p.name+' ('+fileData.name+')');
         saveDB();
         toast('Fichiers livrés à '+p.name+' !','success');
+        closeModal(); refreshAdminTab();
+      });
+    });
+  }
+
+  function openLinkSiteModal(projectId){
+    const p = db.projects.find(x=>x.id===projectId);
+    if(!p) return;
+    const client = p.clientId ? db.users.find(u=>u.id===p.clientId) : null;
+    showModal(`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <h2 style="font-size:1.1rem;font-weight:700;">🌐 Lier le fichier site</h2>
+        <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+      <p style="font-size:.85rem;color:var(--ink-3);margin-bottom:6px;">Projet : <strong>${esc(p.name)}</strong>${client?` · Client : <strong>${esc(client.username)}</strong>`:''}</p>
+      <p style="font-size:.78rem;color:var(--ink-4);margin-bottom:18px;">Une fois le fichier lié, l'onglet Discussion s'activera automatiquement pour le client. Il pourra poser des questions à Gemini sur ce site.</p>
+      ${p.siteHtml?`<div style="background:rgba(147,181,148,.1);border:1px solid rgba(147,181,148,.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+        <span>✅</span>
+        <span style="font-size:.82rem;color:#b6d1b7;flex:1;">Fichier site déjà lié (${(p.siteHtml.length/1024).toFixed(0)} Ko)</span>
+        <button id="btn-unlink-site" class="btn btn-danger btn-sm" style="flex-shrink:0;">✕ Délier</button>
+      </div>`:''}
+      <div style="border:2px dashed var(--glass-edge-hi);border-radius:14px;padding:24px;text-align:center;margin-bottom:16px;" id="site-drop-zone">
+        <div style="font-size:1.8rem;margin-bottom:8px;">🗂</div>
+        <div style="font-size:.875rem;color:var(--ink-2);margin-bottom:10px;">Glissez votre fichier <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.html</code> ici ou</div>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer;">Choisir un fichier<input type="file" id="site-file-input" accept=".html,text/html" style="display:none;" /></label>
+        <div id="site-file-info" style="margin-top:12px;font-size:.82rem;color:var(--ink-3);"></div>
+      </div>
+      <div id="site-link-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button>
+        <button id="site-link-save" class="btn btn-primary" style="flex:1;justify-content:center;" disabled>🔗 Lier ce fichier</button>
+      </div>`,
+    ()=>{
+      let htmlContent = null;
+      const input = document.getElementById('site-file-input');
+      const info  = document.getElementById('site-file-info');
+      const saveBtn = document.getElementById('site-link-save');
+      const msg   = document.getElementById('site-link-msg');
+      const MAX_HTML = 2 * 1024 * 1024; // 2MB HTML max
+
+      function showMsg(el,txt,type){
+        el.style.display='block';
+        el.style.background=type==='error'?'rgba(240,138,138,.12)':'rgba(147,181,148,.12)';
+        el.style.border='1px solid '+(type==='error'?'rgba(240,138,138,.3)':'rgba(147,181,148,.3)');
+        el.style.color=type==='error'?'#f08a8a':'#b6d1b7';
+        el.textContent=txt;
+      }
+
+      function handleFile(file){
+        if(!file) return;
+        if(file.size > MAX_HTML){ showMsg(msg,'Fichier trop volumineux (max 2 Mo).','error'); return; }
+        if(!file.name.endsWith('.html') && file.type!=='text/html'){ showMsg(msg,'Seuls les fichiers .html sont acceptés.','error'); return; }
+        info.innerHTML = `<span style="color:var(--sage);">✓</span> ${esc(file.name)} — ${(file.size/1024).toFixed(0)} Ko`;
+        const reader = new FileReader();
+        reader.onload = e=>{ htmlContent = e.target.result; saveBtn.disabled=false; showMsg(msg,'Fichier prêt à être lié.','success'); };
+        reader.onerror = ()=>showMsg(msg,'Erreur de lecture.','error');
+        reader.readAsText(file,'UTF-8');
+      }
+
+      input.addEventListener('change',()=>handleFile(input.files[0]));
+      const dropZone = document.getElementById('site-drop-zone');
+      dropZone.addEventListener('dragover',e=>{ e.preventDefault(); dropZone.style.borderColor='var(--coral)'; });
+      dropZone.addEventListener('dragleave',()=>{ dropZone.style.borderColor=''; });
+      dropZone.addEventListener('drop',e=>{ e.preventDefault(); dropZone.style.borderColor=''; handleFile(e.dataTransfer.files[0]); });
+
+      document.getElementById('btn-unlink-site')?.addEventListener('click',()=>{
+        if(!confirm('Délier le fichier site ? Le client n\'aura plus accès à l\'onglet Discussion.')) return;
+        p.siteHtml = null; p.siteLinkedAt = null;
+        saveDB(); toast('Fichier site délié.','info'); closeModal(); refreshAdminTab();
+      });
+
+      saveBtn.addEventListener('click',()=>{
+        if(!htmlContent){ showMsg(msg,'Aucun fichier sélectionné.','error'); return; }
+        saveBtn.disabled=true; saveBtn.textContent='Enregistrement…';
+        p.siteHtml = htmlContent;
+        p.siteLinkedAt = new Date().toISOString();
+        p.siteLinkedBy = me.username;
+        saveDB();
+        toast('Fichier site lié ! L\'onglet Discussion est maintenant actif pour le client.','success');
         closeModal(); refreshAdminTab();
       });
     });
@@ -5434,247 +5509,121 @@ DOCUMENTS
   //  AI AUTOMATION — Admin/Controller
   // ════════════════════════════════════════════════
   function renderAdminAIAutomation(){
-    const config = db.aiConfig || { geminiKey:'', claudeKey:'' };
-    const pending = (db.aiRequests||[]).filter(r=>r.status==='pending_admin').sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    const allReqs = (db.aiRequests||[]).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const config = db.aiConfig || { geminiKey:'' };
+    const allReqs = (db.aiRequests||[]).filter(r=>r.status==='answered').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
     return `<div class="fade-up">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
-        <h1 style="font-size:1.4rem;font-weight:700;">Automatisation IA</h1>
-        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">BÊTA</span>
+        <h1 style="font-size:1.4rem;font-weight:700;">Assistant IA</h1>
       </div>
       <div class="glass-card" style="padding:22px;margin-bottom:20px;">
-        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Configuration API</h2>
-        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:18px;">Ces clés sont utilisées pour les opérations de modération Gemini et de génération Claude.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-          <div>
-            <label class="label">Clé API Google AI Studio (Gemini)</label>
-            <input id="ai-gemini-key" class="glass-input" type="password" placeholder="AIza..." value="${esc(config.geminiKey||'')}"/>
-          </div>
-          <div>
-            <label class="label">Clé API Claude (Anthropic)</label>
-            <input id="ai-claude-key" class="glass-input" type="password" placeholder="sk-ant-..." value="${esc(config.claudeKey||'')}"/>
-          </div>
+        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Configuration Gemini</h2>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:18px;">Clé utilisée pour le Q&A des clients dans l'onglet Discussion.</p>
+        <div style="margin-bottom:16px;">
+          <label class="label">Clé API Google AI Studio (Gemini)</label>
+          <input id="ai-gemini-key" class="glass-input" type="password" placeholder="AIza..." value="${esc(config.geminiKey||'')}"/>
         </div>
-        <button id="btn-save-ai-config" class="btn btn-primary">Enregistrer les clés</button>
-      </div>
-      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-          <div>
-            <h2 style="font-size:.95rem;font-weight:700;">Demandes en attente de validation</h2>
-            <p style="font-size:.8rem;color:var(--ink-3);margin-top:3px;">Prompts reformulés par Gemini, à approuver avant envoi à Claude.</p>
-          </div>
-          ${pending.length>0?`<span style="background:rgba(217,119,87,.9);color:#fff;border-radius:999px;font-size:.7rem;padding:2px 10px;font-weight:700;">${pending.length}</span>`:''}
-        </div>
-        ${pending.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande en attente</div>`:
-          pending.map(r=>`
-          <div data-req-id="${r.id}" style="border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;margin-bottom:14px;background:rgba(255,255,255,.02);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-              <div style="width:32px;height:32px;border-radius:50%;background:rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:var(--sky);flex-shrink:0;">${esc((r.clientUsername||'?')[0].toUpperCase())}</div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:.875rem;font-weight:600;">${esc(r.clientUsername||'Inconnu')}</div>
-                <div style="font-size:.72rem;color:var(--ink-4);">${(d=>isNaN(d)?'':d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
-              </div>
-              ${r.requestType?`<span style="font-size:.68rem;background:rgba(155,184,216,.14);border:1px solid rgba(155,184,216,.28);color:var(--sky);padding:2px 8px;border-radius:999px;">${{site:'🌐 Site',text:'✍️ Texte',email:'📧 Email',resume:'📋 Résumé',analyse:'📊 Analyse'}[r.requestType]||r.requestType}</span>`:''}
-              ${r.isRevision?`<span style="font-size:.68rem;background:rgba(240,169,136,.14);border:1px solid rgba(240,169,136,.28);color:var(--peach);padding:2px 8px;border-radius:999px;">🔄 Révision</span>`:''}
-            </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-size:.7rem;font-weight:600;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Message original</div>
-              <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:.85rem;color:var(--ink-2);line-height:1.5;">${esc(r.originalMessage)}</div>
-              ${r.originalPhoto&&r.originalPhoto.startsWith('data:image/')?`<img src="${r.originalPhoto}" style="max-width:200px;max-height:160px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
-            </div>
-            ${r.projectContext?`
-            <div style="margin-bottom:12px;">
-              <div style="font-size:.7rem;font-weight:600;color:rgba(147,181,148,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Contexte projet injecté</div>
-              <div style="background:rgba(147,181,148,.06);border:1px solid rgba(147,181,148,.18);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--ink-3);line-height:1.7;">
-                ${r.projectContext.name?`<span style="color:var(--ink-2);font-weight:600;">${esc(r.projectContext.name)}</span> · `:''}
-                ${r.projectContext.progress!=null?`Avancement ${r.projectContext.progress}%`:''}
-                ${r.projectContext.currentStep?` · ${esc(r.projectContext.currentStep)}`:''}
-                ${r.projectContext.tags?`<br><span style="color:var(--ink-4);">${esc(r.projectContext.tags)}</span>`:''}
-              </div>
-            </div>`:''}
-            ${(()=>{ const u=db.users.find(x=>x.username===r.clientUsername); return u?.aiInstructions?`
-            <div style="margin-bottom:12px;">
-              <div style="font-size:.7rem;font-weight:600;color:rgba(217,119,87,.7);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Instructions IA client</div>
-              <div style="background:rgba(217,119,87,.06);border:1px solid rgba(217,119,87,.18);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--ink-3);">${esc(u.aiInstructions)}</div>
-            </div>`:'' })()}
-            <div style="margin-bottom:14px;">
-              <div style="font-size:.7rem;font-weight:600;color:rgba(155,184,216,.8);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Prompt reformulé par Gemini (modifiable)</div>
-              <textarea id="prompt-edit-${r.id}" class="glass-input" style="min-height:80px;resize:vertical;font-size:.85rem;line-height:1.5;">${esc(r.reformulatedPrompt)}</textarea>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-primary btn-sm btn-ai-accept" data-id="${r.id}" style="flex:1;justify-content:center;">✓ Accepter</button>
-              <button class="btn btn-ghost btn-sm btn-ai-modify" data-id="${r.id}" style="flex:1;justify-content:center;">✏ Modifier & Envoyer</button>
-              <button class="btn btn-ghost btn-sm btn-ai-reject" data-id="${r.id}" style="flex:1;justify-content:center;color:#f08a8a;border-color:rgba(240,138,138,.25);">✕ Refuser</button>
-            </div>
-          </div>`).join('')}
+        <button id="btn-save-ai-config" class="btn btn-primary">Enregistrer la clé</button>
       </div>
       <div class="glass-card" style="padding:22px;">
-        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:16px;">Historique des demandes</h2>
-        ${allReqs.length===0?`<div style="text-align:center;padding:24px 0;color:var(--ink-4);font-size:.875rem;">Aucune demande</div>`:
-          `<div style="display:flex;flex-direction:column;gap:8px;">
-            ${allReqs.map(r=>{
-              const smap={'pending_moderation':'⏳ Modération','moderation_failed':'❌ Non conforme','pending_admin':'🔔 Attente admin','approved':'⏳ En traitement','processing':'⏳ En traitement','completed':'✅ Complété','rejected':'❌ Refusé','error':'⚠ Erreur','answered':'💬 Répondu par IA'};
-              const typeColors={'site':'#4f9cf9','text':'#a78bfa','email':'#34d399','resume':'#f59e0b','analyse':'#f472b6'};
-              const typeLabel={'site':'🌐 Site','text':'✍️ Texte','email':'📧 Email','resume':'📋 Résumé','analyse':'📊 Analyse'};
-              const typeIcon={'site':'🌐','text':'✍️','email':'📧','resume':'📋','analyse':'📊'};
-              if(r.status==='answered' && r.geminiAnswer){
-                const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))(new Date(r.updatedAt||r.createdAt));
-                const preview=r.geminiAnswer.substring(0,80);
-                return `<div class="ai-hist-card" style="display:flex;gap:12px;padding:12px;background:rgba(155,184,216,.04);border:1px solid rgba(155,184,216,.12);border-radius:10px;align-items:flex-start;">
-                  <div style="flex-shrink:0;width:48px;height:48px;border-radius:10px;background:rgba(155,184,216,.12);border:1px solid rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✨</div>
-                  <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-                      <span style="font-size:.825rem;font-weight:700;">${esc(r.clientUsername||'—')}</span>
-                      <span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.3);font-weight:600;">💬 Q&A IA</span>
-                      <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">✨ ${ts}</span>
-                    </div>
-                    <div style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(preview)}${preview.length>=80?'…':''}</div>
-                  </div>
-                </div>`;
-              }
-              if(r.status==='completed' && r.claudeResponse){
-                const initials=(r.clientUsername||'?').substring(0,2).toUpperCase();
-                const color=typeColors[r.requestType]||'#6b7280';
-                const label=typeLabel[r.requestType]||'';
-                const ts=r.completedAt?new Date(r.completedAt).toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-                const preview=r.claudeResponse.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,80);
-                return `<div class="ai-hist-card" style="display:flex;gap:12px;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;align-items:flex-start;">
-                  <div style="flex-shrink:0;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,${color}33,${color}18);border:1px solid ${color}44;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">
-                    ${typeIcon[r.requestType]||'📄'}
-                  </div>
-                  <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-                      <span style="font-size:.825rem;font-weight:700;">${esc(r.clientUsername||'—')}</span>
-                      ${label?`<span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:${color}22;color:${color};border:1px solid ${color}44;font-weight:600;">${label}</span>`:''}
-                      ${r.isRevision?`<span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);font-weight:600;">🔄 Révision</span>`:''}
-                      <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">✅ ${ts}</span>
-                    </div>
-                    <div style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(preview)}${preview.length>=80?'…':''}</div>
-                  </div>
-                </div>`;
-              }
-              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;">
-                <div>
-                  <span style="font-size:.825rem;font-weight:600;">${esc(r.clientUsername||'—')}</span>
-                  <span style="font-size:.78rem;color:var(--ink-4);margin-left:10px;">${esc(r.originalMessage.substring(0,60))}${r.originalMessage.length>60?'…':''}</span>
-                </div>
-                <span style="font-size:.75rem;color:var(--ink-3);white-space:nowrap;margin-left:12px;">${smap[r.status]||r.status}</span>
-              </div>`;
-            }).join('')}
-          </div>`}
+        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Historique Q&A clients</h2>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:16px;">Questions posées par les clients sur leur site.</p>
+        ${allReqs.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune conversation pour l'instant</div>`:`
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${allReqs.slice(0,50).map(r=>{
+            const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt));
+            const preview = r.geminiAnswer ? r.geminiAnswer.substring(0,100) : '';
+            return `<div style="padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                <span style="font-size:.8rem;font-weight:600;">${esc(r.clientUsername||'—')}</span>
+                <span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.3);">💬 Q&A</span>
+                <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">${ts}</span>
+              </div>
+              <div style="font-size:.78rem;color:var(--ink-3);margin-bottom:4px;font-style:italic;">"${esc(r.originalMessage.substring(0,100))}"</div>
+              ${preview?`<div style="font-size:.75rem;color:var(--ink-4);">↳ ${esc(preview)}${preview.length>=100?'…':''}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>`}
       </div>
-    </div>`;
+      </div>`;
   }
 
   function wireAdminAIAutomation(){
-    const seenKey = 'flow_ai_automation_seen';
-    if(!sessionStorage.getItem(seenKey)){
-      sessionStorage.setItem(seenKey,'1');
-      showModal(`
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            ${iconAI()}
-            <h2 style="font-size:1.1rem;font-weight:700;">Automatisation IA — Bêta</h2>
-          </div>
-          <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
-        </div>
-        <p style="font-size:.875rem;color:var(--ink-2);line-height:1.6;margin-bottom:16px;">Cette section vous permet de piloter un <strong>workflow IA en plusieurs étapes</strong> :</p>
-        <ol style="list-style:decimal;padding-left:20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Modération automatique</strong> via Gemini — chaque message client est analysé pour vérifier sa conformité éthique et sécuritaire.</li>
-          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Reformulation intelligente</strong> — Gemini optimise la demande pour maximiser la qualité de la réponse Claude.</li>
-          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Validation humaine</strong> — vous pouvez accepter, modifier ou refuser chaque prompt avant envoi.</li>
-          <li style="font-size:.85rem;color:var(--ink-2);line-height:1.5;"><strong>Génération Claude</strong> — le résultat est affiché dans l'onglet <em>Visuel</em>.</li>
-        </ol>
-        <div style="background:rgba(217,119,87,.08);border:1px solid rgba(217,119,87,.2);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:.82rem;color:var(--ink-2);">
-          ⚠ <strong>Note :</strong> L'API Anthropic (Claude) ne supporte pas les appels directs depuis un navigateur en production. Pour GitHub Pages, un proxy backend est nécessaire. En test local, tout fonctionne normalement.
-        </div>
-        <button onclick="closeModal()" class="btn btn-primary" style="width:100%;justify-content:center;">Compris, allons-y !</button>
-      `);
-    }
     const saveBtn = document.getElementById('btn-save-ai-config');
     if(saveBtn) saveBtn.addEventListener('click',()=>{
       const g = document.getElementById('ai-gemini-key').value.trim();
-      const c = document.getElementById('ai-claude-key').value.trim();
       if(!db.aiConfig) db.aiConfig={};
-      db.aiConfig.geminiKey=g; db.aiConfig.claudeKey=c;
-      saveDB(); toast('Clés API enregistrées.','success');
-    });
-    document.querySelectorAll('.btn-ai-accept').forEach(btn=>{
-      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'accept'));
-    });
-    document.querySelectorAll('.btn-ai-modify').forEach(btn=>{
-      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'modify'));
-    });
-    document.querySelectorAll('.btn-ai-reject').forEach(btn=>{
-      btn.addEventListener('click',()=>adminHandleAIRequest(btn.dataset.id,'reject'));
+      db.aiConfig.geminiKey=g;
+      if('claudeKey' in db.aiConfig) delete db.aiConfig.claudeKey;
+      saveDB(); toast('Clé Gemini enregistrée.','success');
     });
   }
 
   // ════════════════════════════════════════════════
-  //  AI VISUAL — Admin/Controller
+  //  AI VISUAL — Sites liés aux projets
   // ════════════════════════════════════════════════
   function renderAdminAIVisual(){
-    const completed = (db.aiRequests||[]).filter(r=>r.status==='completed').sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+    const linked = (db.projects||[]).filter(p=>p.siteHtml&&!p.archived).sort((a,b)=>new Date(b.siteLinkedAt||b.updatedAt||0)-new Date(a.siteLinkedAt||a.updatedAt||0));
     return `<div class="fade-up">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
-        <h1 style="font-size:1.4rem;font-weight:700;">Visuel</h1>
-        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">BÊTA</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Sites liés</h1>
+        <p style="font-size:.82rem;color:var(--ink-4);">Sites HTML associés à des projets clients</p>
       </div>
-      ${completed.length===0?`
+      ${linked.length===0?`
       <div class="glass-card" style="padding:60px;text-align:center;">
-        <div style="font-size:2.5rem;margin-bottom:16px;">🎨</div>
-        <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">Aucun visuel généré</div>
-        <div style="font-size:.825rem;color:var(--ink-3);">Les sites web créés par Claude s'afficheront ici après approbation d'une demande.</div>
+        <div style="font-size:2.5rem;margin-bottom:16px;">🌐</div>
+        <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">Aucun site lié</div>
+        <div style="font-size:.825rem;color:var(--ink-3);">Utilisez "⋮ → 🌐 Lier le fichier site" sur un projet client pour associer un fichier HTML.</div>
       </div>`:
-      completed.map(r=>`
+      linked.map(p=>{
+        const client = p.clientId ? (db.users.find(u=>u.id===p.clientId)||null) : null;
+        const ts = p.siteLinkedAt ? new Date(p.siteLinkedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        return `
       <div class="glass-card" style="padding:20px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <div>
-            <div style="font-size:.95rem;font-weight:600;">${esc(r.clientUsername||'Client')}</div>
-            <div style="font-size:.75rem;color:var(--ink-4);">${new Date(r.updatedAt||r.createdAt).toLocaleString('fr-FR')}</div>
+            <div style="font-size:.95rem;font-weight:600;">${esc(p.name)}</div>
+            <div style="font-size:.75rem;color:var(--ink-4);">${client?`Client : ${esc(client.username)} · `:''}${ts?`Lié le ${ts}`:''}${p.siteHtml?` · ${(p.siteHtml.length/1024).toFixed(0)} Ko`:''}</div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost btn-sm btn-toggle-visual" data-id="${r.id}">👁 Afficher</button>
-            <button class="btn btn-ghost btn-sm" onclick="downloadVisualHTML('${r.id}')">⬇ HTML</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm btn-toggle-site-visual" data-pid="${p.id}">👁 Aperçu</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadProjectSiteHTML('${p.id}')">⬇ HTML</button>
+            <button class="btn btn-ghost btn-sm" onclick="openLinkSiteModal('${p.id}')" style="color:var(--peach);border-color:rgba(240,169,136,.25);">🔄 Remplacer</button>
           </div>
         </div>
-        <div style="margin-bottom:10px;font-size:.82rem;color:var(--ink-3);background:rgba(255,255,255,.03);border-radius:8px;padding:8px 12px;border:1px solid rgba(255,255,255,.06);">
-          <span style="font-size:.7rem;color:var(--ink-4);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Demande : </span>${esc(r.originalMessage.substring(0,120))}${r.originalMessage.length>120?'…':''}
-        </div>
-        <div id="visual-preview-${r.id}" style="display:none;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;margin-top:12px;">
+        <div id="site-visual-${p.id}" style="display:none;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;margin-top:12px;">
           <div style="position:relative;">
-            <div id="visual-spinner-${r.id}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.7);border-radius:0;z-index:2;"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
-            <iframe id="visual-iframe-${r.id}" style="width:100%;height:540px;border:none;background:#fff;" sandbox="allow-scripts allow-forms allow-popups" onload="document.getElementById('visual-spinner-${r.id}')?.remove()"></iframe>
+            <div id="site-spinner-${p.id}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.7);z-index:2;"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
+            <iframe id="site-iframe-${p.id}" style="width:100%;height:540px;border:none;background:#fff;" sandbox="allow-scripts allow-forms allow-popups" onload="document.getElementById('site-spinner-${p.id}')?.remove()"></iframe>
           </div>
         </div>
-      </div>`).join('')}
+      </div>`;}).join('')}
     </div>`;
   }
 
   function wireAdminAIVisual(){
-    document.querySelectorAll('.btn-toggle-visual').forEach(btn=>{
+    document.querySelectorAll('.btn-toggle-site-visual').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        const id = btn.dataset.id;
-        const wrap = document.getElementById('visual-preview-'+id);
-        const iframe = document.getElementById('visual-iframe-'+id);
+        const pid = btn.dataset.pid;
+        const wrap = document.getElementById('site-visual-'+pid);
+        const iframe = document.getElementById('site-iframe-'+pid);
         if(!wrap) return;
         if(wrap.style.display==='none'){
           wrap.style.display='block';
           btn.textContent='👁 Masquer';
-          const req = (db.aiRequests||[]).find(r=>r.id===id);
-          if(req&&req.claudeResponse&&iframe) iframe.srcdoc = req.claudeResponse;
-        } else { wrap.style.display='none'; btn.textContent='👁 Afficher'; }
+          const proj = db.projects.find(p=>p.id===pid);
+          if(proj&&proj.siteHtml&&iframe) iframe.srcdoc = proj.siteHtml;
+        } else { wrap.style.display='none'; btn.textContent='👁 Aperçu'; }
       });
     });
   }
 
-  function downloadVisualHTML(reqId){
-    const req = (db.aiRequests||[]).find(r=>r.id===reqId);
-    if(!req||!req.claudeResponse){ toast('Aucun contenu à télécharger.','error'); return; }
-    const blob = new Blob([req.claudeResponse],{type:'text/html'});
+  function downloadProjectSiteHTML(projectId){
+    const p = db.projects.find(x=>x.id===projectId);
+    if(!p||!p.siteHtml){ toast('Aucun fichier site à télécharger.','error'); return; }
+    const blob = new Blob([p.siteHtml],{type:'text/html'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'site_'+reqId+'.html';
+    a.download = (p.name||'site').replace(/\s+/g,'_')+'.html';
     a.click(); URL.revokeObjectURL(a.href);
   }
 
@@ -5682,202 +5631,76 @@ DOCUMENTS
   //  DISCUSSION — Client (teste1)
   // ════════════════════════════════════════════════
   function renderClientDiscussion(){
-    const _discUser = db.users.find(u=>u.id===me.id)||me;
-    if(_discUser.discussionMode==='qa') return renderClientDiscussionQA();
-    const reqs = (db.aiRequests||[]).filter(r=>r.clientId===me.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    const statusLabel = {
-      'pending_moderation': '⏳ Votre demande est enregistrée — modération en cours...',
-      'moderation_failed':  '❌ Demande non conforme aux règles de sécurité.',
-      'pending_admin':      '🔔 En attente de validation par l\'équipe.',
-      'approved':           '⏳ Validation reçue — traitement IA en cours...',
-      'processing':         '⏳ Traitement IA en cours...',
-      'rejected':           '❌ Votre demande a été refusée par l\'équipe.',
-      'error':              '⚠ Une erreur est survenue lors du traitement.',
-      'answered':           '💬 Réponse IA reçue.'
-    };
-    const typeLabel = {site:'🌐 Site web',text:'✍️ Rédaction',email:'📧 Email',resume:'📋 Résumé',analyse:'📊 Analyse'};
-    const completedByClient = reqs.filter(r=>r.status==='completed'&&r.claudeResponse);
-    const buildStatusBubble = r => {
-      if(r.status==='answered' && r.geminiAnswer){
-        return `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <div style="width:22px;height:22px;border-radius:50%;background:rgba(155,184,216,.2);display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;">✨</div>
-            <div style="font-size:.8rem;color:var(--sky);font-weight:600;">Réponse IA</div>
-          </div>
-          <div style="font-size:.875rem;color:var(--ink-2);line-height:1.7;white-space:pre-wrap;">${esc(r.geminiAnswer)}</div>`;
-      }
-      if(r.status==='completed' && r.claudeResponse){
-        const vNum = completedByClient.indexOf(r)+1;
-        const comments = r.comments||[];
-        return `
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-            <div style="font-size:.875rem;color:var(--sage);font-weight:600;">${{site:'✅ Votre site est prêt !',text:'✅ Votre texte est prêt !',email:'✅ Votre email est prêt !',resume:'✅ Votre résumé est prêt !',analyse:'✅ Votre analyse est prête !'}[r.requestType]||'✅ Votre livrable est prêt !'}</div>
-            <div style="display:flex;gap:6px;">
-              ${r.requestType&&typeLabel[r.requestType]?`<span style="font-size:.68rem;background:rgba(155,184,216,.14);border:1px solid rgba(155,184,216,.28);color:var(--sky);padding:2px 8px;border-radius:999px;">${typeLabel[r.requestType]}</span>`:''}
-              <span style="font-size:.68rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--ink-3);padding:2px 8px;border-radius:999px;">v${vNum}</span>
-            </div>
-          </div>
-          <button class="btn btn-ghost btn-sm btn-toggle-client-visual" data-id="${r.id}" style="width:100%;justify-content:center;margin-bottom:0;">${{site:'👁 Voir l\'aperçu de mon site',text:'👁 Voir le texte généré',email:'👁 Voir l\'email généré',resume:'👁 Voir le résumé',analyse:'👁 Voir l\'analyse'}[r.requestType]||'👁 Voir le résultat'}</button>
-          <div id="client-visual-${r.id}" style="display:none;margin-top:10px;">
-            <div style="display:flex;gap:4px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:8px 8px 0 0;border:1px solid rgba(255,255,255,.08);border-bottom:none;flex-wrap:wrap;">
-              <button class="btn btn-ghost btn-sm btn-prev-desktop" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Bureau">🖥</button>
-              <button class="btn btn-ghost btn-sm btn-prev-tablet" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Tablette">📟</button>
-              <button class="btn btn-ghost btn-sm btn-prev-mobile" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Mobile">📱</button>
-              <button class="btn btn-ghost btn-sm btn-fullscreen-visual" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;margin-left:auto;" title="Plein écran">⛶</button>
-              <button class="btn btn-ghost btn-sm btn-copy-html" data-id="${r.id}" style="font-size:.68rem;padding:3px 8px;" title="Copier HTML">📋</button>
-              <button class="btn btn-ghost btn-sm" onclick="window.open('https://app.netlify.com/drop','_blank')" style="font-size:.68rem;padding:3px 8px;" title="Netlify Drop">🌐</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadVisualHTML('${r.id}')" style="font-size:.68rem;padding:3px 8px;" title="Télécharger">⬇</button>
-            </div>
-            <div style="border:1px solid rgba(255,255,255,.08);border-radius:0 0 0 0;overflow:hidden;position:relative;">
-              <div id="client-spinner-${r.id}" style="height:460px;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.6);"><div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;"></div></div>
-              <iframe id="client-iframe-${r.id}" style="width:100%;height:460px;border:none;background:#fff;display:none;transition:width .3s;" sandbox="allow-scripts allow-forms allow-popups" onload="(function(el){const sp=document.getElementById('client-spinner-${r.id}');if(sp)sp.remove();el.style.display='block';})(this)"></iframe>
-            </div>
-            <div style="border:1px solid rgba(255,255,255,.08);border-top:none;border-radius:0 0 8px 8px;padding:12px;">
-              <div style="font-size:.72rem;font-weight:600;color:var(--ink-4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">Commentaires (${comments.length})</div>
-              ${comments.length>0?comments.map(c=>`
-                <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-                  <div style="width:24px;height:24px;border-radius:50%;background:rgba(217,119,87,.2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--coral);flex-shrink:0;">${esc((c.author||'?')[0].toUpperCase())}</div>
-                  <div style="flex:1;">
-                    <div style="font-size:.75rem;font-weight:600;color:var(--ink-2);">${esc(c.author||'—')} <span style="font-weight:400;color:var(--ink-4);">${new Date(c.createdAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>
-                    <div style="font-size:.82rem;color:var(--ink-3);line-height:1.5;white-space:pre-wrap;">${esc(c.text)}</div>
-                  </div>
-                </div>`).join(''):'<div style="font-size:.8rem;color:var(--ink-4);margin-bottom:8px;">Aucun commentaire pour l\'instant.</div>'}
-              <div style="display:flex;gap:8px;margin-top:8px;">
-                <textarea id="comment-input-${r.id}" class="glass-input" placeholder="Ajouter un commentaire…" style="flex:1;min-height:44px;max-height:90px;resize:vertical;font-size:.82rem;"></textarea>
-                <button class="btn btn-ghost btn-sm btn-comment-submit" data-id="${r.id}" style="align-self:flex-end;padding:8px 12px;">Envoyer</button>
-              </div>
-            </div>
-            <div style="padding:10px 0 4px;">
-              <button class="btn btn-ghost btn-sm btn-request-revision" data-id="${r.id}" style="width:100%;justify-content:center;font-size:.8rem;color:var(--peach);border-color:rgba(240,169,136,.25);">✏ Demander une révision</button>
-              <div id="revision-form-${r.id}" style="display:none;margin-top:10px;">
-                <textarea id="revision-input-${r.id}" class="glass-input" placeholder="Décrivez les modifications souhaitées…" style="width:100%;min-height:72px;resize:vertical;font-size:.82rem;margin-bottom:8px;"></textarea>
-                <button class="btn btn-primary btn-sm btn-revision-submit" data-id="${r.id}" style="width:100%;justify-content:center;">Envoyer la demande de révision</button>
-              </div>
-            </div>
-          </div>`;
-      }
-      return statusLabel[r.status]||r.status;
-    };
-    return `<div class="fade-up" style="display:flex;flex-direction:column;min-height:calc(100vh - 120px);">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        <h1 style="font-size:1.4rem;font-weight:700;">Discussion</h1>
-        <span style="background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;font-size:.65rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;text-transform:uppercase;">TEST</span>
-      </div>
-      <div class="glass-card" style="padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--ink-3);line-height:1.5;">
-        💬 Décrivez ici votre projet de site web. Notre équipe et l'IA traiteront votre demande et vous prépareront un aperçu visuel personnalisé.
-      </div>
-      <div id="discussion-messages" style="flex:1;display:flex;flex-direction:column;gap:14px;margin-bottom:20px;min-height:160px;overflow-y:auto;">
-        ${reqs.length===0?`<div style="text-align:center;padding:48px 0;color:var(--ink-4);font-size:.875rem;">Envoyez votre première demande ci-dessous pour commencer.</div>`:
-          reqs.map(r=>`
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <div style="display:flex;justify-content:flex-end;">
-              <div style="max-width:78%;background:rgba(155,184,216,.18);border:1px solid rgba(155,184,216,.22);border-radius:14px 14px 4px 14px;padding:10px 14px;">
-                <div style="font-size:.875rem;color:var(--ink-2);line-height:1.5;white-space:pre-wrap;">${esc(r.originalMessage)}</div>
-                ${r.originalPhoto&&r.originalPhoto.startsWith('data:image/')?`<img src="${r.originalPhoto}" style="max-width:100%;max-height:180px;border-radius:8px;margin-top:8px;object-fit:contain;">`:``}
-                <div style="font-size:.7rem;color:var(--ink-4);margin-top:5px;text-align:right;">${(d=>isNaN(d)?'':d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
-              </div>
-            </div>
-            <div style="display:flex;justify-content:flex-start;">
-              <div style="max-width:${r.status==='completed'&&r.claudeResponse?'92':'78'}%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px 14px 14px 4px;padding:${r.status==='completed'&&r.claudeResponse?'14px 16px':'9px 13px'};font-size:.8rem;color:var(--ink-3);${r.status==='completed'&&r.claudeResponse?'width:100%;':''}">
-                ${buildStatusBubble(r)}
-              </div>
-            </div>
-          </div>`).join('')}
-      </div>
-      <div class="glass-card" style="padding:14px;margin-top:auto;">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-          ${[['site','🌐 Site web'],['text','✍️ Rédaction'],['email','📧 Email'],['resume','📋 Résumé'],['analyse','📊 Analyse']].map(([t,l])=>`
-            <button class="disc-type-btn" data-type="${t}" style="font-size:.72rem;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:var(--ink-3);cursor:pointer;transition:all .15s;font-family:inherit;">${l}</button>
-          `).join('')}
-        </div>
-        <div id="discussion-photo-preview" style="display:none;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:10px;align-items:flex-end;">
-          <div style="flex:1;display:flex;flex-direction:column;">
-            <textarea id="discussion-input" class="glass-input" placeholder="Décrivez votre demande…" style="width:100%;min-height:64px;max-height:130px;resize:vertical;font-size:.875rem;" maxlength="2000"></textarea>
-            <div style="display:flex;justify-content:flex-end;margin-top:4px;">
-              <span id="disc-char-count" style="font-size:.68rem;color:var(--ink-4);transition:color .2s;">0 / 2000</span>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;padding:8px 10px;text-align:center;" title="Joindre une photo">
-              📷
-              <input id="discussion-photo-input" type="file" accept="image/*" style="display:none;">
-            </label>
-            <button id="discussion-send-btn" class="btn btn-primary btn-sm" style="padding:8px 14px;">Envoyer</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
+    return renderClientDiscussionQA();
   }
 
-  /* ── Discussion Q&A mode (teste clients) ─────────────────────── */
+  /* ── Discussion Q&A mode ─────────────────────── */
   function renderClientDiscussionQA(){
+    const proj = getUserProject(me.id);
+    if(!proj || !proj.siteHtml){
+      return `<div class="fade-up" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:48px 24px;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:16px;">🌐</div>
+        <div style="font-size:.95rem;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Fichier site non encore lié</div>
+        <div style="font-size:.82rem;color:var(--ink-4);line-height:1.6;max-width:300px;">Votre équipe associera bientôt le fichier de votre site à ce projet. L'assistant sera disponible dès que c'est fait.</div>
+      </div>`;
+    }
     const qaReqs = (db.aiRequests||[])
       .filter(r=>r.clientId===me.id && r.status==='answered' && r.geminiAnswer)
       .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    const panel = document.getElementById('client-discussion-panel');
-    if(!panel) return;
-    panel.innerHTML = `
-      <div style="display:flex;flex-direction:column;height:100%;gap:0;">
-        <!-- Header -->
-        <div style="display:flex;align-items:center;gap:10px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
-          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--peach));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">💬</div>
-          <div>
-            <div style="font-size:.95rem;font-weight:700;color:var(--ink-1);">Assistant projet</div>
-            <div style="font-size:.73rem;color:var(--ink-4);">Posez vos questions sur votre projet</div>
-          </div>
+    return `<div class="fade-up" style="display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:calc(100vh - 120px);">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--peach));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">💬</div>
+        <div>
+          <div style="font-size:.95rem;font-weight:700;color:var(--ink-1);">Assistant projet</div>
+          <div style="font-size:.73rem;color:var(--ink-4);">Posez vos questions sur votre projet</div>
         </div>
-        <!-- Disclaimer -->
-        <div style="margin:12px 16px 0;padding:10px 13px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.18);border-radius:10px;flex-shrink:0;">
-          <div style="font-size:.78rem;color:var(--sky);line-height:1.55;">ℹ️ Posez vos questions sur l'avancement du projet, le code ou le site. Les demandes de modification ou de création ne sont pas traitées ici.</div>
-        </div>
-        <!-- Messages -->
-        <div id="qa-messages" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0;">
-          ${qaReqs.length===0
-            ? `<div style="text-align:center;color:var(--ink-4);font-size:.83rem;margin-top:32px;">Aucune conversation pour l'instant.<br>Commencez par poser une question ! 👇</div>`
-            : qaReqs.map(r=>`
-              <!-- Question -->
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-                <div style="max-width:80%;background:var(--coral);color:#fff;border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:.875rem;line-height:1.55;">${esc(r.originalMessage)}</div>
-                <div style="font-size:.68rem;color:var(--ink-4);">${(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
-              </div>
-              <!-- Answer -->
-              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-                  <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;">✨</div>
-                  <span style="font-size:.72rem;color:var(--sky);font-weight:600;">Assistant IA</span>
-                </div>
-                <div style="max-width:85%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:11px 14px;font-size:.875rem;color:var(--ink-2);line-height:1.65;white-space:pre-wrap;">${esc(r.geminiAnswer)}</div>
-              </div>
-            `).join('')}
-          <div id="qa-typing" style="display:none;align-items:flex-start;gap:6px;">
-            <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;">✨</div>
-            <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:10px 14px;">
-              <span style="display:inline-flex;gap:4px;align-items:center;">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .0s infinite;display:inline-block;"></span>
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .2s infinite;display:inline-block;"></span>
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .4s infinite;display:inline-block;"></span>
-              </span>
+      </div>
+      <!-- Disclaimer -->
+      <div style="margin:12px 0;padding:10px 13px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.18);border-radius:10px;flex-shrink:0;">
+        <div style="font-size:.78rem;color:var(--sky);line-height:1.55;">ℹ️ Posez vos questions sur l'avancement du projet, le code ou le site. Les demandes de modification ne sont pas traitées ici.</div>
+      </div>
+      <!-- Messages -->
+      <div id="qa-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:4px 0 8px;min-height:0;">
+        ${qaReqs.length===0
+          ? `<div style="text-align:center;color:var(--ink-4);font-size:.83rem;margin-top:32px;">Aucune conversation pour l'instant.<br>Commencez par poser une question ! 👇</div>`
+          : qaReqs.map(r=>`
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+              <div style="max-width:80%;background:var(--coral);color:#fff;border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:.875rem;line-height:1.55;">${esc(r.originalMessage)}</div>
+              <div style="font-size:.68rem;color:var(--ink-4);">${(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt))}</div>
             </div>
-          </div>
-        </div>
-        <!-- Input -->
-        <div style="padding:12px 16px 16px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;">
-          <div style="display:flex;gap:8px;align-items:flex-end;">
-            <div style="flex:1;position:relative;">
-              <textarea id="qa-input" maxlength="500" placeholder="Posez une question sur votre projet…" rows="2"
-                style="width:100%;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px 24px;font-size:.875rem;color:var(--ink-1);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s;"
-                onfocus="this.style.borderColor='rgba(155,184,216,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"></textarea>
-              <span id="qa-char-count" style="position:absolute;bottom:7px;right:10px;font-size:.68rem;color:var(--ink-4);">0 / 500</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;">✨</div>
+                <span style="font-size:.72rem;color:var(--sky);font-weight:600;">Assistant IA</span>
+              </div>
+              <div style="max-width:85%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:11px 14px;font-size:.875rem;color:var(--ink-2);line-height:1.65;white-space:pre-wrap;">${esc(r.geminiAnswer)}</div>
             </div>
-            <button id="qa-send-btn" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;align-self:flex-end;">Envoyer</button>
+          `).join('')}
+        <div id="qa-typing" style="display:none;align-items:flex-start;gap:6px;">
+          <div style="width:20px;height:20px;border-radius:50%;background:rgba(155,184,216,.18);display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;">✨</div>
+          <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px 14px 14px 14px;padding:10px 14px;">
+            <span style="display:inline-flex;gap:4px;align-items:center;">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .0s infinite;display:inline-block;"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .2s infinite;display:inline-block;"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .4s infinite;display:inline-block;"></span>
+            </span>
           </div>
         </div>
-      </div>`;
-    // Scroll to bottom
-    const msgs = document.getElementById('qa-messages');
-    if(msgs) msgs.scrollTop = msgs.scrollHeight;
-    wireClientDiscussionQA();
+      </div>
+      <!-- Input -->
+      <div style="padding:12px 0 4px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div style="flex:1;position:relative;">
+            <textarea id="qa-input" maxlength="500" placeholder="Posez une question sur votre projet…" rows="2"
+              style="width:100%;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px 24px;font-size:.875rem;color:var(--ink-1);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s;"
+              onfocus="this.style.borderColor='rgba(155,184,216,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"></textarea>
+            <span id="qa-char-count" style="position:absolute;bottom:7px;right:10px;font-size:.68rem;color:var(--ink-4);">0 / 500</span>
+          </div>
+          <button id="qa-send-btn" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;align-self:flex-end;">Envoyer</button>
+        </div>
+      </div>
+    </div>`;
   }
 
   function wireClientDiscussionQA(){
@@ -5906,9 +5729,8 @@ DOCUMENTS
       const typing = document.getElementById('qa-typing');
       if(typing){ typing.style.display='flex'; const msgs=document.getElementById('qa-messages'); if(msgs) msgs.scrollTop=msgs.scrollHeight; }
       // Build project context
-      const proj = (db.projects||[]).find(p=>p.clientId===me.id);
-      const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
-      const siteHtml = lastCompleted ? lastCompleted.claudeResponse : '';
+      const proj = getUserProject(me.id);
+      const siteHtml = proj ? (proj.siteHtml||'') : '';
       try{
         const answer = await callGeminiQA(text, proj||null, siteHtml, geminiKey);
         // Store as answered request
@@ -6349,55 +6171,6 @@ Réponds directement en français, sans préambule ni répétition de la questio
     }
   }
 
-  async function adminHandleAIRequest(reqId, action){
-    const req=(db.aiRequests||[]).find(r=>r.id===reqId);
-    if(!req) return;
-    if(action==='reject'){
-      req.status='rejected'; req.adminAction='rejected'; req.updatedAt=new Date().toISOString();
-      saveDB(); toast('Demande refusée.','info'); refreshAdminTab(); return;
-    }
-    const editedPrompt = document.getElementById('prompt-edit-'+reqId)?.value?.trim()||req.reformulatedPrompt;
-    if(action==='modify') req.adminModifiedPrompt=editedPrompt;
-    const finalPrompt = action==='modify' ? editedPrompt : req.reformulatedPrompt;
-    req.status='approved'; req.adminAction=action; req.updatedAt=new Date().toISOString();
-    saveDB(); refreshAdminTab();
-    const claudeKey=db.aiConfig&&db.aiConfig.claudeKey;
-    if(!claudeKey){ toast('Clé Claude non configurée.','error'); return; }
-    req.status='processing'; req.updatedAt=new Date().toISOString(); saveDB();
-    try{
-      const html = await callClaudeGenerate(finalPrompt, claudeKey);
-      req.claudeResponse=html; req.status='completed'; req.updatedAt=new Date().toISOString();
-      saveDB(); toast('Site généré ! Voir l\'onglet Visuel.','success'); refreshAdminTab();
-    } catch(err){
-      req.status='error'; req.updatedAt=new Date().toISOString(); saveDB();
-      toast('Erreur Claude : '+err,'error'); refreshAdminTab();
-    }
-  }
-
-  async function callClaudeGenerate(prompt, apiKey){
-    const systemPrompt = `Tu es un expert développeur web. Génère un site web HTML complet, moderne et esthétique en une seule page HTML autonome (tout le CSS et JS inclus dans le fichier). Le site doit être responsive, beau, avec un design soigné. Réponds UNIQUEMENT avec le code HTML complet, sans aucun commentaire avant ou après le code.`;
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-7',
-        max_tokens: 8192,
-        system: systemPrompt,
-        messages:[{ role:'user', content: prompt }]
-      })
-    });
-    if(!resp.ok){
-      const errText = await resp.text().catch(()=>'');
-      throw new Error('HTTP '+resp.status+' — '+errText.substring(0,200));
-    }
-    const json = await resp.json();
-    return json.content?.[0]?.text||'';
-  }
 
   // ════════════════════════════════════════════════
   //  INIT
