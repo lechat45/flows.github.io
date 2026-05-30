@@ -338,7 +338,7 @@
 
     .glass-card {
       background: var(--glass-bg);
-      contain: layout style paint;
+      contain: layout style;
       backdrop-filter: blur(12px) saturate(160%);
       -webkit-backdrop-filter: blur(12px) saturate(160%);
       border: 1px solid var(--glass-edge);
@@ -6294,22 +6294,23 @@ DOCUMENTS
       </div>
       <!-- Input -->
       <div style="padding:10px 0 2px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;">
-        <div style="display:flex;gap:8px;align-items:flex-end;">
+        <div style="display:flex;gap:6px;align-items:flex-end;">
           <div style="flex:1;position:relative;">
             <textarea id="qa-input" maxlength="500"
               placeholder="${inCooldown?`Disponible dans ${cooldownSec}s…`:'Posez une question…'}" rows="1"
-              style="width:100%;resize:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:11px 44px 11px 14px;font-size:.875rem;color:var(--ink);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s,background .2s;min-height:44px;max-height:120px;overflow-y:auto;"
+              style="width:100%;resize:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:11px 14px 11px 14px;font-size:.875rem;color:var(--ink);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s,background .2s;min-height:44px;max-height:120px;overflow-y:auto;"
               onfocus="this.style.borderColor='rgba(155,184,216,.38)';this.style.background='rgba(255,255,255,.07)'"
               onblur="this.style.borderColor='rgba(255,255,255,.10)';this.style.background='rgba(255,255,255,.05)'"
               ${inCooldown?'disabled':''}></textarea>
-            <span id="qa-char-count" style="position:absolute;bottom:8px;right:50px;font-size:.62rem;color:var(--ink-4);pointer-events:none;"></span>
-            <button id="qa-voice-btn" title="Message vocal 🎤" style="display:none;position:absolute;right:42px;bottom:6px;width:32px;height:32px;padding:0;border-radius:10px;background:rgba(155,184,216,.12);border:1px solid rgba(155,184,216,.2);cursor:pointer;align-items:center;justify-content:center;font-size:.9rem;color:var(--sky);">🎤</button>
-            <button id="qa-send-btn" class="btn btn-primary"
-              style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;padding:0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.95rem;"
-              ${inCooldown?'disabled':''}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 12V2M2 7l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
+            <span id="qa-char-count" style="position:absolute;bottom:6px;right:6px;font-size:.6rem;color:var(--ink-4);pointer-events:none;"></span>
           </div>
+          <!-- Bouton micro : caché par défaut, affiché si Web Speech API disponible -->
+          <button id="qa-voice-btn" title="Dictée vocale" style="display:none;width:40px;height:40px;flex-shrink:0;border-radius:12px;background:rgba(155,184,216,.10);border:1px solid rgba(155,184,216,.20);cursor:pointer;align-items:center;justify-content:center;font-size:1rem;color:var(--sky);transition:background .15s;">🎤</button>
+          <button id="qa-send-btn" class="btn btn-primary"
+            style="width:40px;height:40px;flex-shrink:0;padding:0;border-radius:12px;display:flex;align-items:center;justify-content:center;"
+            ${inCooldown?'disabled':''}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 12V2M2 7l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </div>
     </div>`;
