@@ -2007,18 +2007,14 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
   async function migratePasswords(){
     let changed = false;
     for(const u of db.users){
-      // Réparer les hashes corrompus par le bug migratePasswords (sha256: haché une 2e fois)
-      // Un hash sha256: d'un hash sha256s: commence toujours par 'sha256:sha' → détectable
-      if(u.password && u.password.startsWith('sha256:') && _SEED_PASSWORDS[u.id]){
-        // Si le hash ne correspond à aucun format valide, restaurer le hash SEED d'origine
-        const knownHash = _SEED_PASSWORDS[u.id];
-        // Un hash sha256: valide fait exactement 71 chars (sha256: + 64 hex)
-        if(u.password.length !== 71){
-          u.password = knownHash; changed = true;
-          console.warn('Mot de passe réparé pour', u.username);
-        }
+      // ── Réparer la corruption : si un compte SEED a un sha256: différent du SEED d'origine
+      //    c'est qu'il a été re-haché par erreur (sha256s: → sha256:) → restaurer le SEED
+      if(_SEED_PASSWORDS[u.id] && u.password &&
+         u.password.startsWith('sha256:') && u.password !== _SEED_PASSWORDS[u.id]){
+        u.password = _SEED_PASSWORDS[u.id]; changed = true;
+        console.info('[Flow] Mot de passe restauré pour', u.username);
       }
-      // Ne migrer que les mots de passe en clair (pas sha256: ni sha256s:)
+      // ── Ne migrer que les mots de passe en clair (pas sha256: ni sha256s:)
       if(u.password && !u.password.startsWith('sha256:') && !u.password.startsWith('sha256s:')){
         u.password = await hashPwd(u.password); changed = true;
       }
@@ -7226,7 +7222,8 @@ Réponds directement en français, sans préambule ni répétition de la questio
   // ════════════════════════════════════════════════
   // ─── Service Worker (PWA offline) ──────────────
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
+    // Chemin relatif pour fonctionner en sous-dossier GitHub Pages
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
       .then(() => console.log('[Flow] Service Worker enregistré'))
       .catch(err => console.warn('[Flow] SW:', err));
   }
