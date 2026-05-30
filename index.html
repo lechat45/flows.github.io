@@ -606,6 +606,9 @@
     .kebab-divider { height: 1px; background: var(--glass-edge); margin: 4px 2px; }
     /* Perf: skip layout/paint of off-screen doc panels */
     .client-doc-panel-wrap { content-visibility: auto; contain-intrinsic-size: 0 320px; }
+    /* Perf: GPU layers pour éléments animés */
+    .tl-current .tl-dot { will-change: box-shadow; }
+    #mobile-tabbar { will-change: transform; transform: translateZ(0); }
 
     /* ═══════════════════════════════════════════════
        PROFILE GRID
@@ -620,31 +623,51 @@
     }
 
     /* ═══════════════════════════════════════════════
-       TIMELINE — refined dots & connectors
+       TIMELINE — redesigned beautiful dots
        ═══════════════════════════════════════════════ */
-    .tl-step { display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; }
-    .tl-line-wrap { display: flex; flex-direction: column; align-items: center; min-width: 32px; }
+    .tl-step { display: flex; gap: 18px; align-items: flex-start; padding: 8px 0; }
+    .tl-line-wrap { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
     .tl-dot {
-      width: 32px; height: 32px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .85rem; flex-shrink: 0; border: 2px solid;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+      flex-shrink: 0; border: 2px solid;
+      transition: box-shadow .3s, transform .2s;
+      position: relative;
     }
-    .tl-connector { width: 2px; flex: 1; min-height: 24px; margin: 4px 0; border-radius: 1px; }
-    .tl-done    .tl-dot { background: rgba(147,181,148,.22); border-color: #93b594; color: #b6d1b7; }
-    .tl-done    .tl-connector { background: linear-gradient(180deg, rgba(147,181,148,.45), rgba(217,119,87,.30)); }
+    .tl-connector {
+      width: 2px; flex: 1; min-height: 22px; margin: 4px 0; border-radius: 1px;
+    }
+    /* ── Done ── */
+    .tl-done .tl-dot {
+      background: linear-gradient(150deg, #4cbe7c 0%, #7ec89a 100%);
+      border-color: rgba(147,181,148,.7);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(76,190,124,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    .tl-done .tl-connector {
+      background: linear-gradient(180deg, rgba(76,190,124,.4) 0%, rgba(155,184,216,.15) 100%);
+    }
+    /* ── Current ── */
     .tl-current .tl-dot {
-      background: rgba(217,119,87,.24); border-color: var(--coral); color: var(--coral-soft);
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.20),
-        0 0 0 4px rgba(217,119,87,.12),
-        0 0 22px rgba(217,119,87,.40);
+      background: linear-gradient(150deg, #d97757 0%, #f0a988 100%);
+      border-color: rgba(217,119,87,.75);
+      color: #fff;
+      animation: tl-pulse 2.4s ease-in-out infinite;
+      box-shadow: 0 0 0 5px rgba(217,119,87,.14), 0 4px 18px rgba(217,119,87,.45),
+                  inset 0 1px 0 rgba(255,255,255,.22);
     }
-    .tl-current .tl-connector { background: rgba(255,255,255,.10); }
-    .tl-pending .tl-dot { background: var(--glass-bg); border-color: var(--glass-edge-hi); color: var(--ink-4); }
-    .tl-pending .tl-connector { background: var(--glass-edge); }
+    @keyframes tl-pulse {
+      0%,100% { box-shadow: 0 0 0 4px rgba(217,119,87,.12), 0 4px 14px rgba(217,119,87,.38); }
+      50%      { box-shadow: 0 0 0 9px rgba(217,119,87,.18), 0 4px 24px rgba(217,119,87,.55); }
+    }
+    .tl-current .tl-connector { background: rgba(255,255,255,.08); }
+    /* ── Pending ── */
+    .tl-pending .tl-dot {
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.11);
+      color: rgba(255,255,255,.24);
+    }
+    .tl-pending .tl-connector { background: rgba(255,255,255,.06); }
 
     /* ═══════════════════════════════════════════════
        SIDEBAR — liquid glass rail
@@ -1193,8 +1216,8 @@
   .nav-icon { width: 19px; height: 19px; }
   .kebab-menu { position: fixed; left: 12px; right: 12px; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 48vh; overflow-y: auto; border-radius: 18px; padding: 8px; }
   .kebab-item { min-height: 44px; font-size: .92rem; }
-  .tl-step { gap: 12px; }
-  .tl-dot { width: 28px; height: 28px; }
+  .tl-step { gap: 14px; }
+  .tl-dot { width: 34px; height: 34px; }
   #cmd-box { width: calc(100vw - 24px); margin-top: 8vh; }
   #cmd-results { max-height: 55vh; }
   .mob-tab span { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2529,7 +2552,8 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));
       const c=document.getElementById('tab-content');
       c.innerHTML=renderAdminTab();
-      c.classList.remove('fade-up'); void c.offsetWidth; c.classList.add('fade-up');
+      c.classList.remove('fade-up');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>c.classList.add('fade-up')));
       wireAdminTabContent();
     }catch(err){ const c=document.getElementById('tab-content'); if(c) c.innerHTML=renderErrorBox(err); }
   }
@@ -3732,7 +3756,8 @@ DOCUMENTS
       document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));
       const c=document.getElementById('tab-content');
       c.innerHTML=renderClientTab();
-      c.classList.remove('fade-up'); void c.offsetWidth; c.classList.add('fade-up');
+      c.classList.remove('fade-up');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>c.classList.add('fade-up')));
       wireClientTabContent();
     }catch(err){ const c=document.getElementById('tab-content'); if(c) c.innerHTML=renderErrorBox(err); }
   }
@@ -3792,21 +3817,39 @@ DOCUMENTS
       const fmt=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
       dueLine=`<div style="font-size:.8rem;color:var(--ink-3);margin-top:6px;">📅 Livraison prévue : ${fmt}</div>`;
     }
+    const statusColor = p.status==='done'?'#4cbe7c':p.status==='in_progress'?'var(--coral)':'rgba(244,238,229,.3)';
+    const statusLabel = {'done':'Terminé','in_progress':'En cours','pending':'En attente'}[p.status]||p.status;
     return `
       <div class="glass-card" style="padding:24px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-          <div>
-            <h2 style="font-size:1.1rem;font-weight:600;">${esc(p.name)}</h2>
-            <div style="font-size:.8rem;color:rgba(244,238,229,.45);margin-top:2px;">${pct}% complété</div>
-            ${p.description?`<div style="font-size:.8rem;color:var(--ink-3);margin-top:4px;">${esc(p.description)}</div>`:''}
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+              <h2 style="font-size:1.1rem;font-weight:700;line-height:1.2;">${esc(p.name)}</h2>
+              <span style="font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:999px;
+                background:${p.status==='done'?'rgba(76,190,124,.15)':p.status==='in_progress'?'rgba(217,119,87,.15)':'rgba(255,255,255,.06)'};
+                border:1px solid ${p.status==='done'?'rgba(76,190,124,.35)':p.status==='in_progress'?'rgba(217,119,87,.35)':'rgba(255,255,255,.12)'};
+                color:${statusColor};letter-spacing:.04em;">${statusLabel}</span>
+            </div>
+            ${p.description?`<div style="font-size:.8rem;color:var(--ink-3);margin-top:2px;line-height:1.45;">${esc(p.description)}</div>`:''}
           </div>
-          ${p.websiteUrl?`<a href="${esc(p.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm">🔗 Voir mon site</a>`:''}
+          ${p.websiteUrl?`<a href="${esc(p.websiteUrl)}" target="_blank" class="btn btn-primary btn-sm" style="flex-shrink:0;">🔗 Voir le site</a>`:''}
         </div>
-        <div style="height:6px;background:rgba(255,255,255,.08);border-radius:4px;margin-bottom:${p.dueDate?'8':'28'}px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#d97757,#93b594);border-radius:4px;transition:width .5s;"></div>
+        <!-- Progress bar -->
+        <div style="margin-bottom:${p.dueDate?'10':'24'}px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:.72rem;color:var(--ink-4);font-weight:500;letter-spacing:.04em;text-transform:uppercase;">Avancement</span>
+            <span style="font-size:.82rem;font-weight:700;color:${pct===100?'#4cbe7c':'var(--ink-2)'};">${pct}%</span>
+          </div>
+          <div style="height:7px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.25);">
+            <div style="height:100%;width:${pct}%;border-radius:99px;transition:width .6s ease;
+              background:${pct===100
+                ? 'linear-gradient(90deg,#4cbe7c,#7ec89a)'
+                : 'linear-gradient(90deg,#d97757,#f0a988)'};
+              box-shadow:0 1px 6px rgba(217,119,87,.35);"></div>
+          </div>
         </div>
         ${dueLine}
-        ${dueLine?'<div style="margin-bottom:20px;"></div>':''}
+        ${dueLine?'<div style="margin-bottom:18px;"></div>':''}
         ${p.deliverable?`
         <div style="background:rgba(147,181,148,.10);border:1px solid rgba(147,181,148,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <span style="font-size:1.6rem;">📦</span>
@@ -3820,25 +3863,37 @@ DOCUMENTS
       </div>`;
   }
 
+  const _tlCheckSvg = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="3,8 7,12 13,4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const _tlPlaySvg  = `<svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L11 7L1 12.5V1.5Z"/></svg>`;
+
   function renderFullTimeline(tl){
-    return `<div>
-      ${tl.map((s,i)=>`
+    if(!tl || tl.length === 0) return `<div style="text-align:center;padding:24px 0;color:var(--ink-4);font-size:.85rem;">Aucune étape définie.</div>`;
+    return `<div style="padding:4px 0;">
+      ${tl.map((s,i)=>{
+        const isDone    = s.status==='done';
+        const isCurrent = s.status==='current';
+        const isPending = !isDone && !isCurrent;
+        const labelColor = isDone ? 'rgba(244,238,229,.92)' : isCurrent ? 'var(--coral-soft)' : 'rgba(244,238,229,.28)';
+        const numLabel   = isPending ? `<span style="font-size:.72rem;font-weight:700;font-family:'Geist',sans-serif;">${i+1}</span>` : '';
+        return `
         <div class="tl-step ${s.status}">
           <div class="tl-line-wrap">
-            <div class="tl-dot">${s.status==='done'?'✓':s.status==='current'?'▶':'○'}</div>
-            ${i<tl.length-1?`<div class="tl-connector"></div>`:''}
+            <div class="tl-dot">
+              ${isDone ? _tlCheckSvg : isCurrent ? _tlPlaySvg : numLabel}
+            </div>
+            ${i < tl.length-1 ? `<div class="tl-connector"></div>` : ''}
           </div>
-          <div style="padding-top:4px;flex:1;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <div style="font-size:.9rem;font-weight:${s.status==='pending'?'400':'600'};color:${s.status==='done'?'#f4eee5':s.status==='current'?'#d97757':'rgba(244,238,229,.4)'};">
+          <div style="padding-top:10px;flex:1;min-width:0;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+              <div style="font-size:.92rem;font-weight:${isPending?'400':'600'};color:${labelColor};line-height:1.3;">
                 ${esc(s.label)}
               </div>
-              ${s.dueDate?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);white-space:nowrap;">📅 ${esc(new Date(s.dueDate).toLocaleDateString('fr-FR'))}</div>`:''}
+              ${s.dueDate ? `<div style="font-size:.7rem;color:rgba(244,238,229,.32);white-space:nowrap;padding-top:2px;">${esc(new Date(s.dueDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}))}</div>` : ''}
             </div>
-            ${s.date?`<div style="font-size:.75rem;color:rgba(244,238,229,.4);margin-top:2px;">📅 ${esc(s.date)}</div>`:''}
-            ${s.note?`<div style="font-size:.75rem;color:var(--ink-4);font-style:italic;margin-top:3px;">${esc(s.note)}</div>`:''}
+            ${isCurrent ? `<div style="margin-top:5px;font-size:.72rem;font-weight:600;color:rgba(217,119,87,.75);letter-spacing:.04em;text-transform:uppercase;">En cours</div>` : ''}
+            ${s.note ? `<div style="font-size:.76rem;color:var(--ink-4);font-style:italic;margin-top:4px;line-height:1.45;">${esc(s.note)}</div>` : ''}
           </div>
-        </div>`).join('')}
+        </div>`}).join('')}
     </div>`;
   }
 
@@ -5569,18 +5624,18 @@ DOCUMENTS
         <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Historique Q&A clients</h2>
         <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:16px;">Questions posées par les clients sur leur site.</p>
         ${allReqs.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune conversation pour l'instant</div>`:`
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${allReqs.slice(0,50).map(r=>{
-            const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt));
-            const preview = (r.groqAnswer||r.geminiAnswer||'').substring(0,100);
-            return `<div style="padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02);">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <span style="font-size:.8rem;font-weight:600;">${esc(r.clientUsername||'—')}</span>
-                <span style="font-size:.65rem;padding:2px 7px;border-radius:20px;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.3);">💬 Q&A</span>
-                <span style="font-size:.7rem;color:var(--ink-4);margin-left:auto;">${ts}</span>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${allReqs.slice(0,60).map(r=>{
+            const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt));
+            const q = r.originalMessage ? r.originalMessage.substring(0,90)+(r.originalMessage.length>90?'…':'') : '—';
+            return `<div style="padding:10px 14px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.02);display:flex;align-items:center;gap:12px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.78rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(q)}</div>
               </div>
-              <div style="font-size:.78rem;color:var(--ink-3);margin-bottom:4px;font-style:italic;">"${esc(r.originalMessage.substring(0,100))}"</div>
-              ${preview?`<div style="font-size:.75rem;color:var(--ink-4);">↳ ${esc(preview)}${preview.length>=100?'…':''}</div>`:''}
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <span style="font-size:.75rem;font-weight:600;color:var(--ink-3);">${esc(r.clientUsername||'—')}</span>
+                <span style="font-size:.68rem;color:var(--ink-4);">${ts}</span>
+              </div>
             </div>`;
           }).join('')}
         </div>`}
@@ -5677,13 +5732,12 @@ DOCUMENTS
     return renderClientDiscussionQA();
   }
 
-  const QA_DAILY_LIMIT = 10; // max questions par jour par client
+  // Cooldown : après QA_BURST_SIZE messages, pause QA_COOLDOWN_MS ms avant la prochaine salve
+  const QA_BURST_SIZE   = 3;
+  const QA_COOLDOWN_MS  = 60_000; // 60 secondes
+  let _qaBurstCount    = 0;   // messages envoyés dans la salve courante
+  let _qaCooldownUntil = 0;   // timestamp fin du cooldown (0 = pas de cooldown)
   /* ── Discussion Q&A mode ─────────────────────── */
-  function getQATodayCount(){
-    const today = new Date().toISOString().slice(0,10);
-    return (db.aiRequests||[]).filter(r=>r.clientId===me.id && r.type==='qa' && (r.createdAt||'').startsWith(today)).length;
-  }
-
   function renderClientDiscussionQA(){
     const proj = getUserProject(me.id);
     const _isTeste1 = me.id === 'u_teste1';
@@ -5700,9 +5754,8 @@ DOCUMENTS
     const qaReqs = (db.aiRequests||[])
       .filter(r=>r.clientId===me.id && r.status==='answered' && r.groqAnswer)
       .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    const todayCount = getQATodayCount();
-    const remaining = Math.max(0, QA_DAILY_LIMIT - todayCount);
-    const limitReached = remaining === 0;
+    const inCooldown = _qaCooldownUntil > Date.now();
+    const cooldownSec = inCooldown ? Math.ceil((_qaCooldownUntil - Date.now()) / 1000) : 0;
     return `<div class="fade-up" style="display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:calc(100vh - 120px);">
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
@@ -5714,11 +5767,11 @@ DOCUMENTS
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-          <span style="font-size:.68rem;padding:2px 8px;border-radius:999px;
-            background:${remaining<=2?'rgba(220,80,80,.15)':remaining<=5?'rgba(240,169,136,.12)':'rgba(155,184,216,.10)'};
-            border:1px solid ${remaining<=2?'rgba(220,80,80,.3)':remaining<=5?'rgba(240,169,136,.3)':'rgba(155,184,216,.25)'};
-            color:${remaining<=2?'#f08a8a':remaining<=5?'var(--peach)':'var(--sky)'};">
-            ${remaining}/${QA_DAILY_LIMIT} questions
+          <span id="qa-rate-badge" style="font-size:.68rem;padding:2px 8px;border-radius:999px;
+            background:${inCooldown?'rgba(220,80,80,.15)':'rgba(155,184,216,.10)'};
+            border:1px solid ${inCooldown?'rgba(220,80,80,.3)':'rgba(155,184,216,.25)'};
+            color:${inCooldown?'#f08a8a':'var(--sky)'};">
+            ${inCooldown ? `⏸ ${cooldownSec}s` : `${_qaBurstCount}/${QA_BURST_SIZE} envoyés`}
           </span>
           <span style="font-size:.65rem;padding:2px 7px;border-radius:999px;background:rgba(155,184,216,.12);border:1px solid rgba(155,184,216,.22);color:var(--sky);">BÊTA</span>
         </div>
@@ -5757,27 +5810,59 @@ DOCUMENTS
       </div>
       <!-- Input -->
       <div style="padding:10px 0 4px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;">
-        ${limitReached
-          ? `<div style="text-align:center;padding:12px;font-size:.82rem;color:var(--ink-4);">Limite quotidienne atteinte (${QA_DAILY_LIMIT} questions/jour). Revenez demain !</div>`
-          : `<div style="display:flex;gap:8px;align-items:flex-end;">
-              <div style="flex:1;position:relative;">
-                <textarea id="qa-input" maxlength="500" placeholder="Posez une question sur votre projet…" rows="2"
-                  style="width:100%;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px 22px;font-size:.875rem;color:var(--ink);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s;"
-                  onfocus="this.style.borderColor='rgba(155,184,216,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"></textarea>
-                <span id="qa-char-count" style="position:absolute;bottom:6px;right:10px;font-size:.65rem;color:var(--ink-4);">0 / 500</span>
-              </div>
-              <button id="qa-send-btn" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;align-self:flex-end;">↑</button>
-            </div>`}
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div style="flex:1;position:relative;">
+            <textarea id="qa-input" maxlength="500" placeholder="Posez une question sur votre projet…" rows="2"
+              style="width:100%;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px 22px;font-size:.875rem;color:var(--ink);font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;transition:border-color .2s;"
+              onfocus="this.style.borderColor='rgba(155,184,216,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"
+              ${inCooldown ? 'disabled' : ''}></textarea>
+            <span id="qa-char-count" style="position:absolute;bottom:6px;right:10px;font-size:.65rem;color:var(--ink-4);">0 / 500</span>
+          </div>
+          <button id="qa-send-btn" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;align-self:flex-end;"
+            ${inCooldown ? 'disabled' : ''}>↑</button>
+        </div>
       </div>
     </div>`;
   }
 
-  let _qaLastSentAt = 0;
+  let _qaCooldownTimer = null; // intervalle pour le compte à rebours live
   function wireClientDiscussionQA(){
-    const input = document.getElementById('qa-input');
+    const input   = document.getElementById('qa-input');
     const sendBtn = document.getElementById('qa-send-btn');
     const charCount = document.getElementById('qa-char-count');
     if(!input || !sendBtn) return;
+
+    // ── Compte à rebours live du cooldown ────────────
+    function startCooldownTick(){
+      clearInterval(_qaCooldownTimer);
+      _qaCooldownTimer = setInterval(()=>{
+        const badge = document.getElementById('qa-rate-badge');
+        const inp   = document.getElementById('qa-input');
+        const btn   = document.getElementById('qa-send-btn');
+        if(!badge) { clearInterval(_qaCooldownTimer); return; }
+        const rem = Math.ceil((_qaCooldownUntil - Date.now()) / 1000);
+        if(rem <= 0){
+          clearInterval(_qaCooldownTimer);
+          _qaCooldownUntil = 0;
+          badge.textContent = `${_qaBurstCount}/${QA_BURST_SIZE} envoyés`;
+          badge.style.background = 'rgba(155,184,216,.10)';
+          badge.style.borderColor = 'rgba(155,184,216,.25)';
+          badge.style.color = 'var(--sky)';
+          if(inp)  { inp.disabled = false; inp.focus(); }
+          if(btn)  { btn.disabled = false; }
+        } else {
+          badge.textContent = `⏸ ${rem}s`;
+          badge.style.background = 'rgba(220,80,80,.15)';
+          badge.style.borderColor = 'rgba(220,80,80,.3)';
+          badge.style.color = '#f08a8a';
+          if(inp) inp.disabled = true;
+          if(btn) btn.disabled = true;
+        }
+      }, 500);
+    }
+    // Si on arrive avec un cooldown en cours (re-render pendant cooldown), relancer le tick
+    if(_qaCooldownUntil > Date.now()) startCooldownTick();
+
     if(charCount){
       input.addEventListener('input',()=>{
         const len = input.value.length;
@@ -5785,21 +5870,20 @@ DOCUMENTS
         charCount.style.color = len>=500 ? 'var(--coral)' : len>=425 ? 'var(--peach)' : 'var(--ink-4)';
       });
     }
+
     const doSend = async ()=>{
       const text = input.value.trim();
       if(!text) return;
       if(text.length > 500){ toast('Question trop longue (max 500 caractères).','error'); return; }
-      // ── Rate limiting ────────────────────────────
-      if(getQATodayCount() >= QA_DAILY_LIMIT){
-        toast(`Limite quotidienne atteinte (${QA_DAILY_LIMIT} questions/jour).`,'error'); return;
+      // ── Cooldown burst check ─────────────────────
+      if(Date.now() < _qaCooldownUntil){
+        const s = Math.ceil((_qaCooldownUntil - Date.now())/1000);
+        toast(`Patientez encore ${s}s.`, 'info'); return;
       }
-      const gap = Date.now() - _qaLastSentAt;
-      if(gap < 3000){ toast(`Patientez encore ${Math.ceil((3000-gap)/1000)}s avant de renvoyer.`,'info'); return; }
       const groqKey = db.aiConfig && db.aiConfig.groqKey;
       if(!groqKey){
         toast('L\'assistant IA n\'est pas configuré. Contactez votre équipe.','error'); return;
       }
-      _qaLastSentAt = Date.now();
       input.value=''; if(charCount) charCount.textContent='0 / 500';
       input.disabled=true; sendBtn.disabled=true;
       // Show typing indicator
@@ -5811,27 +5895,39 @@ DOCUMENTS
       try{
         const answer = await callGroqQA(text, proj||null, siteHtml, groqKey);
         const reqId = 'qa_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-        const req = {
+        if(!db.aiRequests) db.aiRequests=[];
+        db.aiRequests.push({
           id:reqId, clientId:me.id, clientUsername:me.username, type:'qa',
           originalMessage:text, status:'answered', groqAnswer:answer,
           createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
-        };
-        if(!db.aiRequests) db.aiRequests=[];
-        db.aiRequests.push(req);
+        });
         saveDB();
+        // ── Incrémenter le compteur de burst ─────
+        _qaBurstCount++;
+        if(_qaBurstCount >= QA_BURST_SIZE){
+          _qaBurstCount = 0;
+          _qaCooldownUntil = Date.now() + QA_COOLDOWN_MS;
+          startCooldownTick();
+        } else {
+          const badge = document.getElementById('qa-rate-badge');
+          if(badge) badge.textContent = `${_qaBurstCount}/${QA_BURST_SIZE} envoyés`;
+        }
       } catch(err){
         const msg = String(err).includes('RATE_LIMIT')||String(err).includes('rate limit')
           ? 'Assistant temporairement indisponible. Réessayez dans quelques secondes.'
           : 'Impossible d\'obtenir une réponse. Vérifiez la clé API.';
         toast(msg,'error');
       } finally {
-        input.disabled=false; sendBtn.disabled=false; input.focus();
+        // Ne ré-activer l'input que si pas en cooldown
+        if(Date.now() >= _qaCooldownUntil){
+          input.disabled=false; sendBtn.disabled=false;
+        }
         refreshClientTab();
       }
     };
     sendBtn.addEventListener('click', doSend);
     input.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); doSend(); } });
-    // Mobile: single Enter sends (not Shift+Enter)
+    // Mobile: Entrée seule envoie
     input.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey&&window.innerWidth<769){ e.preventDefault(); doSend(); } });
   }
 
@@ -5850,13 +5946,18 @@ DOCUMENTS
     const siteBlock = siteText
       ? `\n\nContenu textuel du site (extrait) :\n"""\n${siteText}\n"""`
       : '\n\n(Aucun fichier site lié pour l\'instant — mode test.)';
-    const systemPrompt = `Tu es l'assistant d'une agence web. Tu aides le client à comprendre l'avancement de son projet, le code de son site, ou les technologies utilisées. Tu réponds TOUJOURS en français.
+    const systemPrompt = `Tu es un assistant d'information pour une agence web. Tu réponds TOUJOURS en français, de façon claire et concise.
 
-RÈGLES STRICTES :
-1. Tu NE génères PAS de code, tu ne modifies PAS de code, tu ne crées PAS de nouveau contenu pour le site — même si le client le demande. Dans ce cas, réponds poliment que les modifications doivent être soumises via le formulaire prévu à cet effet.
-2. Tu ne réalises aucune tâche de développement, rédaction ou création de contenu.
-3. Tu réponds uniquement aux questions d'information : avancement, explication du code existant, technologies, délais, questions générales sur le projet.
-4. Tes réponses sont claires, courtes et bienveillantes.${ctxBlock}${siteBlock}`;
+Ce que tu sais faire :
+- Expliquer l'avancement du projet
+- Décrire et expliquer le code existant du site (celui fourni ci-dessous)
+- Répondre à des questions générales sur le projet, les technologies, les délais
+
+Ce que tu NE SAIS PAS faire (capacité absente, pas de restriction de règles) :
+- Tu n'as pas la capacité de générer du code, d'en écrire ou d'en modifier
+- Tu n'as pas la capacité de créer du contenu pour un site
+- Tu n'as pas la capacité de réaliser des tâches de développement
+Quand quelqu'un te demande d'écrire ou de créer du code, dis simplement et naturellement que tu n'as pas cette capacité — sans jamais mentionner de règles, de politique ou de formulaire. Suggère juste que pour tout développement, il faut contacter l'équipe directement.${ctxBlock}${siteBlock}`;
     try{
       const json = await groqPost(apiKey, [
         { role:'system', content: systemPrompt },
