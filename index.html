@@ -1755,12 +1755,32 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     setSyncState('syncing');
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(()=>{
+      if(!navigator.onLine){
+        // ── File d'attente hors-ligne ──
+        localStorage.setItem('flow_pending_sync', nextJSON);
+        setSyncState('error');
+        return;
+      }
       const payload = JSON.parse(nextJSON);
       fbdb.ref('flow').set(payload)
-        .then(()=>{ _lastSavedJSON = nextJSON; setSyncState('ok'); })
+        .then(()=>{ _lastSavedJSON = nextJSON; setSyncState('ok'); localStorage.removeItem('flow_pending_sync'); })
         .catch(()=>setSyncState('error'));
     }, 650);
   }
+  // Rejouer la file en ligne
+  window.addEventListener('online', ()=>{
+    const pending = localStorage.getItem('flow_pending_sync');
+    if(!pending) return;
+    try{
+      const payload = JSON.parse(pending);
+      fbdb.ref('flow').set(payload).then(()=>{
+        _lastSavedJSON = pending;
+        setSyncState('ok');
+        localStorage.removeItem('flow_pending_sync');
+        toast('✅ Données synchronisées après reconnexion.','success');
+      }).catch(()=>setSyncState('error'));
+    }catch(_){}
+  });
 
   let db = loadLocalDB() || JSON.parse(JSON.stringify(SEED));
   function normalizeDB(){
@@ -1780,6 +1800,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     if(db.aiConfig.geminiKey && !db.aiConfig.groqKey){ db.aiConfig.groqKey = db.aiConfig.geminiKey; }
     if('geminiKey' in db.aiConfig) delete db.aiConfig.geminiKey;
     if(!Array.isArray(db.aiRequests)) db.aiRequests = [];
+    if(!Array.isArray(db.messages)) db.messages = [];
     if(!db.users.find(u=>u.id==='u_teste1')){
       db.users.push({ id:'u_teste1', username:'teste1', password:'sha256:15bf532d22345576b4a51b96da4754c039ef3458494066d76828e893d69ebd1e', role:'client',
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
@@ -1794,7 +1815,10 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
       if(!Array.isArray(p.tags)) p.tags=[];
       if(!Array.isArray(p.faq)) p.faq=[];
     });
-    db.documents.forEach(d=>{ if(!Array.isArray(d.fields)) d.fields=[]; });
+    db.documents.forEach(d=>{
+      if(!Array.isArray(d.fields)) d.fields=[];
+      if(!Array.isArray(d.history)) d.history=[];
+    });
   }
   normalizeDB();
   let me = null;
@@ -1948,6 +1972,27 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd));
     return 'sha256:'+Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
+  // Salted SHA-256 : format sha256s:SALT:HASH (résistant aux tables arc-en-ciel)
+  async function hashPwdSalted(pwd){
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const salt = Array.from(saltBytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt+pwd));
+    const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    return `sha256s:${salt}:${hash}`;
+  }
+  async function verifyPwd(pwd, stored){
+    if(!stored) return false;
+    if(stored.startsWith('sha256s:')){
+      const parts = stored.split(':');
+      if(parts.length!==3) return false;
+      const [, salt, hash] = parts;
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt+pwd));
+      const h = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      return h===hash;
+    }
+    // Rétrocompatibilité SHA-256 sans sel
+    return (await hashPwd(pwd))===stored;
+  }
   async function migratePasswords(){
     let changed = false;
     for(const u of db.users){
@@ -1960,11 +2005,13 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
   async function loginAsync(username, password){
     const u = db.users.find(u=>u.username.toLowerCase()===username.toLowerCase());
     if(!u) return false;
-    let ok = false;
-    if(u.password && u.password.startsWith('sha256:')){
-      ok = (await hashPwd(password)) === u.password;
-    } else { ok = u.password === password; }
+    const ok = await verifyPwd(password, u.password);
     if(!ok) return false;
+    // Upgrade automatique vers hash salé à la connexion
+    if(u.password && u.password.startsWith('sha256:')){
+      u.password = await hashPwdSalted(password);
+      saveDB();
+    }
     me = u; sessionStorage.setItem('flow_uid', u.id);
     logActivity('login', 'Connexion de ' + u.username);
     return true;
@@ -2282,7 +2329,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
 
         const btn = document.getElementById('reg-submit');
         btn.disabled = true; btn.textContent = '…';
-        const hashed = await hashPwd(pw);
+        const hashed = await hashPwdSalted(pw);
         if(!db.pendingUsers) db.pendingUsers = [];
         db.pendingUsers.push({
           id: uid(),
@@ -2354,6 +2401,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     { id:'home',           icon:iconHome(),      label:'Accueil'           },
     { id:'users',          icon:iconUsers(),     label:'Utilisateurs'      },
     { id:'documents',      icon:iconDocs(),      label:'Suivi & Docs'      },
+    { id:'messages',       icon:iconMsg(),       label:'Messages'          },
     { id:'finance',        icon:iconFinance(),   label:'Finance'           },
     { id:'requests',       icon:iconRequests(),  label:'Demandes'          },
     { id:'history',        icon:iconHistory(),   label:'Historique'        },
@@ -2478,11 +2526,11 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     const base = [
       { id:'home',      icon:iconHome(),    label:'Accueil'   },
       { id:'documents', icon:iconDocs(),    label:'Documents' },
+      { id:'messages',  icon:iconMsg(),     label:'Messages'  },
       { id:'profile',   icon:iconProfile(), label:'Profil'    }
     ];
     const _discProject = getUserProject(me.id);
     const _isTeste1 = me.id === 'u_teste1';
-    // Show Discussion tab if site is linked OR if this is the test account
     if((_discProject && _discProject.siteHtml) || _isTeste1){
       base.splice(1,0,{ id:'discussion', icon:iconChat(), label:'Discussion', beta:true });
     }
@@ -2509,11 +2557,13 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       ${(()=>{
         const pendingCount = (db.pendingUsers||[]).length;
         const aiPendingCount = (db.aiRequests||[]).filter(r=>r.status==='pending_admin').length;
+        const unreadMsgCount = getUnreadMsgCount();
         const myProject = getUserProject(me.id);
         return getAdminVisibleTabs().map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}" style="position:relative;">
           ${t.icon} <span>${t.label}</span>${t.beta?` <span style="font-size:.55rem;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;padding:1px 5px;letter-spacing:.06em;text-transform:uppercase;margin-left:4px;">BÊTA</span>`:''}
           ${t.id==='documents'?`<span id="notif-badge" style="display:${notifBadge>0?'inline-flex':'none'};align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(220,80,80,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${notifBadge>9?'9+':notifBadge}</span>`:''}
+          ${t.id==='messages'&&unreadMsgCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:var(--coral);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${unreadMsgCount}</span>`:''}
           ${t.id==='requests'&&pendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(155,184,216,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#0a0604;min-width:16px;">${pendingCount}</span>`:''}
           ${t.id==='ai-automation'&&aiPendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(217,119,87,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${aiPendingCount}</span>`:''}
         </button>`).join('') +
@@ -2545,6 +2595,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     if(activeTab==='home')           return renderAdminHome();
     if(activeTab==='users')          return renderAdminUsers();
     if(activeTab==='documents')      return renderAdminDocuments();
+    if(activeTab==='messages')       return renderAdminMessages();
     if(activeTab==='history')        return renderAdminHistory();
     if(activeTab==='finance')        return renderAdminFinance();
     if(activeTab==='requests')       return renderAdminRequests();
@@ -2583,6 +2634,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     if(activeTab==='home')          wireAdminHome();
     if(activeTab==='users')         wireAdminUsers();
     if(activeTab==='documents')     wireAdminDocuments();
+    if(activeTab==='messages')      wireAdminMessages();
     if(activeTab==='history')       wireAdminHistory();
     if(activeTab==='finance')       wireAdminFinance();
     if(activeTab==='requests')      wireAdminRequests();
@@ -2604,12 +2656,17 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     const MAX_TABS = 4;
     const tabs = allTabs.length > MAX_TABS ? allTabs.slice(0, MAX_TABS) : allTabs;
     const hasNewVersion = localStorage.getItem('flow_seen_version') !== APP_VERSION;
+    const mobMsgCount = getUnreadMsgCount();
     bar.innerHTML = tabs.map((t,idx)=>`
       <button class="mob-tab ${activeTab===t.id?'active':''}" data-mob-tab="${t.id}">
         ${t.icon}<span>${t.label}</span>
         ${t.id==='documents'&&shell==='admin'?`<span id="mob-notif-badge" class="mob-tab-badge" style="display:${notifBadge>0?'inline':'none'};">${notifBadge>9?'9+':notifBadge}</span>`:''}
+        ${t.id==='messages'&&mobMsgCount>0?`<span class="mob-tab-badge" style="display:inline;background:var(--coral);">${mobMsgCount}</span>`:''}
         ${idx===0&&hasNewVersion?`<span class="mob-new-dot" id="mob-version-dot"></span>`:''}
       </button>`).join('')
+    + `<button class="mob-tab" id="mob-search-btn" title="Rechercher" style="color:var(--ink-4);">
+        ${iconSearch()}<span>Recherche</span>
+      </button>`
     + `<button class="mob-logout-btn" id="mob-logout-btn" title="Déconnexion">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span>Quitter</span>
@@ -2621,6 +2678,8 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
         if(shell==='admin') refreshAdminTab(); else refreshClientTab();
       });
     });
+    const mobSearch = document.getElementById('mob-search-btn');
+    if(mobSearch) mobSearch.addEventListener('click', ()=>{ if(typeof openCmdPalette==='function') openCmdPalette(); });
     const mobLogout = document.getElementById('mob-logout-btn');
     if(mobLogout) mobLogout.addEventListener('click', logout);
   }
@@ -2717,6 +2776,44 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
               <span style="font-size:.72rem;color:${h.color};font-weight:600;white-space:nowrap;">${h.label}</span>
             </div>`;
           }).join('')}
+        </div>`;
+      })()}
+
+      ${(()=>{
+        // ── Alertes intelligentes ──────────────────
+        const now = Date.now();
+        const alerts = [];
+        // Documents en attente depuis > 7 jours
+        db.documents.filter(d=>d.status==='pending').forEach(d=>{
+          const days = d.sentAt ? Math.floor((now-new Date(d.sentAt))/(86400000)) : 0;
+          if(days>=7){
+            const proj=db.projects.find(p=>p.id===d.projectId);
+            const client=proj?db.users.find(u=>u.id===proj.clientId):null;
+            alerts.push({type:'doc', icon:'📋', color:'rgba(240,169,136,.8)', bg:'rgba(240,169,136,.08)', border:'rgba(240,169,136,.22)', msg:`<strong>${esc(d.name)}</strong>${client?` · @${esc(client.username)}`:''} — En attente depuis <strong>${days}j</strong>`, action:`activeTab='documents';refreshAdminTab()`});
+          }
+        });
+        // Projets en cours sans activité > 14 jours
+        db.projects.filter(p=>!p.archived&&p.status==='in_progress').forEach(p=>{
+          const lastActivity = db.activityLog?.filter(e=>e.description?.includes(p.name)).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+          if(lastActivity){
+            const days = Math.floor((now-new Date(lastActivity.date))/(86400000));
+            if(days>=14){
+              const client=db.users.find(u=>u.id===p.clientId);
+              alerts.push({type:'project',icon:'⚙️',color:'rgba(155,184,216,.8)',bg:'rgba(155,184,216,.07)',border:'rgba(155,184,216,.2)',msg:`<strong>${esc(p.name)}</strong>${client?` · @${esc(client.username)}`:''} — Aucune activité depuis <strong>${days}j</strong>`});
+            }
+          }
+        });
+        if(!alerts.length) return '';
+        return `<div class="glass-card" style="padding:16px;margin-bottom:20px;border-color:rgba(240,169,136,.2);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="font-size:1rem;">🔔</span>
+            <h2 style="font-size:.9rem;font-weight:600;color:var(--peach);">Alertes (${alerts.length})</h2>
+          </div>
+          ${alerts.slice(0,5).map(a=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${a.bg};border:1px solid ${a.border};border-radius:8px;margin-bottom:6px;font-size:.8rem;">
+              <span>${a.icon}</span>
+              <span style="flex:1;color:${a.color};">${a.msg}</span>
+            </div>`).join('')}
         </div>`;
       })()}
 
@@ -3692,7 +3789,7 @@ DOCUMENTS
       const u = db.users.find(u=>u.id===me.id);
       u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null;
       const applyProfileSave=()=>{ me=u; saveDB(); toast('Profil mis à jour !','success'); showMsg(msg,'Profil mis à jour avec succès !','success'); document.getElementById('app').innerHTML=renderAdminShell(); wireAdmin(); };
-      if(np){ hashPwd(np).then(h=>{ u.password=h; applyProfileSave(); }); } else { applyProfileSave(); }
+      if(np){ hashPwdSalted(np).then(h=>{ u.password=h; applyProfileSave(); }); } else { applyProfileSave(); }
     });
   }
 
@@ -3753,6 +3850,7 @@ DOCUMENTS
     if(activeTab==='home')       return renderClientHome();
     if(activeTab==='documents')  return renderClientDocuments();
     if(activeTab==='discussion') return renderClientDiscussion();
+    if(activeTab==='messages')   return renderClientMessages();
     if(activeTab==='profile')    return renderClientProfile();
     return '';
   }
@@ -3787,6 +3885,7 @@ DOCUMENTS
     if(activeTab==='home')       wireClientHome();
     if(activeTab==='documents')  wireClientDocuments();
     if(activeTab==='discussion'){ wireClientDiscussionQA(); const m=document.getElementById('qa-messages'); if(m) m.scrollTop=m.scrollHeight; }
+    if(activeTab==='messages')   wireClientMessages();
     if(activeTab==='profile')    wireClientProfile();
     renderMobileTabbar('client');
   }
@@ -3794,7 +3893,22 @@ DOCUMENTS
   // ─── Client: Home ───────────────────────────────
   function renderClientHome(){
     const projects = getUserProjects(me.id);
-    const project = projects[0]||null;
+    // Navigation multi-projets
+    if(!window._clientActiveProjectId || !projects.find(p=>p.id===window._clientActiveProjectId)){
+      window._clientActiveProjectId = projects[0]?.id||null;
+    }
+    const project = projects.find(p=>p.id===window._clientActiveProjectId)||projects[0]||null;
+
+    // Sélecteur de projet si plusieurs
+    const projectSelector = projects.length > 1 ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+        ${projects.map(p=>`
+          <button class="btn-switch-project btn ${p.id===project?.id?'btn-primary':'btn-ghost'} btn-sm" data-pid="${p.id}"
+            style="${p.color?`border-color:${p.color}40;`:''}">
+            ${p.color?`<span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>`:''}
+            ${esc(p.name.length>22?p.name.substring(0,22)+'…':p.name)}
+          </button>`).join('')}
+      </div>` : '';
 
     // F7 — Countdown
     const ctrDue = project && project.dueDate && project.status!=='done' ? (()=>{
@@ -3811,11 +3925,15 @@ DOCUMENTS
     </div>` : '';
 
     return `<div class="fade-up">
-      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:4px;">Bonjour, ${esc(me.firstName||me.username)} 👋</h1>
-      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:28px;">Voici l'avancement de votre projet.</p>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
+        <h1 style="font-size:1.4rem;font-weight:700;">Bonjour, ${esc(me.firstName||me.username)} 👋</h1>
+        ${project?`<button id="btn-client-pdf" class="btn btn-ghost btn-sm" title="Télécharger mon résumé PDF">📄 Mon résumé</button>`:''}
+      </div>
+      <p style="color:rgba(244,238,229,.45);font-size:.875rem;margin-bottom:20px;">Voici l'avancement de votre projet.</p>
+      ${projectSelector}
       ${welcomeBanner}
       ${ctrDue}
-      ${projects.length===0 ? renderNoProject() : projects.length===1 ? renderProjectCard(projects[0]) : `<div>${projects.map(p=>`<div style="margin-bottom:16px;"><div style="font-size:.78rem;color:var(--ink-4);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Projet ${projects.indexOf(p)+1} / ${projects.length}</div>${renderProjectCard(p)}</div>`).join('')}</div>`}
+      ${projects.length===0 ? renderNoProject() : renderProjectCard(project||projects[0])}
       ${project&&project.faq&&project.faq.length>0?`
       <div class="glass-card" style="padding:20px;margin-top:16px;">
         <h2 style="font-size:.95rem;font-weight:600;margin-bottom:14px;color:var(--sky);">❓ Questions fréquentes</h2>
@@ -3930,6 +4048,78 @@ DOCUMENTS
     document.querySelectorAll('.btn-download-delivery').forEach(btn=>{
       btn.addEventListener('click',()=>downloadDelivery(btn.dataset.pid));
     });
+    // Multi-projets : changer de projet actif
+    document.querySelectorAll('.btn-switch-project').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        window._clientActiveProjectId = btn.dataset.pid;
+        refreshClientTab(true);
+      });
+    });
+    // Export PDF résumé client
+    const pdfBtn = document.getElementById('btn-client-pdf');
+    if(pdfBtn) pdfBtn.addEventListener('click', exportClientProjectPDF);
+  }
+
+  function exportClientProjectPDF(){
+    const project = getUserProjects(me.id).find(p=>p.id===window._clientActiveProjectId)||getUserProject(me.id);
+    if(!project){ toast('Aucun projet à exporter.','error'); return; }
+    if(!window.jspdf){ toast('Chargement du PDF en cours…','info'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ format:'a4', unit:'mm' });
+    const W=210, pad=18;
+    let y=pad;
+    // En-tête
+    doc.setFillColor(217,119,87); doc.rect(0,0,W,14,`F`);
+    doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text('Flow — Rapport de projet', pad, 9.5);
+    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}), W-pad, 9.5, {align:'right'});
+    y=22;
+    // Titre projet
+    doc.setTextColor(30,20,10); doc.setFontSize(16); doc.setFont('helvetica','bold');
+    doc.text(project.name, pad, y); y+=7;
+    // Status
+    const statusLabel={'pending':'En attente','in_progress':'En cours','done':'Terminé'}[project.status]||project.status;
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(100,80,60);
+    doc.text(`Statut : ${statusLabel}${project.dueDate?' · Livraison : '+new Date(project.dueDate).toLocaleDateString('fr-FR'):''}`, pad, y); y+=5;
+    if(project.description){ doc.setTextColor(80,60,40); doc.text(doc.splitTextToSize(project.description,W-2*pad), pad, y); y+=doc.splitTextToSize(project.description,W-2*pad).length*4+3; }
+    // Barre de progression
+    const tl=project.timeline||[];
+    const pct=tl.length>0?Math.round(tl.filter(s=>s.status==='done').length/tl.length*100):0;
+    y+=2;
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(30,20,10); doc.text(`Avancement : ${pct}%`, pad, y); y+=4;
+    doc.setFillColor(230,220,210); doc.roundedRect(pad, y, W-2*pad, 4, 2, 2, 'F');
+    if(pct>0){ doc.setFillColor(217,119,87); doc.roundedRect(pad, y, (W-2*pad)*pct/100, 4, 2, 2, 'F'); } y+=9;
+    // Timeline
+    if(tl.length>0){
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,20,10); doc.text('Étapes du projet', pad, y); y+=5;
+      tl.forEach((s,i)=>{
+        const statusIcon = s.status==='done'?'✓':s.status==='current'?'▶':'○';
+        const clr = s.status==='done'?[76,190,124]:s.status==='current'?[217,119,87]:[160,140,120];
+        doc.setTextColor(...clr); doc.setFontSize(8); doc.setFont('helvetica','bold');
+        doc.text(statusIcon, pad, y);
+        doc.setTextColor(30,20,10); doc.setFont('helvetica', s.status==='pending'?'normal':'bold');
+        doc.text(s.label+(s.status==='current'?' (en cours)':''), pad+6, y);
+        if(s.dueDate){ doc.setTextColor(130,110,90); doc.setFont('helvetica','normal'); doc.text(new Date(s.dueDate).toLocaleDateString('fr-FR'), W-pad, y, {align:'right'}); }
+        y+=5;
+        if(y>270){ doc.addPage(); y=20; }
+      });
+    }
+    // Documents
+    const docs=getProjectDocs(project.id);
+    if(docs.length>0){
+      y+=4;
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(30,20,10); doc.text('Documents', pad, y); y+=5;
+      docs.forEach(d=>{
+        const sl={'pending':'En attente','filled':'Rempli','reviewed':'Validé'}[d.status]||d.status;
+        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(60,50,40);
+        doc.text(`• ${d.name} — ${sl}`, pad, y); y+=4;
+      });
+    }
+    // Pied de page
+    doc.setFontSize(7); doc.setTextColor(150,130,110);
+    doc.text(`Flow — Rapport généré le ${new Date().toLocaleString('fr-FR')}`, W/2, 292, {align:'center'});
+    doc.save(`rapport_${project.name.replace(/\s+/g,'_')}.pdf`);
   }
 
   // ─── Client: Documents ──────────────────────────
@@ -4028,7 +4218,7 @@ DOCUMENTS
       const u=db.users.find(u=>u.id===me.id);
       u.firstName=fn; u.lastName=ln; u.username=un; u.photo=ph||null;
       const applyClientProfileSave=()=>{ me=u; saveDB(); toast('Profil mis à jour !','success'); showMsg(msg,'Profil mis à jour !','success'); document.getElementById('app').innerHTML=renderClientShell(); wireClient(); };
-      if(np){ hashPwd(np).then(h=>{ u.password=h; applyClientProfileSave(); }); } else { applyClientProfileSave(); }
+      if(np){ hashPwdSalted(np).then(h=>{ u.password=h; applyClientProfileSave(); }); } else { applyClientProfileSave(); }
     });
   }
 
@@ -4095,7 +4285,7 @@ DOCUMENTS
         if(!canCreateRole(me.role,role)){ showMsg(msg,'Vous n\'avez pas la permission de créer ce type de compte.','error'); return; }
         if(db.users.some(u=>u.username.toLowerCase()===un.toLowerCase())){ showMsg(msg,'Ce pseudo est déjà utilisé.','error'); return; }
 
-        hashPwd(pw).then(hashedPw=>{
+        hashPwdSalted(pw).then(hashedPw=>{
           const newUser = { id:uid(), username:un, password:hashedPw, role, firstName:fn, lastName:ln, email:em, phone, sector, photo:null, projectId:null, createdAt:new Date().toISOString() };
           db.users.push(newUser);
           logActivity('user_created', 'Compte créé : ' + newUser.username);
@@ -4190,7 +4380,7 @@ DOCUMENTS
           }
           saveDB(); toast('Utilisateur mis à jour !','success'); closeModal(); refreshAdminTab();
         };
-        if(pw){ hashPwd(pw).then(h=>{ u.password=h; applyEdit(); }); } else { applyEdit(); }
+        if(pw){ hashPwdSalted(pw).then(h=>{ u.password=h; applyEdit(); }); } else { applyEdit(); }
       });
     });
   }
@@ -4641,6 +4831,7 @@ DOCUMENTS
       <div id="sd-msg" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:.85rem;"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;min-width:100px;">Annuler</button>
+        <button id="sd-preview" class="btn btn-ghost btn-sm" style="flex-shrink:0;" title="Voir comme le client verra le document">👁 Aperçu</button>
         <button id="sd-save-tpl" class="btn btn-ghost btn-sm" style="flex-shrink:0;" title="Sauvegarder comme modèle">💾 Modèle</button>
         <button id="sd-send" class="btn btn-primary" style="flex:1;justify-content:center;min-width:100px;">📤 Envoyer</button>
       </div>`,
@@ -4665,6 +4856,35 @@ DOCUMENTS
           <input type="checkbox" class="sd-field-req" title="Champ requis" style="width:16px;height:16px;accent-color:var(--coral);cursor:pointer;"${f.required?' checked':''} />
           <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button></div>`).join('');
         toast('Modèle chargé.','success');
+      });
+
+      // Aperçu avant envoi
+      document.getElementById('sd-preview').addEventListener('click',()=>{
+        const name = document.getElementById('sd-name').value.trim()||'Aperçu document';
+        const fields=[];
+        document.querySelectorAll('#sd-fields-list > div').forEach(row=>{
+          const label=row.querySelector('.sd-field-label')?.value.trim();
+          const type=row.querySelector('.sd-field-type')?.value||'text';
+          const req=row.querySelector('.sd-field-req')?.checked||false;
+          if(label) fields.push({id:uid(),label,type,required:req,value:''});
+        });
+        if(!fields.length){ toast('Ajoutez des champs avant de prévisualiser.','error'); return; }
+        showModal(`
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1rem;font-weight:700;">👁 Aperçu — vue client</h2>
+            <button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button>
+          </div>
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px;">
+            <h3 style="font-size:.95rem;font-weight:700;margin-bottom:16px;">${esc(name)}</h3>
+            ${fields.map(f=>`
+              <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:.78rem;font-weight:600;color:var(--ink-3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">${esc(f.label)}${f.required?` <span style="color:var(--coral);">*</span>`:''}</label>
+                ${f.type==='textarea'
+                  ?`<textarea class="glass-input" placeholder="Votre réponse…" style="min-height:80px;opacity:.6;" disabled></textarea>`
+                  :`<input class="glass-input" placeholder="Votre réponse…" style="opacity:.6;" disabled />`}
+              </div>`).join('')}
+            <button class="btn btn-primary" style="width:100%;justify-content:center;opacity:.5;" disabled>✅ Envoyer (désactivé — aperçu)</button>
+          </div>`);
       });
 
       document.getElementById('sd-save-tpl').addEventListener('click',()=>{
@@ -4740,8 +4960,11 @@ DOCUMENTS
       </div>`,
     ()=>{
       document.getElementById('val-confirm').addEventListener('click',()=>{
+        const comment = document.getElementById('val-comment').value.trim()||'';
+        if(!Array.isArray(doc.history)) doc.history=[];
+        doc.history.push({ v:doc.history.length+1, action:'validated', by:me.username, date:new Date().toISOString(), comment });
         doc.status='reviewed';
-        doc.adminComment=document.getElementById('val-comment').value.trim()||'';
+        doc.adminComment=comment;
         doc.reviewedAt=new Date().toISOString().slice(0,10);
         logActivity('doc_validated','Document validé : '+doc.name);
         saveDB(); toast('Document validé !','success'); closeModal(); refreshAdminTab();
@@ -4768,6 +4991,22 @@ DOCUMENTS
             ${f.value?esc(f.value):'<span style="color:rgba(244,238,229,.3);font-style:italic;">Non rempli</span>'}
           </div>
         </div>`).join('')}
+      ${(doc.history||[]).length>0?`
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07);">
+        <div style="font-size:.8rem;font-weight:600;color:var(--ink-3);margin-bottom:10px;letter-spacing:.04em;text-transform:uppercase;">Historique des versions</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${[...(doc.history||[])].reverse().map(h=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:8px;font-size:.78rem;">
+              <span style="width:22px;height:22px;border-radius:50%;background:${h.action==='validated'?'rgba(147,181,148,.2)':'rgba(155,184,216,.15)'};display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;">${h.action==='validated'?'✓':'📝'}</span>
+              <div style="flex:1;">
+                <span style="color:${h.action==='validated'?'var(--sage)':'var(--sky)'};">${h.action==='validated'?'Validé':'Rempli'}</span>
+                ${h.comment?` — <span style="color:var(--ink-3);font-style:italic;">${esc(h.comment.substring(0,60))}</span>`:''}
+              </div>
+              <span style="color:var(--ink-4);">${esc(h.by)} · v${h.v}</span>
+              <span style="color:var(--ink-4);">${new Date(h.date).toLocaleDateString('fr-FR')}</span>
+            </div>`).join('')}
+        </div>
+      </div>`:''}
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap;">
         ${canValidate&&doc.status==='filled'?`<button id="doc-validate" class="btn btn-success">✅ Valider</button>`:''}
         <button id="doc-export-pdf" class="btn btn-ghost">📥 Export PDF</button>
@@ -4841,6 +5080,9 @@ DOCUMENTS
           const f=doc.fields.find(x=>x.id===inp.dataset.fid);
           if(f) f.value=inp.value;
         });
+        // Sauvegarder une version dans l'historique
+        if(!Array.isArray(doc.history)) doc.history=[];
+        doc.history.push({ v:doc.history.length+1, action:'filled', by:me.username, date:new Date().toISOString(), fields:JSON.parse(JSON.stringify(doc.fields)) });
         doc.status='filled';
         doc.filledAt=new Date().toISOString().slice(0,10);
         saveDB(); closeModal();
@@ -5617,6 +5859,8 @@ DOCUMENTS
   function iconAI(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a7 7 0 0 1-7 7H8a7 7 0 0 1-7-7v-1H0a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2z"/><circle cx="9" cy="13" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`; }
   function iconChat(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`; }
   function iconEye(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`; }
+  function iconMsg(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`; }
+  function iconSearch(){ return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`; }
 
   // ════════════════════════════════════════════════
   //  AI AUTOMATION — Admin/Controller
@@ -5624,16 +5868,49 @@ DOCUMENTS
   function renderAdminAIAutomation(){
     const config = db.aiConfig || { groqKey:'' };
     const allReqs = (db.aiRequests||[]).filter(r=>r.status==='answered').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+    // #5 — Alertes de frustration
+    const frustrated = allReqs.filter(r=>r.frustration);
+    const since7 = new Date(); since7.setDate(since7.getDate()-7);
+    const weekReqs = allReqs.filter(r=>new Date(r.createdAt)>since7);
+
+    // #4 — Projets avec assez de conversations pour générer FAQ
+    const clientsWithConvs = [...new Set(allReqs.map(r=>r.clientId))].map(cid=>{
+      const client=db.users.find(u=>u.id===cid);
+      const proj=getUserProject(cid);
+      const count=allReqs.filter(r=>r.clientId===cid).length;
+      return {client,proj,count,cid};
+    }).filter(x=>x.client&&x.proj&&x.count>=3);
+
     return `<div class="fade-up">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;">
         <h1 style="font-size:1.4rem;font-weight:700;">Assistant IA</h1>
+        ${weekReqs.length>0?`<button id="btn-weekly-report" class="btn btn-ghost btn-sm">📊 Résumé IA — 7 derniers jours (${weekReqs.length} Q&A)</button>`:''}
       </div>
+
+      ${frustrated.length>0?`
+      <div class="glass-card" style="padding:16px;margin-bottom:20px;border-color:rgba(240,138,138,.25);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:1rem;">😟</span>
+          <h2 style="font-size:.9rem;font-weight:700;color:#f08a8a;">Clients en frustration détectée (${frustrated.length})</h2>
+        </div>
+        ${frustrated.slice(0,5).map(r=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(240,138,138,.07);border:1px solid rgba(240,138,138,.18);border-radius:8px;margin-bottom:6px;font-size:.8rem;">
+            <span style="font-size:.9rem;">⚠️</span>
+            <div style="flex:1;min-width:0;">
+              <span style="font-weight:600;color:#f08a8a;">${esc(r.clientUsername||'—')}</span>
+              <span style="color:var(--ink-3);"> — "${esc(r.originalMessage.substring(0,70))}"</span>
+            </div>
+            <span style="font-size:.65rem;color:var(--ink-4);">${new Date(r.createdAt).toLocaleDateString('fr-FR')}</span>
+          </div>`).join('')}
+      </div>`:''}
+
       <div class="glass-card" style="padding:22px;margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
           <h2 style="font-size:.95rem;font-weight:700;">Configuration Groq</h2>
           <span style="font-size:.65rem;padding:2px 8px;border-radius:999px;background:rgba(147,181,148,.12);border:1px solid rgba(147,181,148,.28);color:var(--sage);">30 req/min gratuit</span>
         </div>
-        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:6px;">Clé utilisée pour le Q&A des clients dans l'onglet Discussion.</p>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:6px;">Clé pour le Q&A clients, le brief auto, la réponse assistée et la FAQ.</p>
         <p style="font-size:.75rem;color:var(--ink-4);margin-bottom:18px;">Obtenez une clé gratuite sur <strong>console.groq.com</strong> → API Keys.</p>
         <div style="margin-bottom:16px;">
           <label class="label">Clé API Groq</label>
@@ -5641,17 +5918,39 @@ DOCUMENTS
         </div>
         <button id="btn-save-ai-config" class="btn btn-primary">Enregistrer la clé</button>
       </div>
+
+      ${clientsWithConvs.length>0?`
+      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <h2 style="font-size:.95rem;font-weight:700;">💡 FAQ automatique par projet</h2>
+        </div>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:16px;">L'IA analyse les questions fréquentes et propose des entrées FAQ à ajouter au projet.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${clientsWithConvs.map(x=>`
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;">
+              <div style="flex:1;">
+                <div style="font-size:.88rem;font-weight:600;">${esc(x.proj.name)}</div>
+                <div style="font-size:.72rem;color:var(--ink-4);">${x.count} conversations · @${esc(x.client.username)}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm btn-gen-faq" data-uid="${x.cid}" data-pid="${x.proj.id}">✨ Générer FAQ</button>
+            </div>`).join('')}
+        </div>
+      </div>`:''}
+
       <div class="glass-card" style="padding:22px;">
-        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:4px;">Historique Q&A clients</h2>
-        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:16px;">Questions posées par les clients sur leur site.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px;">
+          <h2 style="font-size:.95rem;font-weight:700;">Historique Q&A clients</h2>
+          <span style="font-size:.72rem;color:var(--ink-4);">${allReqs.length} conversation(s)</span>
+        </div>
+        <p style="font-size:.8rem;color:var(--ink-3);margin-bottom:16px;">Questions posées par les clients.</p>
         ${allReqs.length===0?`<div style="text-align:center;padding:36px 0;color:var(--ink-4);font-size:.875rem;">Aucune conversation pour l'instant</div>`:`
         <div style="display:flex;flex-direction:column;gap:6px;">
           ${allReqs.slice(0,60).map(r=>{
             const ts=(d=>isNaN(d)?'':d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))(new Date(r.createdAt));
             const q = r.originalMessage ? r.originalMessage.substring(0,90)+(r.originalMessage.length>90?'…':'') : '—';
-            return `<div style="padding:10px 14px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.02);display:flex;align-items:center;gap:12px;">
+            return `<div style="padding:10px 14px;border:1px solid ${r.frustration?'rgba(240,138,138,.22)':'rgba(255,255,255,.07)'};border-radius:10px;background:${r.frustration?'rgba(240,138,138,.05)':'rgba(255,255,255,.02)'};display:flex;align-items:center;gap:12px;">
               <div style="flex:1;min-width:0;">
-                <div style="font-size:.78rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(q)}</div>
+                <div style="font-size:.78rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.frustration?'😟 ':''}${esc(q)}</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <span style="font-size:.75rem;font-weight:600;color:var(--ink-3);">${esc(r.clientUsername||'—')}</span>
@@ -5661,7 +5960,7 @@ DOCUMENTS
           }).join('')}
         </div>`}
       </div>
-      </div>`;
+    </div>`;
   }
 
   function wireAdminAIAutomation(){
@@ -5674,6 +5973,62 @@ DOCUMENTS
       if('claudeKey' in db.aiConfig) delete db.aiConfig.claudeKey;
       if('geminiKey' in db.aiConfig) delete db.aiConfig.geminiKey;
       saveDB(); toast('Clé Groq enregistrée ✓','success');
+    });
+
+    // #6 — Rapport hebdomadaire IA
+    const reportBtn = document.getElementById('btn-weekly-report');
+    if(reportBtn) reportBtn.addEventListener('click', async()=>{
+      const groqKey = db.aiConfig?.groqKey;
+      if(!groqKey){ toast('Clé Groq non configurée.','error'); return; }
+      const since7 = new Date(); since7.setDate(since7.getDate()-7);
+      const weekReqs = (db.aiRequests||[]).filter(r=>r.status==='answered'&&new Date(r.createdAt)>since7);
+      if(!weekReqs.length){ toast('Aucune conversation cette semaine.','info'); return; }
+      reportBtn.disabled=true; reportBtn.textContent='Génération…';
+      try{
+        const lines = weekReqs.map(r=>`- @${r.clientUsername||'?'} : "${r.originalMessage}"`).join('\n');
+        const prompt = `Voici les questions posées par des clients sur leur projet cette semaine :\n\n${lines}\n\nFais un résumé structuré en français :\n1. Les thèmes les plus fréquents\n2. Les points de blocage éventuels\n3. Les recommandations pour l'équipe\n\nSois concis (maximum 200 mots).`;
+        const json = await groqPost(groqKey,[{role:'user',content:prompt}],400);
+        const summary = json.choices?.[0]?.message?.content||'';
+        showModal(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;"><h2 style="font-size:1rem;font-weight:700;">📊 Résumé IA — 7 derniers jours</h2><button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button></div><div style="font-size:.875rem;color:var(--ink-2);line-height:1.7;white-space:pre-wrap;background:rgba(255,255,255,.03);border-radius:10px;padding:16px;">${esc(summary)}</div>`);
+      } catch(_){ toast('Erreur lors de la génération.','error'); }
+      reportBtn.disabled=false; reportBtn.textContent='📊 Résumé IA — 7 derniers jours';
+    });
+
+    // #4 — Génération FAQ automatique
+    document.querySelectorAll('.btn-gen-faq').forEach(btn=>{
+      btn.addEventListener('click', async()=>{
+        const groqKey = db.aiConfig?.groqKey;
+        if(!groqKey){ toast('Clé Groq non configurée.','error'); return; }
+        const uid_c = btn.dataset.uid;
+        const pid   = btn.dataset.pid;
+        const proj  = db.projects.find(p=>p.id===pid);
+        if(!proj){ toast('Projet introuvable.','error'); return; }
+        const reqs  = (db.aiRequests||[]).filter(r=>r.clientId===uid_c&&r.status==='answered');
+        btn.disabled=true; btn.textContent='…';
+        try{
+          const lines = reqs.slice(-20).map(r=>`Q: ${r.originalMessage}\nR: ${(r.groqAnswer||'').substring(0,200)}`).join('\n\n');
+          const prompt = `Voici des échanges Q&A entre un client et un assistant IA sur son projet "${proj.name}" :\n\n${lines}\n\nIdentifie 3 à 5 questions fréquentes ou importantes et génère des paires FAQ claires en français. Format JSON :\n[{"q":"question","a":"réponse concise"},...]`;
+          const json = await groqPost(groqKey,[{role:'user',content:prompt}],600);
+          let raw = json.choices?.[0]?.message?.content||'';
+          raw = raw.replace(/```json\n?/g,'').replace(/```/g,'').trim();
+          let faqs=[];
+          try{ faqs=JSON.parse(raw); }catch(_){ throw new Error('Format JSON invalide'); }
+          if(!faqs.length) throw new Error('Aucune FAQ générée');
+          // Afficher pour validation
+          showModal(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;"><h2 style="font-size:1rem;font-weight:700;">💡 FAQ suggérées — ${esc(proj.name)}</h2><button onclick="closeModal()" class="btn btn-ghost btn-sm">✕</button></div>
+            <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:14px;">Sélectionnez les entrées à ajouter à la FAQ du projet :</p>
+            ${faqs.map((f,i)=>`<label style="display:flex;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);margin-bottom:8px;cursor:pointer;align-items:flex-start;"><input type="checkbox" id="faq-${i}" checked style="margin-top:3px;accent-color:var(--coral);flex-shrink:0;"><div><div style="font-size:.84rem;font-weight:600;color:var(--ink);">${esc(f.q)}</div><div style="font-size:.78rem;color:var(--ink-3);margin-top:3px;">${esc(f.a)}</div></div></label>`).join('')}
+            <div style="display:flex;gap:8px;margin-top:16px;"><button onclick="closeModal()" class="btn btn-ghost" style="flex:1;justify-content:center;">Annuler</button><button id="faq-confirm" class="btn btn-primary" style="flex:1;justify-content:center;">✅ Ajouter au projet</button></div>`,
+            ()=>{
+              document.getElementById('faq-confirm').addEventListener('click',()=>{
+                if(!Array.isArray(proj.faq)) proj.faq=[];
+                faqs.forEach((f,i)=>{ if(document.getElementById('faq-'+i)?.checked) proj.faq.push({id:'faq_'+Date.now()+'_'+i, q:f.q, a:f.a}); });
+                saveDB(); toast('FAQ ajoutée au projet ✓','success'); closeModal(); refreshAdminTab();
+              });
+            });
+        } catch(e){ toast('Impossible de générer la FAQ : '+String(e).substring(0,60),'error'); }
+        btn.disabled=false; btn.textContent='✨ Générer FAQ';
+      });
     });
   }
 
@@ -5753,6 +6108,52 @@ DOCUMENTS
     return renderClientDiscussionQA();
   }
 
+  // ═══════════════════════════════════════════════
+  //  IA DISCUSSION — helpers locaux (sans API)
+  // ═══════════════════════════════════════════════
+
+  // #2 — Suggestions contextuelles selon l'état du projet
+  function generateContextSuggestions(project){
+    if(!project) return [
+      'Parlez-moi de votre agence', 'Quels sont vos délais habituels ?',
+      'Comment se passe la collaboration ?', 'Quels services proposez-vous ?'
+    ];
+    const sugs = [];
+    const tl       = project.timeline||[];
+    const current  = tl.find(s=>s.status==='current');
+    const done     = tl.filter(s=>s.status==='done').length;
+    const pending  = tl.filter(s=>s.status==='pending').length;
+    const pct      = tl.length>0 ? Math.round(done/tl.length*100) : 0;
+    const daysLeft = project.dueDate ? Math.ceil((new Date(project.dueDate)-new Date())/86400000) : null;
+    const pendingDocs = (db.documents||[]).filter(d=>d.projectId===project.id&&d.status==='pending');
+    const filledDocs  = (db.documents||[]).filter(d=>d.projectId===project.id&&d.status==='filled');
+
+    if(current)                        sugs.push(`Qu'est-ce qui reste à faire pour "${current.label}" ?`);
+    if(pct>0&&pct<100)                 sugs.push(`Que représentent concrètement les ${pct}% réalisés ?`);
+    if(daysLeft!==null&&daysLeft<=7&&daysLeft>0) sugs.push(`La livraison est dans ${daysLeft}j — tout est sur les rails ?`);
+    if(daysLeft!==null&&daysLeft<=0)   sugs.push('Quel est le nouveau calendrier de livraison ?');
+    if(pendingDocs.length>0)           sugs.push(`Mon document "${pendingDocs[0].name}" — que dois-je compléter ?`);
+    if(filledDocs.length>0)            sugs.push('Avez-vous bien reçu mes documents remplis ?');
+    if(pending>0&&current)             sugs.push(`Après "${current.label}", quelle est la prochaine étape ?`);
+    if(project.tags?.includes('e-commerce'))  sugs.push('Comment sera gérée la boutique en ligne ?');
+    if(project.tags?.includes('restaurant'))  sugs.push('La réservation en ligne sera-t-elle disponible ?');
+    if(project.websiteUrl)             sugs.push('Puis-je déjà voir une version en cours du site ?');
+    sugs.push('Quand aurai-je un aperçu visuel ?');
+    return sugs.slice(0,4);
+  }
+
+  // #5 — Détection de frustration (local, sans API)
+  function detectFrustration(text){
+    const neg=/toujours pas|ça fait \d|encore rien|jamais livré|en retard|trop long|inacceptable|inadmissible|sans nouvelle|aucune réponse|pas normal|catastrophique|honteux|vous foutez|foutage de gueule|arnaque|remboursement|avocat|plainte/i;
+    return neg.test(text);
+  }
+
+  // #7 — Détection de demandes de tâche dans les messages
+  function detectTaskRequest(text){
+    const taskWords=/il faudrait|faut ajouter|peut-on ajouter|ajouter une|créer une|mettre en place|je voudrais|j'aimerais|on pourrait|serait possible|manque une|page .+manque|section .+à faire|bouton .+à mettre|formulaire .+à créer/i;
+    return taskWords.test(text);
+  }
+
   // Cooldown : après QA_BURST_SIZE messages, pause QA_COOLDOWN_MS ms avant la prochaine salve
   const QA_BURST_SIZE   = 3;
   const QA_COOLDOWN_MS  = 60_000; // 60 secondes
@@ -5803,12 +6204,8 @@ DOCUMENTS
     const cooldownSec = inCooldown ? Math.ceil((_qaCooldownUntil - Date.now()) / 1000) : 0;
     const hasHistory = qaReqs.length > 0;
 
-    const suggestions = [
-      'Où en est mon projet ?',
-      'Quelles technologies sont utilisées ?',
-      'Quand sera-t-il livré ?',
-      'Décris la page d\'accueil'
-    ];
+    // #2 — Suggestions contextuelles dynamiques
+    const suggestions = generateContextSuggestions(proj);
 
     return `<div class="fade-up" style="display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:calc(100vh - 120px);">
       <!-- Header -->
@@ -5866,6 +6263,7 @@ DOCUMENTS
               onblur="this.style.borderColor='rgba(255,255,255,.10)';this.style.background='rgba(255,255,255,.05)'"
               ${inCooldown?'disabled':''}></textarea>
             <span id="qa-char-count" style="position:absolute;bottom:8px;right:50px;font-size:.62rem;color:var(--ink-4);pointer-events:none;"></span>
+            <button id="qa-voice-btn" title="Message vocal 🎤" style="display:none;position:absolute;right:42px;bottom:6px;width:32px;height:32px;padding:0;border-radius:10px;background:rgba(155,184,216,.12);border:1px solid rgba(155,184,216,.2);cursor:pointer;align-items:center;justify-content:center;font-size:.9rem;color:var(--sky);">🎤</button>
             <button id="qa-send-btn" class="btn btn-primary"
               style="position:absolute;right:6px;bottom:6px;width:32px;height:32px;padding:0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.95rem;"
               ${inCooldown?'disabled':''}>
@@ -5911,7 +6309,19 @@ DOCUMENTS
     const siteBlock = siteText
       ? `\n\nExtrait textuel du site :\n"""\n${siteText}\n"""`
       : '\n\n(Aucun fichier site lié — mode test.)';
-    const system = `Tu es un assistant conversationnel pour une agence web. Tu réponds en français, de façon naturelle, concise et structurée.
+    // #10 — Bonnes pratiques selon le type de projet (tags)
+    const sectorTips = project?.tags?.length ? (() => {
+      const tips = [];
+      if(project.tags.some(t=>/restaurant|café|bar|food/i.test(t))) tips.push('Pour un site restaurant : mets en avant la réservation en ligne, le menu photographié, les horaires et la localisation.');
+      if(project.tags.some(t=>/e-commerce|boutique|shop|magasin/i.test(t))) tips.push('Pour un e-commerce : panier clair, processus de paiement simplifié, photos produits de qualité, avis clients.');
+      if(project.tags.some(t=>/portfolio|freelance|créatif/i.test(t))) tips.push('Pour un portfolio : page "À propos" percutante, projets avec résultats mesurables, contact simplifié.');
+      if(project.tags.some(t=>/immobilier|agence|property/i.test(t))) tips.push('Pour un site immobilier : filtres de recherche intuitifs, galeries photos immersives, formulaire de contact par bien.');
+      return tips.length ? `\n\n💡 Bonnes pratiques pour ce type de projet (${project.tags.join(', ')}) :\n${tips.join('\n')}` : '';
+    })() : '';
+
+    const system = `Tu es un assistant conversationnel pour une agence web. Tu réponds de façon naturelle, concise et structurée.
+
+LANGUE : Détecte automatiquement la langue du message du client et réponds DANS CETTE MÊME LANGUE. Si le client écrit en anglais → réponds en anglais. En espagnol → espagnol. Par défaut : français.
 
 Ce que tu peux faire :
 - Expliquer l'avancement du projet et ses étapes
@@ -5924,7 +6334,7 @@ Ce que tu n'as pas la capacité de faire :
 - Créer des pages ou du contenu pour le site
 Si on te demande d'écrire du code, explique naturellement que tu n'as pas cette capacité. Ne mentionne ni règles ni formulaire.
 
-Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structurer tes réponses quand c'est utile. Sois concis.${ctxBlock}${siteBlock}`;
+Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structurer tes réponses quand c'est utile. Sois concis.${ctxBlock}${siteBlock}${sectorTips}`;
 
     return [
       { role:'system', content:system },
@@ -5935,6 +6345,82 @@ Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structur
 
   let _qaCooldownTimer = null;
 
+  // #1 — Brief automatique à l'ouverture
+  async function generateWelcomeBrief(){
+    const groqKey = db.aiConfig?.groqKey;
+    if(!groqKey) return;
+    const proj = getUserProject(me.id);
+    const siteHtml = proj?.siteHtml||'';
+    const msgs = document.getElementById('qa-messages');
+    if(!msgs) return;
+    // Enlever l'état vide
+    const empty = document.getElementById('qa-empty-state');
+    if(empty) empty.remove();
+    // Injecter bulle IA
+    const msgId = 'brief_'+Date.now();
+    const wrap = document.createElement('div');
+    wrap.id = msgId+'-wrap';
+    wrap.style.cssText='display:flex;align-items:flex-start;gap:8px;';
+    wrap.innerHTML=`
+      <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,rgba(217,119,87,.35),rgba(240,169,136,.2));display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;margin-top:2px;">✨</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.68rem;color:var(--ink-4);margin-bottom:4px;">Résumé automatique</div>
+        <div id="${msgId}-content" class="qa-md" style="background:rgba(217,119,87,.06);border:1px solid rgba(217,119,87,.15);border-radius:5px 18px 18px 18px;padding:11px 14px;font-size:.875rem;color:var(--ink-2);line-height:1.65;word-break:break-word;">
+          <span style="display:inline-flex;gap:4px;align-items:center;">
+            <span style="width:5px;height:5px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s 0s infinite;display:inline-block;"></span>
+            <span style="width:5px;height:5px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .2s infinite;display:inline-block;"></span>
+            <span style="width:5px;height:5px;border-radius:50%;background:var(--ink-4);animation:qa-dot 1.2s .4s infinite;display:inline-block;"></span>
+          </span>
+        </div>
+      </div>`;
+    msgs.appendChild(wrap);
+    msgs.scrollTop = msgs.scrollHeight;
+    // Construire le prompt
+    const ctx = [];
+    if(proj){
+      const tl=proj.timeline||[];
+      const done=tl.filter(s=>s.status==='done').length;
+      const pct=tl.length>0?Math.round(done/tl.length*100):0;
+      const cur=tl.find(s=>s.status==='current');
+      const pending=tl.filter(s=>s.status==='pending').length;
+      const daysLeft=proj.dueDate?Math.ceil((new Date(proj.dueDate)-new Date())/86400000):null;
+      ctx.push(`Projet : ${proj.name}`);
+      ctx.push(`Avancement : ${pct}%`);
+      if(cur) ctx.push(`Étape en cours : ${cur.label}${cur.note?` (${cur.note})`:''}`);
+      if(pending>0) ctx.push(`Étapes restantes : ${pending}`);
+      if(daysLeft!==null) ctx.push(daysLeft>0?`Livraison prévue dans ${daysLeft} jours`:`Livraison dépassée de ${Math.abs(daysLeft)} jours`);
+      const pendingDocs=(db.documents||[]).filter(d=>d.projectId===proj.id&&d.status==='pending');
+      if(pendingDocs.length>0) ctx.push(`Documents en attente du client : ${pendingDocs.map(d=>d.name).join(', ')}`);
+    }
+    const siteText = siteHtml ? siteHtml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().substring(0,1000) : '';
+    const briefPrompt = `Tu accueilles un client qui vient d'ouvrir son espace projet. Génère un message de bienvenue chaleureux et informatif qui résume l'état actuel de son projet en 2-3 phrases maximum. Sois direct et positif. Ne pose pas de questions, contente-toi de résumer.
+
+Données du projet :
+${ctx.join('\n')}${siteText?`\n\nExtrait du site :\n"${siteText.substring(0,400)}"`:'\n\n(Aucun site lié)'}
+
+Commence directement par le résumé, sans formule d'accueil générique. Utilise un ton professionnel et rassurant.`;
+    try{
+      let full='';
+      await groqPostStream(groqKey,[{role:'system',content:'Tu es un assistant projet concis. Tu réponds toujours en français.'},{role:'user',content:briefPrompt}],(partial)=>{
+        full=partial;
+        const el=document.getElementById(msgId+'-content');
+        if(el) el.innerHTML=renderMarkdown(partial)+'<span class="qa-cursor">▋</span>';
+        msgs.scrollTop=msgs.scrollHeight;
+      },250);
+      const el=document.getElementById(msgId+'-content');
+      if(el) el.innerHTML=renderMarkdown(full);
+    } catch(_){
+      const wrap=document.getElementById(msgId+'-wrap');
+      if(wrap) wrap.remove();
+      // Recreate empty state
+      const emptyDiv=document.createElement('div');
+      emptyDiv.id='qa-empty-state';
+      emptyDiv.style.cssText='display:flex;flex-direction:column;align-items:center;padding:28px 8px 16px;';
+      emptyDiv.innerHTML=`<div style="font-size:2rem;margin-bottom:10px;opacity:.5;">💬</div><div style="font-size:.85rem;color:var(--ink-4);margin-bottom:20px;text-align:center;">Commencez la conversation !</div>`;
+      msgs.prepend(emptyDiv);
+    }
+  }
+
   function wireClientDiscussionQA(){
     // Charger l'historique en mémoire
     initQAHistory();
@@ -5943,6 +6429,35 @@ Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structur
     const sendBtn = document.getElementById('qa-send-btn');
     const charCount = document.getElementById('qa-char-count');
     if(!input || !sendBtn) return;
+
+    // #1 — Brief automatique (une fois par session, si pas d'historique)
+    const briefKey = 'qa_brief_'+me.id;
+    const hasHistory = (db.aiRequests||[]).some(r=>r.clientId===me.id&&r.type==='qa'&&r.status==='answered');
+    if(!hasHistory && !sessionStorage.getItem(briefKey) && db.aiConfig?.groqKey){
+      sessionStorage.setItem(briefKey,'1');
+      setTimeout(()=>generateWelcomeBrief(), 600);
+    }
+
+    // #9 — Entrée vocale (Web Speech API)
+    const voiceBtn = document.getElementById('qa-voice-btn');
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(SR && voiceBtn){
+      voiceBtn.style.display='flex';
+      const rec = new SR();
+      rec.lang='fr-FR'; rec.continuous=false; rec.interimResults=true;
+      let listening=false;
+      voiceBtn.addEventListener('click',()=>{
+        if(listening){ rec.stop(); return; }
+        rec.start(); listening=true;
+        voiceBtn.textContent='🔴'; voiceBtn.style.color='#f08a8a';
+      });
+      rec.onresult=e=>{
+        const t=Array.from(e.results).map(r=>r[0].transcript).join('');
+        input.value=t; input.dispatchEvent(new Event('input'));
+      };
+      rec.onend=()=>{ listening=false; voiceBtn.textContent='🎤'; voiceBtn.style.color='var(--sky)'; };
+      rec.onerror=()=>{ listening=false; voiceBtn.textContent='🎤'; voiceBtn.style.color='var(--sky)'; };
+    }
 
     // ── Auto-resize textarea ─────────────────────────
     const resizeInput = ()=>{
@@ -6092,12 +6607,16 @@ Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structur
         const el = contentEl();
         if(el) el.innerHTML = renderMarkdown(fullAnswer);
 
-        // 5 — Sauvegarder dans db
+        // 5 — Sauvegarder dans db (#5 frustration + #7 tâches)
+        const isFrustrated = detectFrustration(userText);
+        const isTaskRequest = detectTaskRequest(userText);
         if(!db.aiRequests) db.aiRequests=[];
         const reqId = msgId+'_'+Math.random().toString(36).slice(2,5);
         db.aiRequests.push({
           id:reqId, clientId:me.id, clientUsername:me.username, type:'qa',
           originalMessage:userText, status:'answered', groqAnswer:fullAnswer,
+          frustration: isFrustrated || undefined,
+          possibleTask: isTaskRequest || undefined,
           createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
         });
         saveDB();
@@ -6143,6 +6662,219 @@ Utilise du markdown simple (**gras**, listes à puces, titres ###) pour structur
 
   // ── Legacy stub (plus appelé, gardé pour compatibilité) ──
   async function callGroqQA(){ throw new Error('callGroqQA remplacé par groqPostStream'); }
+
+  // ════════════════════════════════════════════════
+  //  MESSAGERIE DIRECTE admin ↔ client
+  // ════════════════════════════════════════════════
+
+  // Nombre de messages non lus pour l'utilisateur courant
+  function getUnreadMsgCount(){
+    if(!me) return 0;
+    return (db.messages||[]).filter(m=> m.toId===me.id && !(m.readBy||[]).includes(me.id)).length;
+  }
+  function markMsgsRead(fromId){
+    let changed=false;
+    (db.messages||[]).forEach(m=>{
+      if(m.fromId===fromId && m.toId===me.id && !(m.readBy||[]).includes(me.id)){
+        m.readBy=[...(m.readBy||[]), me.id]; changed=true;
+      }
+    });
+    if(changed) saveDB();
+  }
+
+  // ── Rendu admin ──────────────────────────────────
+  function renderAdminMessages(){
+    const clients = db.users.filter(u=>u.role==='client');
+    const msgs = db.messages||[];
+    // Grouper par client
+    const convos = clients.map(c=>{
+      const thread = msgs.filter(m=>(m.fromId===c.id||m.toId===c.id)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+      const unread = thread.filter(m=>m.toId===me.id&&!(m.readBy||[]).includes(me.id)).length;
+      const last = thread[thread.length-1]||null;
+      return {client:c, thread, unread, last};
+    }).sort((a,b)=> b.unread - a.unread || (b.last?new Date(b.last.createdAt):0) - (a.last?new Date(a.last.createdAt):0));
+
+    const _activeConvo = window._adminMsgConvo || (convos[0]?.client?.id||null);
+    const active = convos.find(c=>c.client.id===_activeConvo)||convos[0]||null;
+
+    return `<div class="fade-up" style="display:flex;gap:0;height:calc(100vh - 80px);max-height:calc(100vh - 80px);">
+      <!-- Liste des conversations -->
+      <div style="width:240px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07);overflow-y:auto;padding-right:0;">
+        <div style="padding:0 0 12px;"><h1 style="font-size:1.1rem;font-weight:700;">Messages</h1></div>
+        ${convos.length===0?`<div style="font-size:.82rem;color:var(--ink-4);padding:16px 0;">Aucun client</div>`:''}
+        ${convos.map(c=>`
+          <button class="admin-msg-btn ${active&&c.client.id===active.client.id?'active':''}" data-uid="${c.client.id}"
+            style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:none;border-radius:10px;background:${active&&c.client.id===active.client.id?'rgba(217,119,87,.12)':'transparent'};cursor:pointer;text-align:left;margin-bottom:2px;transition:background .15s;">
+            ${avatar(c.client)}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.85rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.client.firstName||c.client.username)}</div>
+              <div style="font-size:.72rem;color:var(--ink-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.last?esc(c.last.text.substring(0,28))+'…':'Aucun message'}</div>
+            </div>
+            ${c.unread>0?`<span style="width:18px;height:18px;border-radius:50%;background:var(--coral);color:#fff;font-size:.6rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;">${c.unread}</span>`:''}
+          </button>`).join('')}
+      </div>
+      <!-- Thread actif -->
+      <div style="flex:1;display:flex;flex-direction:column;padding-left:20px;min-width:0;">
+        ${active?`
+          <div style="font-size:.9rem;font-weight:700;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+            ${avatar(active.client)}
+            <span>${esc(active.client.firstName||active.client.username)}</span>
+            <span style="font-size:.72rem;color:var(--ink-4);font-weight:400;">@${esc(active.client.username)}</span>
+          </div>
+          <div id="msg-thread" style="flex:1;overflow-y:auto;padding:14px 0;display:flex;flex-direction:column;gap:10px;min-height:0;">
+            ${active.thread.length===0?`<div style="text-align:center;color:var(--ink-4);font-size:.82rem;margin-top:24px;">Commencez la conversation !</div>`:''}
+            ${active.thread.map(m=>{
+              const isMe = m.fromId===me.id;
+              const t=(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(m.createdAt));
+              const isTask = !isMe && detectTaskRequest(m.text);
+              return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};gap:2px;">
+                ${isTask?`<div style="font-size:.65rem;color:var(--peach);padding-left:2px;margin-bottom:1px;">💡 Possible demande de tâche</div>`:''}
+                <div style="max-width:75%;padding:9px 13px;border-radius:${isMe?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:.875rem;line-height:1.5;word-break:break-word;
+                  background:${isMe?'var(--coral)':isTask?'rgba(240,169,136,.1)':'rgba(255,255,255,.07)'};
+                  border:${isTask&&!isMe?'1px solid rgba(240,169,136,.25)':'none'};
+                  color:${isMe?'#fff':'var(--ink-2)'};">${esc(m.text)}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:.62rem;color:var(--ink-4);">${t}${isMe&&(m.readBy||[]).includes(active.client.id)?` · Lu ✓`:''}</div>
+                  ${isTask&&!isMe?`<button class="btn-add-task-from-msg btn btn-ghost" style="font-size:.62rem;padding:1px 7px;height:auto;min-height:0;" data-text="${esc(m.text)}" data-uid="${active.client.id}">➕ Tâche</button>`:''}
+                </div>
+              </div>`;}).join('')}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+            <div style="display:flex;gap:8px;">
+              <input id="msg-input" class="glass-input" placeholder="Écrire un message…" style="flex:1;" data-to="${active.client.id}" />
+              <button id="msg-ai-suggest" class="btn btn-ghost btn-sm" title="✨ Suggérer une réponse IA" style="flex-shrink:0;color:var(--sky);">✨</button>
+              <button id="msg-send" class="btn btn-primary btn-sm" style="padding:8px 16px;flex-shrink:0;">Envoyer</button>
+            </div>
+          </div>`
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-4);font-size:.875rem;">Sélectionnez une conversation</div>`}
+      </div>
+    </div>`;
+  }
+
+  function wireAdminMessages(){
+    // Switch de conversation
+    document.querySelectorAll('.admin-msg-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        window._adminMsgConvo = btn.dataset.uid;
+        markMsgsRead(btn.dataset.uid);
+        refreshAdminTab();
+      });
+    });
+    // Scroll bas du thread
+    const thread = document.getElementById('msg-thread');
+    if(thread) thread.scrollTop=thread.scrollHeight;
+    // Marquer lu à l'ouverture
+    if(window._adminMsgConvo) markMsgsRead(window._adminMsgConvo);
+    // Envoi
+    // #7 — Ajouter tâche depuis message
+    document.querySelectorAll('.btn-add-task-from-msg').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const uid_c = btn.dataset.uid;
+        const proj = getUserProject(uid_c);
+        if(!proj){ toast('Aucun projet pour ce client.','error'); return; }
+        const label = prompt('Libellé de la tâche :', btn.dataset.text.substring(0,60));
+        if(!label) return;
+        if(!Array.isArray(proj.internalTasks)) proj.internalTasks=[];
+        proj.internalTasks.push({id:'t_'+Date.now(), label, done:false, createdAt:new Date().toISOString()});
+        saveDB(); toast('Tâche ajoutée au projet ✓','success'); refreshAdminTab();
+      });
+    });
+
+    const input=document.getElementById('msg-input');
+    const send=document.getElementById('msg-send');
+    if(!input||!send) return;
+
+    // #3 — Réponse assistée IA
+    const aiSuggest = document.getElementById('msg-ai-suggest');
+    if(aiSuggest) aiSuggest.addEventListener('click', async()=>{
+      const groqKey = db.aiConfig?.groqKey;
+      if(!groqKey){ toast('Clé Groq non configurée.','error'); return; }
+      const toId = input.dataset.to;
+      const proj = getUserProject(toId);
+      const thread = (db.messages||[]).filter(m=>m.fromId===toId||m.toId===toId).slice(-6);
+      aiSuggest.disabled=true; aiSuggest.textContent='…';
+      try{
+        const ctxLines=[];
+        if(proj){ ctxLines.push(`Projet : ${proj.name}`); const tl=proj.timeline||[]; const cur=tl.find(s=>s.status==='current'); if(cur) ctxLines.push(`Étape en cours : ${cur.label}`); const pct=tl.length>0?Math.round(tl.filter(s=>s.status==='done').length/tl.length*100):0; ctxLines.push(`Avancement : ${pct}%`); }
+        const convLines = thread.map(m=>`${m.fromRole==='client'?'Client':'Admin'}: ${m.text}`).join('\n');
+        const prompt = `Tu es un gestionnaire de projet web. Rédige une réponse professionnelle, concise (2-3 phrases max) en français pour répondre au dernier message du client.\n\nContexte projet :\n${ctxLines.join('\n')}\n\nConversation :\n${convLines}\n\nRéponds directement en tant que l'agence, sans en-tête ni signature. Sois utile et rassurant.`;
+        const json = await groqPost(groqKey,[{role:'system',content:'Tu es un gestionnaire de projet web expert.'},{role:'user',content:prompt}],200);
+        const draft = json.choices?.[0]?.message?.content||'';
+        input.value=draft; input.focus();
+      } catch(_){ toast('Impossible de générer une suggestion.','error'); }
+      aiSuggest.disabled=false; aiSuggest.textContent='✨';
+    });
+
+    const doSend=()=>{
+      const text=input.value.trim(); if(!text) return;
+      const toId=input.dataset.to;
+      const toUser=db.users.find(u=>u.id===toId);
+      if(!toUser) return;
+      if(!db.messages) db.messages=[];
+      db.messages.push({id:'m_'+Date.now(), fromId:me.id, fromUsername:me.username, fromRole:me.role, toId, toUsername:toUser.username, text, createdAt:new Date().toISOString(), readBy:[me.id]});
+      saveDB(); input.value=''; refreshAdminTab();
+    };
+    send.addEventListener('click',doSend);
+    input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); doSend(); } });
+  }
+
+  // ── Rendu client ─────────────────────────────────
+  function renderClientMessages(){
+    const msgs = (db.messages||[]).filter(m=>m.fromId===me.id||m.toId===me.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    return `<div class="fade-up" style="display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:calc(100vh - 120px);">
+      <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--sky),rgba(155,184,216,.5));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">✉️</div>
+        <div>
+          <div style="font-size:.9rem;font-weight:700;">Messages</div>
+          <div style="font-size:.7rem;color:var(--ink-4);">Échanges directs avec votre équipe</div>
+        </div>
+      </div>
+      <div id="client-msg-thread" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:14px 0;min-height:0;">
+        ${msgs.length===0?`<div style="text-align:center;color:var(--ink-4);font-size:.82rem;margin-top:32px;padding:0 16px;">Aucun message pour l'instant.<br><span style="font-size:.76rem;opacity:.6;">Envoyez un message à votre équipe 👇</span></div>`:''}
+        ${msgs.map(m=>{
+          const isMe=m.fromId===me.id;
+          const t=(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(m.createdAt));
+          return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};gap:2px;">
+            <div style="max-width:82%;padding:10px 14px;border-radius:${isMe?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:.875rem;line-height:1.55;word-break:break-word;
+              background:${isMe?'var(--coral)':'rgba(255,255,255,.07)'};
+              color:${isMe?'#fff':'var(--ink-2)'};">${esc(m.text)}</div>
+            <div style="font-size:.63rem;color:var(--ink-4);">${isMe?'Vous':'Votre équipe'} · ${t}${!isMe&&!(m.readBy||[]).includes(me.id)?` <span style="color:var(--coral);">●</span>`:''}</div>
+          </div>`;}).join('')}
+      </div>
+      <div style="padding:10px 0 2px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="client-msg-input" class="glass-input" placeholder="Écrire un message à votre équipe…" style="flex:1;" maxlength="1000" />
+          <button id="client-msg-send" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;">↑</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function wireClientMessages(){
+    // Marquer les messages reçus comme lus
+    (db.messages||[]).forEach(m=>{
+      if(m.toId===me.id && !(m.readBy||[]).includes(me.id)){
+        m.readBy=[...(m.readBy||[]), me.id];
+      }
+    });
+    saveDB();
+    const thread=document.getElementById('client-msg-thread');
+    if(thread) thread.scrollTop=thread.scrollHeight;
+    const input=document.getElementById('client-msg-input');
+    const send=document.getElementById('client-msg-send');
+    if(!input||!send) return;
+    const doSend=()=>{
+      const text=input.value.trim(); if(!text) return;
+      // Envoyer à l'admin (ou au premier admin trouvé)
+      const admin=db.users.find(u=>u.role==='admin')||db.users.find(u=>u.role==='controller');
+      if(!admin) return;
+      if(!db.messages) db.messages=[];
+      db.messages.push({id:'m_'+Date.now(), fromId:me.id, fromUsername:me.username, fromRole:'client', toId:admin.id, toUsername:admin.username, text, createdAt:new Date().toISOString(), readBy:[me.id]});
+      saveDB(); input.value=''; refreshClientTab(true);
+    };
+    send.addEventListener('click',doSend);
+    input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); doSend(); } });
+  }
 
   function wireClientDiscussion(){
     const photoInput = document.getElementById('discussion-photo-input');
