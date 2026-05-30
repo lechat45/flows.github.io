@@ -349,10 +349,10 @@
         var(--shadow-md);
       transition:
         border-color .2s ease,
-        box-shadow .25s ease,
-        transform .2s cubic-bezier(.2,.7,.2,1);
+        box-shadow .25s ease;
       overflow: hidden;
-      transform: translateZ(0);
+      /* ⚠️ Pas de transform ici : transform crée un containing block pour
+         position:fixed ce qui casse le positionnement du kebab menu */
     }
     /* Top specular sheen */
     .glass-card::before {
@@ -375,12 +375,13 @@
     .glass-card > * { position: relative; z-index: 1; }
     .glass-card:hover {
       border-color: var(--glass-edge-hi);
+      /* Effet de "lift" via ombre plus prononcée (sans transform) */
       box-shadow:
         inset 0 1px 0 var(--glass-edge-hi),
         inset 0 -1px 0 var(--glass-edge-lo),
-        0 18px 48px -14px rgba(0,0,0,.55),
-        0 4px 12px -4px var(--coral-glow);
-      transform: translateY(-1px);
+        0 22px 56px -14px rgba(0,0,0,.60),
+        0 6px 18px -4px var(--coral-glow),
+        0 2px 6px -1px rgba(0,0,0,.25);
     }
     .glass-card:hover::after { opacity: 1; }
 
