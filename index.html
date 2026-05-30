@@ -1698,6 +1698,8 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
 
   // ─── Default data ───────────────────────────────
   const SEED = {
+    // ⚠️ Changez ces mots de passe via "Mon Profil" dès la première connexion
+    // Les hashes ci-dessous sont des exemples — le SEED n'est utilisé que si Firebase est vide
     users: [
       { id:'u1', username:'Sacha',  password:'sha256:8e2ff622e0da75207ff78f74a625b54e76bf2187d069964ee73af155b43bda03', role:'admin',
         firstName:'Sacha', lastName:'', email:'sacha@flow.app', photo:null,
@@ -1922,12 +1924,14 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
   const roleLabel = r=>({admin:'Admin',controller:'Contrôleur',client:'Client'}[r]||r);
   const roleBadge = r=>`<span class="badge badge-${r==='controller'?'controller':r}">${roleLabel(r)}</span>`;
   const initials = u=>(((u.firstName||u.username||'?')[0])+(u.lastName?u.lastName[0]:'')).toUpperCase();
-  const avatar = u => u.photo
-    ? `<img src="${esc(u.photo)}" class="avatar" style="width:36px;height:36px;" />`
-    : `<div class="avatar" style="width:36px;height:36px;background:${avatarColor(u)}">${initials(u)}</div>`;
-  const avatarLg = u => u.photo
-    ? `<img src="${esc(u.photo)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;" />`
-    : `<div class="avatar" style="width:72px;height:72px;font-size:1.4rem;background:${avatarColor(u)}">${initials(u)}</div>`;
+  // Sécurité : valider les URLs de photos (no javascript: / data: URIs non-image)
+  function safePhotoUrl(url){ return url && /^https?:\/\//i.test(url) ? url : null; }
+  const avatar = u => { const p=safePhotoUrl(u.photo);
+    return p ? `<img src="${esc(p)}" class="avatar" style="width:36px;height:36px;" />`
+             : `<div class="avatar" style="width:36px;height:36px;background:${avatarColor(u)}">${initials(u)}</div>`; };
+  const avatarLg = u => { const p=safePhotoUrl(u.photo);
+    return p ? `<img src="${esc(p)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;" />`
+             : `<div class="avatar" style="width:72px;height:72px;font-size:1.4rem;background:${avatarColor(u)}">${initials(u)}</div>`; };
   const avatarColors=['linear-gradient(135deg,#d97757,#c25a3a)','linear-gradient(135deg,#9bb8d8,#6f8db0)','linear-gradient(135deg,#a8c4a9,#10b981)','linear-gradient(135deg,#e88aa6,#ec4899)','linear-gradient(135deg,#9bb8d8,#3b82f6)'];
   const _avatarColorCache = new Map();
   function avatarColor(u){
@@ -2218,6 +2222,15 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     me = null;
     sessionStorage.removeItem('flow_uid');
     activeTab = 'home';
+    // Purger les états globaux qui pourraient fuiter entre sessions
+    window._adminView            = undefined;
+    window._adminMsgConvo        = undefined;
+    window._clientActiveProjectId= undefined;
+    window._kebabCloseWired      = undefined;
+    window._pendingDiscussionPhoto= null;
+    _qaConversationHistory = [];
+    _qaBurstCount = 0;
+    _qaCooldownUntil = 0;
     render();
   }
   function checkSession(){
@@ -2256,7 +2269,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
           <img src="logo.png" alt="Flow" style="width:96px;height:96px;object-fit:cover;border-radius:18px;margin-bottom:10px;cursor:pointer;" id="login-logo" onclick="showWhatsNew&&showWhatsNew()">
           <p style="color:rgba(244,238,229,.45);font-size:.875rem;">Plateforme de gestion de projet</p>
         </div>
-        ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${errMsg}</div>`:''}
+        ${errMsg?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.85rem;color:#e08680;">${esc(errMsg)}</div>`:''}
         <div style="margin-bottom:14px;">
           <label class="label" for="li-user">Identifiant</label>
           <input id="li-user" class="glass-input" placeholder="Votre nom d'utilisateur" autocomplete="username" aria-required="true" />
@@ -2401,7 +2414,6 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     { id:'home',           icon:iconHome(),      label:'Accueil'           },
     { id:'users',          icon:iconUsers(),     label:'Utilisateurs'      },
     { id:'documents',      icon:iconDocs(),      label:'Suivi & Docs'      },
-    { id:'messages',       icon:iconMsg(),       label:'Messages'          },
     { id:'finance',        icon:iconFinance(),   label:'Finance'           },
     { id:'requests',       icon:iconRequests(),  label:'Demandes'          },
     { id:'history',        icon:iconHistory(),   label:'Historique'        },
@@ -2526,7 +2538,6 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     const base = [
       { id:'home',      icon:iconHome(),    label:'Accueil'   },
       { id:'documents', icon:iconDocs(),    label:'Documents' },
-      { id:'messages',  icon:iconMsg(),     label:'Messages'  },
       { id:'profile',   icon:iconProfile(), label:'Profil'    }
     ];
     const _discProject = getUserProject(me.id);
@@ -2557,13 +2568,11 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       ${(()=>{
         const pendingCount = (db.pendingUsers||[]).length;
         const aiPendingCount = (db.aiRequests||[]).filter(r=>r.status==='pending_admin').length;
-        const unreadMsgCount = getUnreadMsgCount();
         const myProject = getUserProject(me.id);
         return getAdminVisibleTabs().map(t=>`
         <button class="nav-item ${activeTab===t.id?'active':''}" data-tab="${t.id}" style="position:relative;">
           ${t.icon} <span>${t.label}</span>${t.beta?` <span style="font-size:.55rem;background:rgba(155,184,216,.15);color:var(--sky);border:1px solid rgba(155,184,216,.25);border-radius:999px;padding:1px 5px;letter-spacing:.06em;text-transform:uppercase;margin-left:4px;">BÊTA</span>`:''}
           ${t.id==='documents'?`<span id="notif-badge" style="display:${notifBadge>0?'inline-flex':'none'};align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(220,80,80,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${notifBadge>9?'9+':notifBadge}</span>`:''}
-          ${t.id==='messages'&&unreadMsgCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:var(--coral);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${unreadMsgCount}</span>`:''}
           ${t.id==='requests'&&pendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(155,184,216,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#0a0604;min-width:16px;">${pendingCount}</span>`:''}
           ${t.id==='ai-automation'&&aiPendingCount>0?`<span style="display:inline-flex;align-items:center;justify-content:center;position:absolute;top:6px;right:8px;background:rgba(217,119,87,.9);border-radius:999px;font-size:.62rem;padding:1px 5px;color:#fff;min-width:16px;">${aiPendingCount}</span>`:''}
         </button>`).join('') +
@@ -2595,7 +2604,6 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     if(activeTab==='home')           return renderAdminHome();
     if(activeTab==='users')          return renderAdminUsers();
     if(activeTab==='documents')      return renderAdminDocuments();
-    if(activeTab==='messages')       return renderAdminMessages();
     if(activeTab==='history')        return renderAdminHistory();
     if(activeTab==='finance')        return renderAdminFinance();
     if(activeTab==='requests')       return renderAdminRequests();
@@ -2634,7 +2642,6 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     if(activeTab==='home')          wireAdminHome();
     if(activeTab==='users')         wireAdminUsers();
     if(activeTab==='documents')     wireAdminDocuments();
-    if(activeTab==='messages')      wireAdminMessages();
     if(activeTab==='history')       wireAdminHistory();
     if(activeTab==='finance')       wireAdminFinance();
     if(activeTab==='requests')      wireAdminRequests();
@@ -2656,12 +2663,11 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     const MAX_TABS = 4;
     const tabs = allTabs.length > MAX_TABS ? allTabs.slice(0, MAX_TABS) : allTabs;
     const hasNewVersion = localStorage.getItem('flow_seen_version') !== APP_VERSION;
-    const mobMsgCount = getUnreadMsgCount();
     bar.innerHTML = tabs.map((t,idx)=>`
       <button class="mob-tab ${activeTab===t.id?'active':''}" data-mob-tab="${t.id}">
         ${t.icon}<span>${t.label}</span>
         ${t.id==='documents'&&shell==='admin'?`<span id="mob-notif-badge" class="mob-tab-badge" style="display:${notifBadge>0?'inline':'none'};">${notifBadge>9?'9+':notifBadge}</span>`:''}
-        ${t.id==='messages'&&mobMsgCount>0?`<span class="mob-tab-badge" style="display:inline;background:var(--coral);">${mobMsgCount}</span>`:''}
+
         ${idx===0&&hasNewVersion?`<span class="mob-new-dot" id="mob-version-dot"></span>`:''}
       </button>`).join('')
     + `<button class="mob-tab" id="mob-search-btn" title="Rechercher" style="color:var(--ink-4);">
@@ -3057,12 +3063,12 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
       b.addEventListener('click',()=>{
         const p=db.projects.find(x=>x.id===b.dataset.pid);
         if(!p) return;
-        if(!confirm('Supprimer définitivement "'+p.name+'" ?')) return;
-        logActivity('project_deleted','Projet archivé supprimé : '+p.name);
-        db.projects=db.projects.filter(x=>x.id!==b.dataset.pid);
-        db.documents=db.documents.filter(d=>d.projectId!==b.dataset.pid);
-        saveDB(); toast('Projet supprimé.','info'); refreshAdminTab();
-      });
+        confirmAction('Supprimer définitivement "'+p.name+'" ?', ()=>{
+          logActivity('project_deleted','Projet archivé supprimé : '+p.name);
+          db.projects=db.projects.filter(x=>x.id!==b.dataset.pid);
+          db.documents=db.documents.filter(d=>d.projectId!==b.dataset.pid);
+          saveDB(); toast('Projet supprimé.','info'); refreshAdminTab();
+        }, {label:'Supprimer'});
     });
   }
 
@@ -3850,7 +3856,6 @@ DOCUMENTS
     if(activeTab==='home')       return renderClientHome();
     if(activeTab==='documents')  return renderClientDocuments();
     if(activeTab==='discussion') return renderClientDiscussion();
-    if(activeTab==='messages')   return renderClientMessages();
     if(activeTab==='profile')    return renderClientProfile();
     return '';
   }
@@ -3885,7 +3890,6 @@ DOCUMENTS
     if(activeTab==='home')       wireClientHome();
     if(activeTab==='documents')  wireClientDocuments();
     if(activeTab==='discussion'){ wireClientDiscussionQA(); const m=document.getElementById('qa-messages'); if(m) m.scrollTop=m.scrollHeight; }
-    if(activeTab==='messages')   wireClientMessages();
     if(activeTab==='profile')    wireClientProfile();
     renderMobileTabbar('client');
   }
@@ -4240,6 +4244,21 @@ DOCUMENTS
     if(ov){ ov.style.display='none'; ov.innerHTML=''; }
   }
 
+  // Helper : modale de confirmation personnalisée (remplace confirm() natif)
+  function confirmAction(message, onConfirm, { danger=true, label='Confirmer' }={}){
+    showModal(`
+      <div style="text-align:center;padding:8px 0;">
+        <div style="font-size:2rem;margin-bottom:12px;">${danger?'⚠️':'❓'}</div>
+        <p style="font-size:.9rem;color:var(--ink-2);line-height:1.55;margin-bottom:24px;">${esc(message)}</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button onclick="closeModal()" class="btn btn-ghost">Annuler</button>
+          <button id="confirm-action-btn" class="btn ${danger?'btn-danger':'btn-primary'}">${esc(label)}</button>
+        </div>
+      </div>`,
+      ()=>{ document.getElementById('confirm-action-btn').addEventListener('click',()=>{ closeModal(); onConfirm(); }); }
+    );
+  }
+
   // ── Create User Modal ──────────────────────────
   function openCreateUserModal(){
     const canRoles = me.role==='admin'
@@ -4479,10 +4498,11 @@ DOCUMENTS
       dropZone.addEventListener('drop',e=>{ e.preventDefault(); dropZone.style.borderColor=''; handleFile(e.dataTransfer.files[0]); });
 
       document.getElementById('btn-remove-delivery')?.addEventListener('click',()=>{
-        if(!confirm('Retirer la livraison existante ?')) return;
-        p.deliverable = null;
-        logActivity('delivery_removed','Livraison retirée : '+p.name);
-        saveDB(); toast('Livraison retirée.','info'); closeModal(); refreshAdminTab();
+        confirmAction('Retirer la livraison existante ?', ()=>{
+          p.deliverable = null;
+          logActivity('delivery_removed','Livraison retirée : '+p.name);
+          saveDB(); toast('Livraison retirée.','info'); closeModal(); refreshAdminTab();
+        }, {label:'Retirer'});
       });
 
       saveBtn.addEventListener('click',()=>{
@@ -4558,9 +4578,10 @@ DOCUMENTS
       dropZone.addEventListener('drop',e=>{ e.preventDefault(); dropZone.style.borderColor=''; handleFile(e.dataTransfer.files[0]); });
 
       document.getElementById('btn-unlink-site')?.addEventListener('click',()=>{
-        if(!confirm('Délier le fichier site ? Le client n\'aura plus accès à l\'onglet Discussion.')) return;
-        p.siteHtml = null; p.siteLinkedAt = null;
-        saveDB(); toast('Fichier site délié.','info'); closeModal(); refreshAdminTab();
+        confirmAction('Délier le fichier site ? Le client n\'aura plus accès à l\'onglet Discussion.', ()=>{
+          p.siteHtml = null; p.siteLinkedAt = null;
+          saveDB(); toast('Fichier site délié.','info'); closeModal(); refreshAdminTab();
+        }, {label:'Délier', danger:true}); return;
       });
 
       saveBtn.addEventListener('click',()=>{
@@ -5170,10 +5191,11 @@ DOCUMENTS
       btn.addEventListener('click',()=>{
         const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
         if(!req) return;
-        if(!confirm('Refuser la demande de @'+req.username+' ?')) return;
-        db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
-        logActivity('request_rejected','Demande refusée : @'+req.username);
-        saveDB(); toast('Demande refusée.','info'); refreshAdminTab();
+        confirmAction('Refuser la demande de @'+req.username+' ?', ()=>{
+          db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
+          logActivity('request_rejected','Demande refusée : @'+req.username);
+          saveDB(); toast('Demande refusée.','info'); refreshAdminTab();
+        }, {label:'Refuser', danger:true});
       });
     });
 
@@ -5181,22 +5203,24 @@ DOCUMENTS
       btn.addEventListener('click',()=>{
         const req = (db.pendingUsers||[]).find(u=>u.id===btn.dataset.uid);
         if(!req) return;
-        if(!confirm('Bloquer @'+req.username+' ? Aucune future demande ne sera acceptée avec ce pseudo/email.')) return;
-        if(!db.blockedAccounts) db.blockedAccounts = [];
-        db.blockedAccounts.push({ username: req.username, email: req.email||'', blockedAt: new Date().toISOString(), blockedBy: me.username });
-        db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
-        logActivity('request_blocked','Compte bloqué : @'+req.username);
-        saveDB(); toast('Compte bloqué.','info'); refreshAdminTab();
+        confirmAction('Bloquer @'+req.username+' ? Aucune future demande ne sera acceptée avec ce pseudo/email.', ()=>{
+          if(!db.blockedAccounts) db.blockedAccounts = [];
+          db.blockedAccounts.push({ username: req.username, email: req.email||'', blockedAt: new Date().toISOString(), blockedBy: me.username });
+          db.pendingUsers = (db.pendingUsers||[]).filter(u=>u.id!==req.id);
+          logActivity('request_blocked','Compte bloqué : @'+req.username);
+          saveDB(); toast('Compte bloqué.','info'); refreshAdminTab();
+        }, {label:'Bloquer', danger:true});
       });
     });
 
     document.querySelectorAll('.btn-unblock-req').forEach(btn=>{
       btn.addEventListener('click',()=>{
         const uname = btn.dataset.username;
-        if(!confirm('Débloquer @'+uname+' ?')) return;
-        db.blockedAccounts = (db.blockedAccounts||[]).filter(b=>b.username!==uname);
-        logActivity('request_unblocked','Compte débloqué : @'+uname);
-        saveDB(); toast('Compte débloqué.','success'); refreshAdminTab();
+        confirmAction('Débloquer @'+uname+' ?', ()=>{
+          db.blockedAccounts = (db.blockedAccounts||[]).filter(b=>b.username!==uname);
+          logActivity('request_unblocked','Compte débloqué : @'+uname);
+          saveDB(); toast('Compte débloqué.','success'); refreshAdminTab();
+        }, {label:'Débloquer', danger:false});
       });
     });
   }
@@ -6520,12 +6544,12 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
     // ── Bouton effacer la conversation ──────────────
     const clearBtn = document.getElementById('qa-clear-btn');
     if(clearBtn) clearBtn.addEventListener('click',()=>{
-      if(!confirm('Effacer tout l\'historique de conversation ?')) return;
-      db.aiRequests = (db.aiRequests||[]).filter(r=>!(r.clientId===me.id&&r.type==='qa'));
-      _qaConversationHistory = [];
-      saveDB();
-      refreshClientTab(true);
-    });
+      confirmAction('Effacer tout l\'historique de conversation ?', ()=>{
+        db.aiRequests = (db.aiRequests||[]).filter(r=>!(r.clientId===me.id&&r.type==='qa'));
+        _qaConversationHistory = [];
+        saveDB();
+        refreshClientTab(true);
+      }, {label:'Effacer', danger:true});
 
     // ── Fonction d'injection DOM d'un échange ───────
     function injectUserBubble(text){
@@ -6663,27 +6687,9 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
   // ── Legacy stub (plus appelé, gardé pour compatibilité) ──
   async function callGroqQA(){ throw new Error('callGroqQA remplacé par groqPostStream'); }
 
-  // ════════════════════════════════════════════════
-  //  MESSAGERIE DIRECTE admin ↔ client
-  // ════════════════════════════════════════════════
-
-  // Nombre de messages non lus pour l'utilisateur courant
-  function getUnreadMsgCount(){
-    if(!me) return 0;
-    return (db.messages||[]).filter(m=> m.toId===me.id && !(m.readBy||[]).includes(me.id)).length;
-  }
-  function markMsgsRead(fromId){
-    let changed=false;
-    (db.messages||[]).forEach(m=>{
-      if(m.fromId===fromId && m.toId===me.id && !(m.readBy||[]).includes(me.id)){
-        m.readBy=[...(m.readBy||[]), me.id]; changed=true;
-      }
-    });
-    if(changed) saveDB();
-  }
-
-  // ── Rendu admin ──────────────────────────────────
-  function renderAdminMessages(){
+  // ── Messages supprimés (onglet retiré) ──
+  function renderAdminMessages(){ return ''; }
+  function _deletedAdminMessages_renderAdminMessages(){
     const clients = db.users.filter(u=>u.role==='client');
     const msgs = db.messages||[];
     // Grouper par client
@@ -6751,130 +6757,9 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
     </div>`;
   }
 
-  function wireAdminMessages(){
-    // Switch de conversation
-    document.querySelectorAll('.admin-msg-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        window._adminMsgConvo = btn.dataset.uid;
-        markMsgsRead(btn.dataset.uid);
-        refreshAdminTab();
-      });
-    });
-    // Scroll bas du thread
-    const thread = document.getElementById('msg-thread');
-    if(thread) thread.scrollTop=thread.scrollHeight;
-    // Marquer lu à l'ouverture
-    if(window._adminMsgConvo) markMsgsRead(window._adminMsgConvo);
-    // Envoi
-    // #7 — Ajouter tâche depuis message
-    document.querySelectorAll('.btn-add-task-from-msg').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const uid_c = btn.dataset.uid;
-        const proj = getUserProject(uid_c);
-        if(!proj){ toast('Aucun projet pour ce client.','error'); return; }
-        const label = prompt('Libellé de la tâche :', btn.dataset.text.substring(0,60));
-        if(!label) return;
-        if(!Array.isArray(proj.internalTasks)) proj.internalTasks=[];
-        proj.internalTasks.push({id:'t_'+Date.now(), label, done:false, createdAt:new Date().toISOString()});
-        saveDB(); toast('Tâche ajoutée au projet ✓','success'); refreshAdminTab();
-      });
-    });
-
-    const input=document.getElementById('msg-input');
-    const send=document.getElementById('msg-send');
-    if(!input||!send) return;
-
-    // #3 — Réponse assistée IA
-    const aiSuggest = document.getElementById('msg-ai-suggest');
-    if(aiSuggest) aiSuggest.addEventListener('click', async()=>{
-      const groqKey = db.aiConfig?.groqKey;
-      if(!groqKey){ toast('Clé Groq non configurée.','error'); return; }
-      const toId = input.dataset.to;
-      const proj = getUserProject(toId);
-      const thread = (db.messages||[]).filter(m=>m.fromId===toId||m.toId===toId).slice(-6);
-      aiSuggest.disabled=true; aiSuggest.textContent='…';
-      try{
-        const ctxLines=[];
-        if(proj){ ctxLines.push(`Projet : ${proj.name}`); const tl=proj.timeline||[]; const cur=tl.find(s=>s.status==='current'); if(cur) ctxLines.push(`Étape en cours : ${cur.label}`); const pct=tl.length>0?Math.round(tl.filter(s=>s.status==='done').length/tl.length*100):0; ctxLines.push(`Avancement : ${pct}%`); }
-        const convLines = thread.map(m=>`${m.fromRole==='client'?'Client':'Admin'}: ${m.text}`).join('\n');
-        const prompt = `Tu es un gestionnaire de projet web. Rédige une réponse professionnelle, concise (2-3 phrases max) en français pour répondre au dernier message du client.\n\nContexte projet :\n${ctxLines.join('\n')}\n\nConversation :\n${convLines}\n\nRéponds directement en tant que l'agence, sans en-tête ni signature. Sois utile et rassurant.`;
-        const json = await groqPost(groqKey,[{role:'system',content:'Tu es un gestionnaire de projet web expert.'},{role:'user',content:prompt}],200);
-        const draft = json.choices?.[0]?.message?.content||'';
-        input.value=draft; input.focus();
-      } catch(_){ toast('Impossible de générer une suggestion.','error'); }
-      aiSuggest.disabled=false; aiSuggest.textContent='✨';
-    });
-
-    const doSend=()=>{
-      const text=input.value.trim(); if(!text) return;
-      const toId=input.dataset.to;
-      const toUser=db.users.find(u=>u.id===toId);
-      if(!toUser) return;
-      if(!db.messages) db.messages=[];
-      db.messages.push({id:'m_'+Date.now(), fromId:me.id, fromUsername:me.username, fromRole:me.role, toId, toUsername:toUser.username, text, createdAt:new Date().toISOString(), readBy:[me.id]});
-      saveDB(); input.value=''; refreshAdminTab();
-    };
-    send.addEventListener('click',doSend);
-    input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); doSend(); } });
-  }
-
-  // ── Rendu client ─────────────────────────────────
-  function renderClientMessages(){
-    const msgs = (db.messages||[]).filter(m=>m.fromId===me.id||m.toId===me.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    return `<div class="fade-up" style="display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:calc(100vh - 120px);">
-      <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;">
-        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--sky),rgba(155,184,216,.5));display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">✉️</div>
-        <div>
-          <div style="font-size:.9rem;font-weight:700;">Messages</div>
-          <div style="font-size:.7rem;color:var(--ink-4);">Échanges directs avec votre équipe</div>
-        </div>
-      </div>
-      <div id="client-msg-thread" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:14px 0;min-height:0;">
-        ${msgs.length===0?`<div style="text-align:center;color:var(--ink-4);font-size:.82rem;margin-top:32px;padding:0 16px;">Aucun message pour l'instant.<br><span style="font-size:.76rem;opacity:.6;">Envoyez un message à votre équipe 👇</span></div>`:''}
-        ${msgs.map(m=>{
-          const isMe=m.fromId===me.id;
-          const t=(d=>isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))(new Date(m.createdAt));
-          return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};gap:2px;">
-            <div style="max-width:82%;padding:10px 14px;border-radius:${isMe?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:.875rem;line-height:1.55;word-break:break-word;
-              background:${isMe?'var(--coral)':'rgba(255,255,255,.07)'};
-              color:${isMe?'#fff':'var(--ink-2)'};">${esc(m.text)}</div>
-            <div style="font-size:.63rem;color:var(--ink-4);">${isMe?'Vous':'Votre équipe'} · ${t}${!isMe&&!(m.readBy||[]).includes(me.id)?` <span style="color:var(--coral);">●</span>`:''}</div>
-          </div>`;}).join('')}
-      </div>
-      <div style="padding:10px 0 2px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;">
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="client-msg-input" class="glass-input" placeholder="Écrire un message à votre équipe…" style="flex:1;" maxlength="1000" />
-          <button id="client-msg-send" class="btn btn-primary btn-sm" style="padding:10px 16px;flex-shrink:0;">↑</button>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  function wireClientMessages(){
-    // Marquer les messages reçus comme lus
-    (db.messages||[]).forEach(m=>{
-      if(m.toId===me.id && !(m.readBy||[]).includes(me.id)){
-        m.readBy=[...(m.readBy||[]), me.id];
-      }
-    });
-    saveDB();
-    const thread=document.getElementById('client-msg-thread');
-    if(thread) thread.scrollTop=thread.scrollHeight;
-    const input=document.getElementById('client-msg-input');
-    const send=document.getElementById('client-msg-send');
-    if(!input||!send) return;
-    const doSend=()=>{
-      const text=input.value.trim(); if(!text) return;
-      // Envoyer à l'admin (ou au premier admin trouvé)
-      const admin=db.users.find(u=>u.role==='admin')||db.users.find(u=>u.role==='controller');
-      if(!admin) return;
-      if(!db.messages) db.messages=[];
-      db.messages.push({id:'m_'+Date.now(), fromId:me.id, fromUsername:me.username, fromRole:'client', toId:admin.id, toUsername:admin.username, text, createdAt:new Date().toISOString(), readBy:[me.id]});
-      saveDB(); input.value=''; refreshClientTab(true);
-    };
-    send.addEventListener('click',doSend);
-    input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); doSend(); } });
-  }
+  function wireAdminMessages(){}
+  function renderClientMessages(){ return ''; }
+  function wireClientMessages(){}
 
   function wireClientDiscussion(){
     const photoInput = document.getElementById('discussion-photo-input');
