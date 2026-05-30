@@ -604,8 +604,9 @@
     .kebab-item.kebab-danger { color: #f08a8a; }
     .kebab-item.kebab-danger:hover { background: rgba(220,80,80,.14); color: #f08a8a; }
     .kebab-divider { height: 1px; background: var(--glass-edge); margin: 4px 2px; }
-    /* Perf: skip layout/paint of off-screen doc panels */
-    .client-doc-panel-wrap { content-visibility: auto; contain-intrinsic-size: 0 320px; }
+    /* Conteneur de panneaux clients — content-visibility retiré car crée
+       un containing block pour position:fixed (empêche le kebab menu) */
+    .client-doc-panel-wrap { contain-intrinsic-size: 0 320px; }
     /* Perf: GPU layers pour éléments animés */
     .tl-current .tl-dot { will-change: box-shadow; }
     #mobile-tabbar { will-change: transform; transform: translateZ(0); }
@@ -3468,7 +3469,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
   }
 
   function wireAdminDocuments(){
-    // Kebab menu toggle — position:fixed so it escapes overflow:hidden glass-card
+    // Kebab menu toggle — portail body pour échapper à tous les containing blocks
     document.querySelectorAll('.kebab-btn').forEach(btn=>{
       btn.addEventListener('click',(e)=>{
         e.stopPropagation();
@@ -3476,18 +3477,30 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
         const menu = document.getElementById('kebab-'+pid);
         if(!menu) return;
         const isOpen = menu.classList.contains('open');
+        // Fermer tout menu ouvert
         document.querySelectorAll('.kebab-menu.open').forEach(m=>m.classList.remove('open'));
         if(!isOpen){
           const rect = btn.getBoundingClientRect();
-          menu.style.top  = (rect.bottom + 6) + 'px';
-          menu.style.right = (window.innerWidth - rect.right) + 'px';
+          // Positionner en dessous du bouton, aligné à droite
+          const top   = rect.bottom + 6;
+          const right = window.innerWidth - rect.right;
+          menu.style.top   = top + 'px';
+          menu.style.right = right + 'px';
           menu.style.left  = 'auto';
-          // Clamp to viewport bottom
+          menu.style.bottom = 'auto';
           menu.classList.add('open');
-          const mRect = menu.getBoundingClientRect();
-          if(mRect.bottom > window.innerHeight - 8){
-            menu.style.top = (rect.top - mRect.height - 6) + 'px';
-          }
+          // Clamp : si dépasse en bas → afficher au-dessus du bouton
+          requestAnimationFrame(()=>{
+            const mRect = menu.getBoundingClientRect();
+            if(mRect.bottom > window.innerHeight - 8){
+              menu.style.top = (rect.top - mRect.height - 6) + 'px';
+            }
+            // Clamp : si dépasse à droite → décaler à gauche
+            if(mRect.left < 8){
+              menu.style.right = 'auto';
+              menu.style.left  = '8px';
+            }
+          });
         }
       });
     });
