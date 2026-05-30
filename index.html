@@ -3069,6 +3069,7 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
           db.documents=db.documents.filter(d=>d.projectId!==b.dataset.pid);
           saveDB(); toast('Projet supprimé.','info'); refreshAdminTab();
         }, {label:'Supprimer'});
+      });
     });
   }
 
@@ -6550,6 +6551,7 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
         saveDB();
         refreshClientTab(true);
       }, {label:'Effacer', danger:true});
+    });
 
     // ── Fonction d'injection DOM d'un échange ───────
     function injectUserBubble(text){
