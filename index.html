@@ -1810,7 +1810,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true });
     }
-    db.users.forEach(u=>{ if(u.hasDiscussion===undefined) u.hasDiscussion=false; });
+    db.users.forEach(u=>{ if(u.hasDiscussion===undefined) u.hasDiscussion=false; if(u.discordWebhook===undefined) u.discordWebhook=''; });
     db.projects.forEach(p=>{
       if(!p.priority) p.priority='normal';
       if(!Array.isArray(p.internalTasks)) p.internalTasks=[];
@@ -1873,6 +1873,25 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     if('Notification' in window && Notification.permission==='granted'){
       new Notification(title, { body, icon: '' });
     }
+  }
+
+  function sendDiscordNotif(title, description, color){
+    color = color || 0xd97757;
+    var admins = db.users.filter(function(u){ return (u.role==='admin'||u.role==='controller') && u.discordWebhook; });
+    admins.forEach(function(u){
+      fetch(u.discordWebhook, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          embeds:[{
+            title: title,
+            description: description,
+            color: color,
+            footer:{ text:'Flow · ' + new Date().toLocaleString('fr-FR') }
+          }]
+        })
+      }).catch(function(){});
+    });
   }
 
   // ─── "Quoi de neuf ?" version modal ─────────────
@@ -2226,6 +2245,7 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
             const client = db.users.find(u=>u.id===d.clientId);
             toast(`📋 ${client?client.username:'Client'} a rempli "${esc(d.name)}"`, 'info', 5000);
             sendBrowserNotif('Flow — Nouveau document', `${client?client.username:'Client'} a rempli "${d.name}"`);
+            sendDiscordNotif('📋 Document rempli', '**'+(client?client.username:'Client')+'** a rempli le document **'+d.name+'**', 0x9bb8d8);
             notifBadge++; updateNotifBadge();
           }
         });
@@ -3775,6 +3795,7 @@ DOCUMENTS
           <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="p-un" class="glass-input" value="${esc(me.username)}" /></div>
           <div style="margin-bottom:14px;"><label class="label">Email</label><input id="p-em" class="glass-input" type="email" value="${esc(me.email||'')}" /></div>
           <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
+          ${(me.role==='admin'||me.role==='controller') ? '<div style="margin-bottom:14px;"><label class="label">Webhook Discord</label><input id="p-discord" class="glass-input" placeholder="https://discord.com/api/webhooks/…" value="' + esc(me.discordWebhook||'') + '" /><div style="font-size:.72rem;color:var(--ink-4);margin-top:5px;">Notifications Discord (documents remplis, statuts).</div></div>' : ''}
           <div class="divider"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
             <div><label class="label">Nouveau mot de passe</label><input id="p-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
@@ -3814,6 +3835,7 @@ DOCUMENTS
       const np=document.getElementById('p-np').value;
       const cp=document.getElementById('p-cp').value;
       const ph=document.getElementById('p-ph').value.trim();
+      const discord=(document.getElementById('p-discord')||{value:''}).value.trim();
       const msg=document.getElementById('p-msg');
 
       if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
@@ -3823,7 +3845,7 @@ DOCUMENTS
       if(np && np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
 
       const u = db.users.find(u=>u.id===me.id);
-      u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null;
+      u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null; u.discordWebhook=discord||'';
       const applyProfileSave=()=>{ me=u; saveDB(); toast('Profil mis à jour !','success'); showMsg(msg,'Profil mis à jour avec succès !','success'); document.getElementById('app').innerHTML=renderAdminShell(); wireAdmin(); };
       if(np){ hashPwdSalted(np).then(h=>{ u.password=h; applyProfileSave(); }); } else { applyProfileSave(); }
     });
