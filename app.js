@@ -107,7 +107,7 @@
         firstName:'Teste', lastName:'Un', email:'teste1@flow.app', photo:null,
         projectId:null, createdAt:'2024-01-01', hasDiscussion:true });
     }
-    db.users.forEach(u=>{ if(u.hasDiscussion===undefined) u.hasDiscussion=false; });
+    db.users.forEach(u=>{ if(u.hasDiscussion===undefined) u.hasDiscussion=false; if(u.discordWebhook===undefined) u.discordWebhook=''; });
     db.projects.forEach(p=>{
       if(!p.priority) p.priority='normal';
       if(!Array.isArray(p.internalTasks)) p.internalTasks=[];
@@ -166,6 +166,24 @@
     if('Notification' in window && Notification.permission==='granted'){
       new Notification(title, { body, icon: '' });
     }
+  }
+
+  function sendDiscordNotif(title, description, color=0xd97757){
+    const admins = db.users.filter(u=>(u.role==='admin'||u.role==='controller') && u.discordWebhook);
+    admins.forEach(u=>{
+      fetch(u.discordWebhook, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          embeds:[{
+            title,
+            description,
+            color,
+            footer:{ text:'Flow · ' + new Date().toLocaleString('fr-FR') }
+          }]
+        })
+      }).catch(()=>{});
+    });
   }
 
   // ─── "Quoi de neuf ?" version modal ─────────────
@@ -422,8 +440,9 @@
         nowFilled.forEach(d=>{
           if(!prevFilledDocIds.has(d.id)){
             const client = db.users.find(u=>u.id===d.clientId);
-            toast(`ðŸ“‹ ${client?client.username:'Client'} a rempli "${esc(d.name)}"`, 'info', 5000);
-            sendBrowserNotif('Flow — Nouveau document', `${client?client.username:'Client'} a rempli "${d.name}"`);
+            toast(`ðŸ”‹ ${client?client.username:'Client'} a rempli “${esc(d.name)}”`, 'info', 5000);
+            sendBrowserNotif('Flow — Nouveau document', `${client?client.username:'Client'} a rempli “${d.name}”`);
+            sendDiscordNotif('📋 Document rempli', `**${client?client.username:'Client'}** a rempli le document **${d.name}**`, 0x9bb8d8);
             notifBadge++; updateNotifBadge();
           }
         });
@@ -1046,6 +1065,8 @@
         p.status = newStatus;
         if(newStatus==='done') launchConfetti();
         logActivity('project_status','Projet "'+p.name+'" â†’ '+newStatus);
+        const statusLabels={pending:'En attente',in_progress:'En cours',done:'Terminé'};
+        sendDiscordNotif('⚙️ Statut projet modifié', '**'+p.name+'** → '+(statusLabels[newStatus]||newStatus), newStatus==='done'?0x93b594:0xd97757);
         saveDB(); toast('Statut mis Ã  jour.','success'); refreshAdminTab();
       });
     });
@@ -1614,6 +1635,12 @@
           <div style="margin-bottom:14px;"><label class="label">Pseudo</label><input id="p-un" class="glass-input" value="${esc(me.username)}" /></div>
           <div style="margin-bottom:14px;"><label class="label">Email</label><input id="p-em" class="glass-input" type="email" value="${esc(me.email||'')}" /></div>
           <div style="margin-bottom:14px;"><label class="label">Photo de profil (URL)</label><input id="p-ph" class="glass-input" placeholder="https://..." value="${esc(me.photo||'')}" /></div>
+          ${(me.role==='admin'||me.role==='controller')?`
+          <div style="margin-bottom:14px;">
+            <label class="label">Webhook Discord</label>
+            <input id="p-discord" class="glass-input" placeholder="https://discord.com/api/webhooks/…" value="${esc(me.discordWebhook||'')}" />
+            <div style="font-size:.72rem;color:var(--ink-4);margin-top:5px;">Recevez les notifications Flow (documents remplis, statuts) dans votre salon Discord.</div>
+          </div>`:''}
           <div class="divider"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
             <div><label class="label">Nouveau mot de passe</label><input id="p-np" class="glass-input" type="password" placeholder="Laisser vide…" /></div>
@@ -1653,6 +1680,7 @@
       const np=document.getElementById('p-np').value;
       const cp=document.getElementById('p-cp').value;
       const ph=document.getElementById('p-ph').value.trim();
+      const discord=(document.getElementById('p-discord')||{value:''}).value.trim();
       const msg=document.getElementById('p-msg');
 
       if(!un){ showMsg(msg,'Le pseudo est requis.','error'); return; }
@@ -1662,7 +1690,7 @@
       if(np && np!==cp){ showMsg(msg,'Les mots de passe ne correspondent pas.','error'); return; }
 
       const u = db.users.find(u=>u.id===me.id);
-      u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null;
+      u.firstName=fn; u.lastName=ln; u.username=un; u.email=em; u.photo=ph||null; u.discordWebhook=discord||'';
       const applyProfileSave=()=>{ me=u; saveDB(); toast('Profil mis Ã  jour !','success'); showMsg(msg,'Profil mis Ã  jour avec succès !','success'); document.getElementById('app').innerHTML=renderAdminShell(); wireAdmin(); };
       if(np){ hashPwd(np).then(h=>{ u.password=h; applyProfileSave(); }); } else { applyProfileSave(); }
     });
