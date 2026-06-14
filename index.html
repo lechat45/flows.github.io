@@ -5981,6 +5981,23 @@ DOCUMENTS
           </div>`).join('')}
       </div>`:''}
 
+      <!-- Rubis Chat Admin -->
+      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <span style="font-size:1.1rem;">🤖</span>
+          <div>
+            <h2 style="font-size:.95rem;font-weight:700;">Chat Rubis</h2>
+            <div style="font-size:.72rem;color:var(--ink-4);">Météo · Wikipedia · Calcul · Taux · Encodage · Projets Flow · Recherche web</div>
+          </div>
+          <button id="rubis-clear" class="btn btn-ghost btn-sm" style="margin-left:auto;">🗑 Effacer</button>
+        </div>
+        <div id="rubis-msgs" style="min-height:100px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input id="rubis-input" class="glass-input" placeholder="Pose une question…" style="flex:1;" />
+          <button id="rubis-send" class="btn btn-primary" style="flex-shrink:0;">Envoyer</button>
+        </div>
+      </div>
+
       <div class="glass-card" style="padding:22px;margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
           <h2 style="font-size:.95rem;font-weight:700;">Configuration Groq</h2>
@@ -6040,6 +6057,60 @@ DOCUMENTS
   }
 
   function wireAdminAIAutomation(){
+    // ── Rubis Chat ──────────────────────────────────────────────
+    const rubisInput=document.getElementById('rubis-input');
+    const rubisSend =document.getElementById('rubis-send');
+    const rubisMsgs =document.getElementById('rubis-msgs');
+    const rubisClear=document.getElementById('rubis-clear');
+
+    function rubisAppendMsg(role,text,toolName){
+      const el=document.createElement('div');
+      const isUser=role==='user';
+      el.style.cssText='display:flex;flex-direction:column;'+(isUser?'align-items:flex-end;':'align-items:flex-start;');
+      if(toolName){
+        el.innerHTML='<div style="font-size:.68rem;color:var(--ink-4);padding:3px 10px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.15);border-radius:999px;">⚙️ '+esc(toolName)+'…</div>';
+      } else {
+        const bg=isUser?'rgba(217,119,87,.18)':'rgba(255,255,255,.05)';
+        const bd=isUser?'rgba(217,119,87,.3)':'rgba(255,255,255,.09)';
+        const br=isUser?'16px 16px 4px 16px':'16px 16px 16px 4px';
+        el.innerHTML='<div style="max-width:88%;padding:10px 14px;border-radius:'+br+';background:'+bg+';border:1px solid '+bd+';font-size:.85rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;">'+esc(text)+'</div>';
+      }
+      rubisMsgs.appendChild(el);
+      rubisMsgs.scrollTop=rubisMsgs.scrollHeight;
+      return el;
+    }
+
+    async function rubisSubmit(){
+      if(_rubisBusy) return;
+      const groqKey=db.aiConfig&&db.aiConfig.groqKey;
+      if(!groqKey){ toast('Clé Groq non configurée — entrez-la ci-dessous.','error'); return; }
+      const txt=(rubisInput.value||'').trim();
+      if(!txt) return;
+      rubisInput.value='';
+      _rubisBusy=true; rubisSend.disabled=true;
+      rubisAppendMsg('user',txt);
+      const typingEl=rubisAppendMsg('assistant','…');
+      try{
+        const answer=await rubisAgentLoop(groqKey,txt,function(toolName){
+          typingEl.innerHTML='<div style="font-size:.68rem;color:var(--ink-4);padding:3px 10px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.15);border-radius:999px;">⚙️ '+esc(toolName)+'…</div>';
+          rubisMsgs.scrollTop=rubisMsgs.scrollHeight;
+        });
+        typingEl.innerHTML='<div style="max-width:88%;padding:10px 14px;border-radius:16px 16px 16px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);font-size:.85rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;">'+esc(answer)+'</div>';
+        rubisMsgs.scrollTop=rubisMsgs.scrollHeight;
+      }catch(e){
+        typingEl.innerHTML='<div style="padding:8px 12px;color:#f08a8a;font-size:.82rem;">❌ '+esc(e.message)+'</div>';
+      }
+      _rubisBusy=false; rubisSend.disabled=false;
+      if(rubisInput) rubisInput.focus();
+    }
+
+    if(rubisSend)  rubisSend.addEventListener('click',rubisSubmit);
+    if(rubisInput) rubisInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();rubisSubmit();} });
+    if(rubisClear) rubisClear.addEventListener('click',()=>{ _rubisHistory=[]; rubisMsgs.innerHTML=''; if(rubisInput) rubisInput.focus(); });
+
+    // Restaure l'historique si on revient sur l'onglet
+    _rubisHistory.forEach(m=>{ if(m.role==='user'||m.role==='assistant') rubisAppendMsg(m.role,m.content||''); });
+
     const saveBtn = document.getElementById('btn-save-ai-config');
     if(saveBtn) saveBtn.addEventListener('click',()=>{
       const g = document.getElementById('ai-groq-key').value.trim();
@@ -7139,6 +7210,191 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
       }
     }
     return full;
+  }
+
+
+  // ════════════════════════════════════════════════
+  //  RUBIS AGENT — Chat admin avec tool-calling multi-tour
+  // ════════════════════════════════════════════════
+
+  let _rubisHistory = [];
+  let _rubisBusy    = false;
+
+  function rubisSystemPrompt(){
+    const now = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const projs   = (db.projects||[]).filter(p => !p.archived).length;
+    const clients = (db.users||[]).filter(u => u.role==='client').length;
+    return 'Tu es Rubis, assistant IA integé à Flow.\n'
+      + 'Date : '+now+'. Projets actifs : '+projs+'. Clients : '+clients+'.\n'
+      + 'Utilise tes outils pour répondre avec précision. Sois concis et élégant.';
+  }
+
+  const RUBIS_TOOLS_WEB = [
+    {type:'function',function:{name:'calcul',
+      description:'Evalue une expression mathématique (supporte Math.sqrt, **, etc.)',
+      parameters:{type:'object',properties:{expression:{type:'string'}},required:['expression']}}},
+    {type:'function',function:{name:'meteo',
+      description:'Météo actuelle pour une ville.',
+      parameters:{type:'object',properties:{ville:{type:'string'}},required:['ville']}}},
+    {type:'function',function:{name:'wikipedia',
+      description:'Résumé Wikipedia francophone sur un sujet.',
+      parameters:{type:'object',properties:{sujet:{type:'string'}},required:['sujet']}}},
+    {type:'function',function:{name:'taux_change',
+      description:'Taux de change actuels depuis une devise ISO (EUR, USD...).',
+      parameters:{type:'object',properties:{base:{type:'string'}},required:['base']}}},
+    {type:'function',function:{name:'search_web',
+      description:'Recherche web Tavily (nécessite clé Tavily).',
+      parameters:{type:'object',properties:{requete:{type:'string'}},required:['requete']}}},
+    {type:'function',function:{name:'base64',
+      description:'Encode ou décode du texte en Base64.',
+      parameters:{type:'object',properties:{action:{type:'string',enum:['encode','decode']},texte:{type:'string'}},required:['action','texte']}}},
+    {type:'function',function:{name:'sha256',
+      description:'Hash SHA-256 d'une chaîne.',
+      parameters:{type:'object',properties:{texte:{type:'string'}},required:['texte']}}},
+    {type:'function',function:{name:'generer_mdp',
+      description:'Génère un mot de passe aléatoire sécurisé.',
+      parameters:{type:'object',properties:{longueur:{type:'number'}},required:[]}}},
+    {type:'function',function:{name:'uuid',
+      description:'Génère un UUID v4 unique.',
+      parameters:{type:'object',properties:{}}}},
+    {type:'function',function:{name:'timestamp',
+      description:'Timestamp UNIX actuel ou pour une date ISO.',
+      parameters:{type:'object',properties:{date:{type:'string'}},required:[]}}},
+    {type:'function',function:{name:'ouvrir_url',
+      description:'Ouvre une URL dans un nouvel onglet.',
+      parameters:{type:'object',properties:{url:{type:'string'}},required:['url']}}},
+    {type:'function',function:{name:'flow_projets',
+      description:'Liste les projets Flow avec statut, client et avancement.',
+      parameters:{type:'object',properties:{filtre:{type:'string',enum:['tous','en_cours','termines','en_attente']}},required:[]}}},
+    {type:'function',function:{name:'flow_stats',
+      description:'Statistiques globales de Flow : projets, clients, documents, revenus.',
+      parameters:{type:'object',properties:{}}}},
+    {type:'function',function:{name:'flow_chercher',
+      description:'Recherche un projet ou client par nom dans Flow.',
+      parameters:{type:'object',properties:{terme:{type:'string'}},required:['terme']}}},
+  ];
+
+  async function rubisToolDispatch(name, args){
+    try{
+      if(name==='calcul'){
+        const expr=(args.expression||'').replace(/[^0-9+\-*\/().%\s,a-zA-Z_.]/g,'');
+        return 'Résultat : '+Function('Math','return '+expr)(Math);
+      }
+      if(name==='meteo'){
+        const r=await fetch('https://wttr.in/'+encodeURIComponent(args.ville||'Paris')+'?format=3');
+        return await r.text();
+      }
+      if(name==='wikipedia'){
+        const r=await fetch('https://fr.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(args.sujet||''),{headers:{Accept:'application/json'}});
+        const d=await r.json();
+        return d.extract||d.title||'Aucun résultat Wikipedia.';
+      }
+      if(name==='taux_change'){
+        const base=(args.base||'EUR').toUpperCase();
+        const r=await fetch('https://open.er-api.com/v6/latest/'+base);
+        const d=await r.json();
+        const rt=d.rates||{};
+        return '1 '+base+' = '+(rt.USD||'?')+' USD | '+(rt.GBP||'?')+' GBP | '+(rt.JPY||'?')+' JPY | '+(rt.CAD||'?')+' CAD';
+      }
+      if(name==='search_web'){
+        const tk=db.aiConfig&&db.aiConfig.tavilyKey;
+        if(!tk) return 'Clé Tavily non configurée.';
+        const r=await fetch('https://api.tavily.com/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:tk,query:args.requete,max_results:4,search_depth:'basic'})});
+        const d=await r.json();
+        return (d.results||[]).map(x=>'['+x.title+'] '+(x.content||'').substring(0,220)).join('\n')||'Aucun résultat.';
+      }
+      if(name==='base64'){
+        if(args.action==='encode') return btoa(unescape(encodeURIComponent(args.texte||'')));
+        return decodeURIComponent(escape(atob(args.texte||'')));
+      }
+      if(name==='sha256'){
+        const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(args.texte||''));
+        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
+      if(name==='generer_mdp'){
+        const len=Math.min(Math.max(parseInt(args.longueur)||16,8),64);
+        const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+        const arr=crypto.getRandomValues(new Uint8Array(len));
+        return Array.from(arr).map(b=>chars[b%chars.length]).join('');
+      }
+      if(name==='uuid')   return crypto.randomUUID();
+      if(name==='timestamp'){
+        if(args.date) return 'Timestamp de '+args.date+' : '+new Date(args.date).getTime();
+        return 'Timestamp UNIX : '+Math.floor(Date.now()/1000);
+      }
+      if(name==='ouvrir_url'){ window.open(args.url,'_blank','noopener'); return 'URL ouverte : '+args.url; }
+      if(name==='flow_projets'){
+        const f=args.filtre||'tous';
+        let projs=(db.projects||[]).filter(p=>!p.archived);
+        if(f==='en_cours')   projs=projs.filter(p=>p.status==='in_progress');
+        if(f==='termines')   projs=projs.filter(p=>p.status==='done');
+        if(f==='en_attente') projs=projs.filter(p=>p.status==='pending');
+        return projs.map(p=>{
+          const cl=db.users.find(u=>u.id===p.clientId);
+          const done=(p.timeline||[]).filter(s=>s.status==='done').length;
+          const tot=(p.timeline||[]).length;
+          return '• '+p.name+' ['+p.status+'] — client: '+(cl?cl.username:'aucun')+' — avancement: '+(tot>0?Math.round(done/tot*100):0)+'%'+(p.dueDate?' — échéance: '+p.dueDate:'');
+        }).join('\n')||'Aucun projet.';
+      }
+      if(name==='flow_stats'){
+        const pr=db.projects||[],us=db.users||[],dc=db.documents||[],fi=db.finance||[];
+        const rev=fi.reduce((s,e)=>s+(e.type==='revenue'?e.amount:0),0);
+        return [
+          'Projets : '+pr.filter(p=>!p.archived).length+' actifs / '+pr.filter(p=>p.archived).length+' archivés',
+          'Statuts : '+pr.filter(p=>p.status==='in_progress').length+' en cours, '+pr.filter(p=>p.status==='done').length+' terminés',
+          'Clients : '+us.filter(u=>u.role==='client').length,
+          'Documents : '+dc.length+' ('+dc.filter(d=>d.status==='filled').length+' remplis)',
+          'Revenus : '+rev+' €',
+        ].join('\n');
+      }
+      if(name==='flow_chercher'){
+        const t=(args.terme||'').toLowerCase();
+        const pr=(db.projects||[]).filter(p=>p.name.toLowerCase().includes(t));
+        const cl=(db.users||[]).filter(u=>u.role==='client'&&(u.username+' '+(u.firstName||'')+' '+(u.lastName||'')).toLowerCase().includes(t));
+        let out='';
+        if(pr.length) out+='Projets :\n'+pr.map(p=>'  • '+p.name+' ['+p.status+']').join('\n')+'\n';
+        if(cl.length) out+='Clients :\n'+cl.map(u=>'  • '+u.username+' ('+u.firstName+' '+u.lastName+')').join('\n');
+        return out||'Aucun résultat pour "'+args.terme+'".';
+      }
+      return 'Outil "'+name+'" non reconnu.';
+    }catch(e){ return 'Erreur outil '+name+' : '+e.message; }
+  }
+
+  async function groqPostWithTools(apiKey, messages){
+    const gap=GROQ_MIN_GAP-(Date.now()-_lastGroqCallTime);
+    if(gap>0) await _groqDelay(gap);
+    _lastGroqCallTime=Date.now();
+    const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:RUBIS_TOOLS_WEB,tool_choice:'auto',max_tokens:1200,temperature:0.3})
+    });
+    if(!resp.ok) throw new Error('HTTP_'+resp.status);
+    return resp.json();
+  }
+
+  async function rubisAgentLoop(groqKey, userMsg, onToolCall){
+    _rubisHistory.push({role:'user',content:userMsg});
+    const msgs=[{role:'system',content:rubisSystemPrompt()},..._rubisHistory.slice(-24)];
+    for(let tour=0;tour<5;tour++){
+      const data=await groqPostWithTools(groqKey,msgs);
+      const msg=data.choices[0].message;
+      if(!msg.tool_calls||!msg.tool_calls.length){
+        const text=msg.content||'';
+        _rubisHistory.push({role:'assistant',content:text});
+        return text;
+      }
+      msgs.push(msg);
+      _rubisHistory.push({role:'assistant',content:msg.content||'',tool_calls:msg.tool_calls});
+      for(const tc of msg.tool_calls){
+        const args=JSON.parse(tc.function.arguments);
+        if(onToolCall) onToolCall(tc.function.name);
+        const result=await rubisToolDispatch(tc.function.name,args);
+        const tm={role:'tool',tool_call_id:tc.id,name:tc.function.name,content:String(result)};
+        msgs.push(tm); _rubisHistory.push(tm);
+      }
+    }
+    return 'Limite de tours atteinte.';
   }
 
   // ─── Appel combiné : modération + classification intention (1 seul call) ──
