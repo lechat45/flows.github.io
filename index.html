@@ -3930,7 +3930,7 @@ DOCUMENTS
       try{
         // Système prompt scopé au projet du client
         const proj=getUserProject(me.id);
-        const sysPrompt='Tu es l'assistant IA de Flow, assistant de '+esc(me.firstName||me.username)+'.'
+        const sysPrompt='Tu es l\'assistant IA de Flow, assistant de '+esc(me.firstName||me.username)+'.'
           +(proj?' Son projet est "'+proj.name+'" (statut: '+proj.status+'). Timeline : '+(proj.timeline||[]).map(s=>s.label+' ['+s.status+']').join(', ')+'.':'')
           +' Date : '+new Date().toLocaleDateString('fr-FR')+'. Utilise tes outils pour des réponses précises. Sois concis et bienveillant.';
         _rubisClientHistory.push({role:'user',content:txt});
