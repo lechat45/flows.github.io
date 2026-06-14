@@ -1798,8 +1798,10 @@ h1, h2, h3 { text-shadow: 0 1px 0 rgba(255,250,242,.04); }
     if(!Array.isArray(db.pendingUsers)) db.pendingUsers = [];
     if(!Array.isArray(db.blockedAccounts)) db.blockedAccounts = [];
     if(!Array.isArray(db.docTemplates)) db.docTemplates = [];
-    if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { groqKey:'' };
-    if('claudeKey' in (db.aiConfig||{})) delete db.aiConfig.claudeKey;
+    if(!db.aiConfig || typeof db.aiConfig !== 'object') db.aiConfig = { groqKey:'', tavilyKey:'' };
+    if(!('groqKey' in db.aiConfig)) db.aiConfig.groqKey = '';
+    if(!('tavilyKey' in db.aiConfig)) db.aiConfig.tavilyKey = '';
+    if('claudeKey' in db.aiConfig) delete db.aiConfig.claudeKey;
     // Migrate geminiKey → groqKey
     if(db.aiConfig.geminiKey && !db.aiConfig.groqKey){ db.aiConfig.groqKey = db.aiConfig.geminiKey; }
     if('geminiKey' in db.aiConfig) delete db.aiConfig.geminiKey;
@@ -4118,7 +4120,7 @@ DOCUMENTS
   function renderProjectCard(p){
     const done  = p.timeline.filter(s=>s.status==='done').length;
     const total = p.timeline.length;
-    const pct   = Math.round((done/total)*100);
+    const pct   = total > 0 ? Math.round((done/total)*100) : 0;
     let dueLine = '';
     if(p.dueDate){
       const d=new Date(p.dueDate);
@@ -7205,8 +7207,8 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
     saveDB();
     refreshClientTab();
     toast('Votre demande est enregistrée.','success');
-    const geminiKey = db.aiConfig&&(db.aiConfig.groqKey||db.aiConfig.geminiKey||'');
-    if(!geminiKey){
+    const groqKey = db.aiConfig&&(db.aiConfig.groqKey||'');
+    if(!groqKey){
       // Modération locale sans clé IA
       const localMod = localModerate(text);
       const r=db.aiRequests.find(x=>x.id===reqId);
@@ -7217,13 +7219,13 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
       }
       r.moderationPassed=true; r.reformulatedPrompt=text; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
       saveDB(); refreshClientTab();
-      toast('Demande transmise à l\'équipe (mode sans Gemini).','info'); return;
+      toast('Demande transmise à l\'équipe (mode sans Groq).','info'); return;
     }
     try{
       // Appel unique : modération + classification d'intention combinées
       const lastCompleted = [...(db.aiRequests||[])].reverse().find(x=>x.clientId===me.id&&x.status==='completed'&&x.claudeResponse);
       const siteHtml = (!opts.isRevision && lastCompleted) ? lastCompleted.claudeResponse : null;
-      const combined = await callGeminiModerateAndClassify(text, photoBase64, siteHtml, geminiKey);
+      const combined = await callGeminiModerateAndClassify(text, photoBase64, siteHtml, groqKey);
       const r=db.aiRequests.find(x=>x.id===reqId);
       if(!r) return;
       if(!combined.moderation.passed){
@@ -7234,13 +7236,13 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
       // Brancher selon l'intention détectée
       if(siteHtml && combined.intent==='question'){
         toast('Réponse IA en cours…','info');
-        const answer = await callGeminiAnswer(text, siteHtml, r.projectContext, geminiKey);
+        const answer = await callGeminiAnswer(text, siteHtml, r.projectContext, groqKey);
         r.status='answered'; r.geminiAnswer=answer; r.updatedAt=new Date().toISOString();
         saveDB(); refreshClientTab();
         toast('Réponse IA reçue !','success');
         return;
       }
-      const reformulated = await callGeminiReformulate(text, geminiKey, r.projectContext||null, r.requestType||'site');
+      const reformulated = await callGeminiReformulate(text, groqKey, r.projectContext||null, r.requestType||'site');
       r.reformulatedPrompt=reformulated; r.status='pending_admin'; r.updatedAt=new Date().toISOString();
       saveDB(); refreshClientTab();
       logActivity('ai_request','Demande IA soumise par '+me.username);
@@ -7393,7 +7395,7 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
       description:'Encode ou décode du texte en Base64.',
       parameters:{type:'object',properties:{action:{type:'string',enum:['encode','decode']},texte:{type:'string'}},required:['action','texte']}}},
     {type:'function',function:{name:'sha256',
-      description:'Hash SHA-256 d'une chaîne.',
+      description:"Hash SHA-256 d'une chaîne.",
       parameters:{type:'object',properties:{texte:{type:'string'}},required:['texte']}}},
     {type:'function',function:{name:'generer_mdp',
       description:'Génère un mot de passe aléatoire sécurisé.',
@@ -7421,8 +7423,9 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
   async function rubisToolDispatch(name, args){
     try{
       if(name==='calcul'){
-        const expr=(args.expression||'').replace(/[^0-9+\-*\/().%\s,a-zA-Z_.]/g,'');
-        return 'Résultat : '+Function('Math','return '+expr)(Math);
+        const expr=(args.expression||'').replace(/[^0-9+\-*/().\s%]/g,'').trim();
+        if(!expr) return 'Expression vide.';
+        try{ return 'Résultat : '+Function('"use strict";return ('+expr+')')(); }catch(_){ return 'Expression invalide.'; }
       }
       if(name==='meteo'){
         const r=await fetch('https://wttr.in/'+encodeURIComponent(args.ville||'Paris')+'?format=3');
@@ -7513,6 +7516,8 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
       body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:RUBIS_TOOLS_WEB,tool_choice:'auto',max_tokens:1200,temperature:0.3})
     });
+    if(resp.status===429||resp.status===503) throw new Error('RATE_LIMIT_429');
+    if(resp.status===401) throw new Error('GROQ_AUTH_401');
     if(!resp.ok) throw new Error('HTTP_'+resp.status);
     return resp.json();
   }
@@ -7562,8 +7567,8 @@ Réponds UNIQUEMENT avec le JSON, sans markdown ni explication supplémentaire.`
       parts.push({ inlineData:{ mimeType:meta.match(/data:(.*);/)?.[1]||'image/jpeg', data } });
     }
     try{
-      const json = await geminiPost(apiKey,{ contents:[{ parts }] });
-      const raw = (json.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
+      const json = await groqPost(apiKey,[{role:'user',content:promptText}],300);
+      const raw = (json.choices?.[0]?.message?.content||'').replace(/```json\n?/g,'').replace(/```/g,'').trim();
       try{
         const parsed = JSON.parse(raw);
         return {
@@ -7575,7 +7580,7 @@ Réponds UNIQUEMENT avec le JSON, sans markdown ni explication supplémentaire.`
       }
     }catch(e){
       if(String(e).includes('RATE_LIMIT')){
-        toast('Gemini indisponible — modération locale activée.','info');
+        toast('Groq indisponible — modération locale activée.','info');
         const loc = localModerate(text);
         return { moderation: loc, intent:'generation' };
       }
@@ -7612,11 +7617,11 @@ Réponds UNIQUEMENT avec le JSON, sans markdown ni explication supplémentaire.`
     const base = baseByType[requestType]||baseByType.site;
     const prompt = `Tu es un expert en prompt engineering pour des modèles IA génératifs (Claude). ${base} Réponds UNIQUEMENT avec le prompt reformulé, sans commentaire ni explication.${ctxBlock}${instrBlock}\n\nDemande originale du client : "${text.replace(/"/g,'\\"')}"`;
     try{
-      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
-      return json.candidates?.[0]?.content?.parts?.[0]?.text||text;
+      const json = await groqPost(apiKey,[{role:'user',content:prompt}],600);
+      return json.choices?.[0]?.message?.content||text;
     }catch(e){
       if(String(e).includes('RATE_LIMIT')){
-        toast('Gemini indisponible — prompt original utilisé.','info');
+        toast('Groq indisponible — prompt original utilisé.','info');
         return text; // fallback : prompt non reformulé
       }
       throw e;
@@ -7645,10 +7650,10 @@ Question du client : "${question.replace(/"/g,"'")}"
 
 Réponds directement en français, sans préambule ni répétition de la question.`;
     try{
-      const json = await geminiPost(apiKey,{ contents:[{ parts:[{ text:prompt }] }] });
-      return json.candidates?.[0]?.content?.parts?.[0]?.text||'Désolé, je ne peux pas répondre pour le moment.';
+      const json = await groqPost(apiKey,[{role:'user',content:prompt}],600);
+      return json.choices?.[0]?.message?.content||'Désolé, je ne peux pas répondre pour le moment.';
     }catch(e){
-      if(String(e).includes('RATE_LIMIT')) throw new Error('Gemini rate limit — impossible de répondre pour le moment. Réessayez dans quelques secondes.');
+      if(String(e).includes('RATE_LIMIT')) throw new Error('Groq rate limit — impossible de répondre pour le moment. Réessayez dans quelques secondes.');
       throw e;
     }
   }

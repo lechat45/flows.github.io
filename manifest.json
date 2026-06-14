@@ -2,7 +2,7 @@
   "name": "Flow — Gestion de Projet",
   "short_name": "Flow",
   "description": "Plateforme de gestion de projet et suivi client",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#d97757",
