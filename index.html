@@ -2582,6 +2582,9 @@ if(me.role==='client'){ app.innerHTML = renderClientShell(); wireClient(); }
     if((_discProject && _discProject.siteHtml) || _isTeste1){
       base.splice(1,0,{ id:'discussion', icon:iconChat(), label:'Discussion', beta:true });
     }
+    if(_isTeste1){
+      base.splice(base.length-1,0,{ id:'rubis-client', icon:iconAI(), label:'Assistant IA', beta:true });
+    }
     return base;
   }
   function markAIRequestsSeen(){
@@ -3859,6 +3862,114 @@ DOCUMENTS
     el.style.color=type==='success'?'#93b594':'#e08680';
   }
 
+
+  // ─── Client Rubis (seulement teste1) ───────────────────────────────────────
+  let _rubisClientHistory = [];
+  let _rubisClientBusy    = false;
+
+  function renderClientRubis(){
+    const proj = getUserProject(me.id);
+    return `<div class="fade-up">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h1 style="font-size:1.4rem;font-weight:700;">Assistant IA</h1>
+          <p style="font-size:.82rem;color:var(--ink-4);margin-top:3px;">Posez n'importe quelle question — météo, calcul, info, et plus.</p>
+        </div>
+        <button id="rc-clear" class="btn btn-ghost btn-sm">🗑 Effacer</button>
+      </div>
+      ${proj ? `<div class="glass-card" style="padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:1rem;">📁</span>
+        <div>
+          <div style="font-size:.82rem;font-weight:600;">${esc(proj.name)}</div>
+          <div style="font-size:.7rem;color:var(--ink-4);">Votre projet · ${proj.status==='done'?'Terminé':proj.status==='in_progress'?'En cours':'En attente'}</div>
+        </div>
+      </div>` : ''}
+      <div class="glass-card" style="padding:0;overflow:hidden;">
+        <div id="rc-msgs" style="min-height:260px;max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:18px;"></div>
+        <div style="border-top:1px solid rgba(255,255,255,.07);padding:12px 14px;display:flex;gap:8px;">
+          <input id="rc-input" class="glass-input" placeholder="Pose une question…" style="flex:1;" />
+          <button id="rc-send" class="btn btn-primary" style="flex-shrink:0;">Envoyer</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function wireClientRubis(){
+    const rcInput = document.getElementById('rc-input');
+    const rcSend  = document.getElementById('rc-send');
+    const rcMsgs  = document.getElementById('rc-msgs');
+    const rcClear = document.getElementById('rc-clear');
+
+    function rcAppend(role, text, toolName){
+      const el=document.createElement('div');
+      const isUser=role==='user';
+      el.style.cssText='display:flex;flex-direction:column;'+(isUser?'align-items:flex-end;':'align-items:flex-start;');
+      if(toolName){
+        el.innerHTML='<div style="font-size:.68rem;color:var(--ink-4);padding:3px 10px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.15);border-radius:999px;">⚙️ '+esc(toolName)+'…</div>';
+      } else {
+        const bg=isUser?'rgba(217,119,87,.18)':'rgba(255,255,255,.05)';
+        const bd=isUser?'rgba(217,119,87,.3)':'rgba(255,255,255,.09)';
+        const br=isUser?'16px 16px 4px 16px':'16px 16px 16px 4px';
+        el.innerHTML='<div style="max-width:88%;padding:10px 14px;border-radius:'+br+';background:'+bg+';border:1px solid '+bd+';font-size:.875rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;">'+esc(text)+'</div>';
+      }
+      rcMsgs.appendChild(el);
+      rcMsgs.scrollTop=rcMsgs.scrollHeight;
+      return el;
+    }
+
+    async function rcSubmit(){
+      if(_rubisClientBusy) return;
+      const groqKey = db.aiConfig&&db.aiConfig.groqKey;
+      if(!groqKey){ rcAppend('assistant','(Assistant IA non configuré — contactez votre administrateur.)'); return; }
+      const txt=(rcInput.value||'').trim();
+      if(!txt) return;
+      rcInput.value='';
+      _rubisClientBusy=true; rcSend.disabled=true;
+      rcAppend('user',txt);
+      const typing=rcAppend('assistant','…');
+      try{
+        // Système prompt scopé au projet du client
+        const proj=getUserProject(me.id);
+        const sysPrompt='Tu es l'assistant IA de Flow, assistant de '+esc(me.firstName||me.username)+'.'
+          +(proj?' Son projet est "'+proj.name+'" (statut: '+proj.status+'). Timeline : '+(proj.timeline||[]).map(s=>s.label+' ['+s.status+']').join(', ')+'.':'')
+          +' Date : '+new Date().toLocaleDateString('fr-FR')+'. Utilise tes outils pour des réponses précises. Sois concis et bienveillant.';
+        _rubisClientHistory.push({role:'user',content:txt});
+        const msgs=[{role:'system',content:sysPrompt},..._rubisClientHistory.slice(-16)];
+        for(let tour=0;tour<4;tour++){
+          const data=await groqPostWithTools(groqKey,msgs);
+          const msg=data.choices[0].message;
+          if(!msg.tool_calls||!msg.tool_calls.length){
+            const answer=msg.content||'';
+            _rubisClientHistory.push({role:'assistant',content:answer});
+            typing.innerHTML='<div style="max-width:88%;padding:10px 14px;border-radius:16px 16px 16px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);font-size:.875rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;">'+esc(answer)+'</div>';
+            rcMsgs.scrollTop=rcMsgs.scrollHeight;
+            break;
+          }
+          msgs.push(msg);
+          _rubisClientHistory.push({role:'assistant',content:msg.content||'',tool_calls:msg.tool_calls});
+          for(const tc of msg.tool_calls){
+            const args=JSON.parse(tc.function.arguments);
+            typing.innerHTML='<div style="font-size:.68rem;color:var(--ink-4);padding:3px 10px;background:rgba(155,184,216,.08);border:1px solid rgba(155,184,216,.15);border-radius:999px;">⚙️ '+esc(tc.function.name)+'…</div>';
+            rcMsgs.scrollTop=rcMsgs.scrollHeight;
+            const result=await rubisToolDispatch(tc.function.name,args);
+            const tm={role:'tool',tool_call_id:tc.id,name:tc.function.name,content:String(result)};
+            msgs.push(tm); _rubisClientHistory.push(tm);
+          }
+        }
+      }catch(e){
+        typing.innerHTML='<div style="padding:8px 12px;color:#f08a8a;font-size:.82rem;">❌ '+esc(e.message)+'</div>';
+      }
+      _rubisClientBusy=false; rcSend.disabled=false;
+      if(rcInput) rcInput.focus();
+    }
+
+    if(rcSend)  rcSend.addEventListener('click',rcSubmit);
+    if(rcInput) rcInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();rcSubmit();} });
+    if(rcClear) rcClear.addEventListener('click',()=>{ _rubisClientHistory=[]; rcMsgs.innerHTML=''; if(rcInput) rcInput.focus(); });
+    _rubisClientHistory.forEach(m=>{ if(m.role==='user'||m.role==='assistant') rcAppend(m.role,m.content||''); });
+    if(rcInput) rcInput.focus();
+  }
+
   // ════════════════════════════════════════════════
   //  CLIENT SHELL
   // ════════════════════════════════════════════════
@@ -3905,10 +4016,11 @@ DOCUMENTS
   }
 
   function renderClientTab(){
-    if(activeTab==='home')       return renderClientHome();
-    if(activeTab==='documents')  return renderClientDocuments();
-    if(activeTab==='discussion') return renderClientDiscussion();
-    if(activeTab==='profile')    return renderClientProfile();
+    if(activeTab==='home')         return renderClientHome();
+    if(activeTab==='documents')    return renderClientDocuments();
+    if(activeTab==='discussion')   return renderClientDiscussion();
+    if(activeTab==='rubis-client') return renderClientRubis();
+    if(activeTab==='profile')      return renderClientProfile();
     return '';
   }
 
@@ -3939,10 +4051,11 @@ DOCUMENTS
   }
 
   function wireClientTabContent(){
-    if(activeTab==='home')       wireClientHome();
-    if(activeTab==='documents')  wireClientDocuments();
+    if(activeTab==='home')         wireClientHome();
+    if(activeTab==='documents')    wireClientDocuments();
     if(activeTab==='discussion'){ wireClientDiscussionQA(); const m=document.getElementById('qa-messages'); if(m) m.scrollTop=m.scrollHeight; }
-    if(activeTab==='profile')    wireClientProfile();
+    if(activeTab==='rubis-client') wireClientRubis();
+    if(activeTab==='profile')      wireClientProfile();
     renderMobileTabbar('client');
   }
 
@@ -5981,6 +6094,28 @@ DOCUMENTS
           </div>`).join('')}
       </div>`:''}
 
+      <!-- Dashboard projets/clients pour admins -->
+      <div class="glass-card" style="padding:22px;margin-bottom:20px;">
+        <h2 style="font-size:.95rem;font-weight:700;margin-bottom:14px;">📊 Vue d'ensemble</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
+          ${[{label:'Projets actifs',val:db.projects.filter(p=>!p.archived).length,color:'var(--coral)'},{label:'En cours',val:db.projects.filter(p=>p.status==='in_progress').length,color:'var(--sky)'},{label:'Clients',val:db.users.filter(u=>u.role==='client').length,color:'var(--sage)'},{label:'Docs en attente',val:db.documents.filter(d=>d.status==='pending'||d.status==='filled').length,color:'var(--peach)'}].map(s=>`<div class="glass-card" style="padding:14px;"><div style="font-size:1.4rem;font-weight:700;color:${s.color};">${s.val}</div><div style="font-size:.72rem;color:var(--ink-4);margin-top:2px;">${s.label}</div></div>`).join('')}
+        </div>
+        <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+          ${db.projects.filter(p=>!p.archived).slice(0,12).map(p=>{
+            const cl=db.users.find(u=>u.id===p.clientId);
+            const done=(p.timeline||[]).filter(s=>s.status==='done').length;
+            const tot=(p.timeline||[]).length;
+            const pct=tot>0?Math.round(done/tot*100):0;
+            const sc={done:'var(--sage)',in_progress:'var(--coral)',pending:'var(--sky)'}[p.status]||'var(--ink-4)';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:rgba(255,255,255,.02);">
+              <div style="width:6px;height:6px;border-radius:50%;background:${sc};flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;"><div style="font-size:.82rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name)}</div><div style="font-size:.68rem;color:var(--ink-4);">${cl?esc(cl.username):'Sans client'}</div></div>
+              <div style="text-align:right;flex-shrink:0;"><div style="font-size:.75rem;font-weight:600;color:${sc};">${pct}%</div><div style="font-size:.62rem;color:var(--ink-4);">${p.dueDate?'J-'+Math.ceil((new Date(p.dueDate)-Date.now())/(864e5)):''}</div></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
       <!-- Rubis Chat Admin -->
       <div class="glass-card" style="padding:22px;margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
@@ -7222,11 +7357,20 @@ Commence directement par le résumé, sans formule d'accueil générique. Utilis
 
   function rubisSystemPrompt(){
     const now = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    const projs   = (db.projects||[]).filter(p => !p.archived).length;
-    const clients = (db.users||[]).filter(u => u.role==='client').length;
-    return 'Tu es Rubis, assistant IA integé à Flow.\n'
-      + 'Date : '+now+'. Projets actifs : '+projs+'. Clients : '+clients+'.\n'
-      + 'Utilise tes outils pour répondre avec précision. Sois concis et élégant.';
+    const projs   = (db.projects||[]).filter(p=>!p.archived);
+    const clients = (db.users||[]).filter(u=>u.role==='client');
+    const projLines = projs.map(p=>{
+      const cl=db.users.find(u=>u.id===p.clientId);
+      const done=(p.timeline||[]).filter(s=>s.status==='done').length;
+      const tot=(p.timeline||[]).length;
+      return '- '+p.name+' ['+p.status+'] client:'+(cl?cl.username:'aucun')+' avancement:'+(tot>0?Math.round(done/tot*100):0)+'%'+(p.dueDate?' échéance:'+p.dueDate:'');
+    }).join('\n');
+    const clientLines = clients.map(u=>'- '+u.username+' ('+((u.firstName||'')+' '+(u.lastName||'')).trim()+') email:'+(u.email||'?')).join('\n');
+    return 'Tu es Rubis, assistant IA de l\'équipe Flow (admin/contrôleur).\n'
+      + 'Date : '+now+'.\n'
+      + 'PROJETS ('+projs.length+') :\n'+projLines+'\n'
+      + 'CLIENTS ('+clients.length+') :\n'+clientLines+'\n'
+      + 'Utilise tes outils pour plus de détails. Sois concis, précis, élégant.';
   }
 
   const RUBIS_TOOLS_WEB = [
